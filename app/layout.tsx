@@ -6,11 +6,16 @@ import { Toaster } from '@/components/ui/toaster';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'اقتراحات الأفلام - اعثر على فيلمك المثالي',
+  title: 'مكان AI',
   description: 'لا تستطيع تحديد ماذا تشاهد؟ احصل على اقتراحات أفلام ومسلسلات مخصصة بناءً على تفضيلاتك. فلترة حسب التصنيف، السنة، المنصة، والمزيد.',
   keywords: ['اقتراحات أفلام', 'ماذا أشاهد', 'البحث عن أفلام', 'توصيات مسلسلات', 'دليل البث'],
+  icons: {
+    icon: '/logos/logo.png',
+    shortcut: '/logos/logo.png',
+    apple: '/logos/logo.png',
+  },
   openGraph: {
-    title: 'اقتراحات الأفلام - اعثر على فيلمك المثالي',
+    title: 'مكان AI',
     description: 'احصل على اقتراحات أفلام ومسلسلات مخصصة بناءً على تفضيلاتك',
     type: 'website',
   },
