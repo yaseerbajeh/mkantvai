@@ -57,6 +57,10 @@ export default function Header() {
         </div>
 
         <div className="hidden md:flex items-center gap-8">
+        <Link href="/" className="text-slate-300 hover:text-white transition flex items-center gap-2">
+              <Heart className="w-4 h-4" />
+              الرئيسية
+            </Link>
           <Link href="/#how-it-works" className="text-slate-300 hover:text-white transition">
             كيف يعمل
           </Link>

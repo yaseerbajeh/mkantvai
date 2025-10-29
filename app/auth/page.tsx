@@ -15,7 +15,7 @@ export default function AuthPage() {
           className="rounded-lg"
           priority
         />
-        <span className="text-xl font-bold text-white">اقتراحات الأفلام</span>
+        <span className="text-xl font-bold text-white">مكان TV </span>
       </Link>
 
       {/* Auth Form */}
