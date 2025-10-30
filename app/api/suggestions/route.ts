@@ -53,10 +53,8 @@ export async function GET(request: NextRequest) {
       console.log('[API] Filtering yearMax:', yearMax);
     }
 
-    // Note: rating is text in database, so we'll just order by it
-    query = query
-      .order('rating', { ascending: false })
-      .limit(limit);
+    // Fetch more results to randomize from (fetch 50, then pick random 3)
+    query = query.limit(50);
 
     const { data, error } = await query;
 
@@ -74,9 +72,24 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Randomize and pick 3 suggestions
+    let suggestions = data || [];
+    
+    if (suggestions.length > limit) {
+      // Fisher-Yates shuffle algorithm to randomize
+      const shuffled = [...suggestions];
+      for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+      }
+      suggestions = shuffled.slice(0, limit);
+    }
+
+    console.log('[API] Returning randomized suggestions:', suggestions.map(s => s.title));
+
     return NextResponse.json({
-      suggestions: data || [],
-      count: data?.length || 0,
+      suggestions: suggestions,
+      count: suggestions.length,
     });
   } catch (error: any) {
     console.error('[API] Exception:', error);

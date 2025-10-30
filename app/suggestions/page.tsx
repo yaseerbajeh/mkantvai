@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import Header from '@/components/Header';
 import MovieCard from '@/components/MovieCard';
+import MovieModal from '@/components/MovieModal';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { RefreshCw, Sparkles, Film } from 'lucide-react';
@@ -31,6 +32,8 @@ function SuggestionsPageContent() {
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState<any>({});
   const [error, setError] = useState<string | null>(null);
+  const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     const type = searchParams.get('type');
@@ -50,6 +53,11 @@ function SuggestionsPageContent() {
     setFilters(filterObj);
     fetchSuggestions(filterObj);
   }, [searchParams]);
+
+  const handleCardClick = (movie: Movie) => {
+    setSelectedMovie(movie);
+    setIsModalOpen(true);
+  };
 
   const fetchSuggestions = async (filterObj: any) => {
     setLoading(true);
@@ -179,7 +187,7 @@ function SuggestionsPageContent() {
                       </div>
                       
                       {/* MovieCard with all functionality including watchlist */}
-                      <MovieCard movie={movie} />
+                      <MovieCard movie={movie} onCardClick={() => handleCardClick(movie)} />
                     </div>
                   );
                 })}
@@ -302,6 +310,13 @@ function SuggestionsPageContent() {
           )}
         </div>
       </div>
+
+      {/* Movie Modal */}
+      <MovieModal
+        movie={selectedMovie}
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+      />
     </div>
   );
 }

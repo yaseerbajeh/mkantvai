@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Header from '@/components/Header';
 import MovieCard from '@/components/MovieCard';
+import MovieModal from '@/components/MovieModal';
 import { type Movie } from '@/lib/supabase';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -14,6 +15,8 @@ export default function LatestPage() {
   const [movies, setMovies] = useState<Movie[]>([]);
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
+  const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   
   const type = searchParams.get('type') || 'all';
   const newMonth = searchParams.get('new') || 'oct';
@@ -41,6 +44,11 @@ export default function LatestPage() {
 
     fetchMovies();
   }, [type, newMonth]);
+
+  const handleCardClick = (movie: Movie) => {
+    setSelectedMovie(movie);
+    setIsModalOpen(true);
+  };
 
   const getTitle = () => {
     if (type === 'movie') return 'أحدث الأفلام';
@@ -90,7 +98,7 @@ export default function LatestPage() {
           ) : movies.length > 0 ? (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
               {movies.map((movie) => (
-                <MovieCard key={movie.id} movie={movie} />
+                <MovieCard key={movie.id} movie={movie} onCardClick={() => handleCardClick(movie)} />
               ))}
             </div>
           ) : (
@@ -109,6 +117,13 @@ export default function LatestPage() {
           )}
         </div>
       </div>
+
+      {/* Movie Modal */}
+      <MovieModal
+        movie={selectedMovie}
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+      />
     </div>
   );
 }

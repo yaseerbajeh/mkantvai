@@ -36,9 +36,10 @@ const GENRE_MAP_EN_TO_AR: Record<string, string> = {
 interface MovieCardProps {
   movie: Movie;
   onWatchlistChange?: () => void; // Callback when watchlist changes
+  onCardClick?: () => void; // Callback when card is clicked
 }
 
-export default function MovieCard({ movie, onWatchlistChange }: MovieCardProps) {
+export default function MovieCard({ movie, onWatchlistChange, onCardClick }: MovieCardProps) {
   const router = useRouter();
   const { toast } = useToast();
   const [isInWatchlist, setIsInWatchlist] = useState(false);
@@ -230,8 +231,11 @@ export default function MovieCard({ movie, onWatchlistChange }: MovieCardProps) 
   
   return (
     <>
-      <div className="bg-slate-800/50 border border-slate-700 rounded-lg overflow-hidden hover:border-blue-600 transition group cursor-pointer">
-        <div className="aspect-[2/3] bg-slate-700 relative overflow-hidden">
+      <div 
+        className="bg-slate-800/50 border border-slate-700 rounded-lg overflow-hidden hover:border-blue-600 transition group cursor-pointer"
+        onClick={onCardClick}
+      >
+      <div className="aspect-[2/3] bg-slate-700 relative overflow-hidden">
         {movie.url ? (
           <img
             src={movie.url}
