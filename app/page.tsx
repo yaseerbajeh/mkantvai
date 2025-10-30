@@ -2,20 +2,25 @@
 
 import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Clapperboard, Target, Sparkles, ChevronLeft, ChevronRight, Film } from 'lucide-react';
+import { Clapperboard, Target, Sparkles, ChevronLeft, ChevronRight, Film, ArrowLeft } from 'lucide-react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import MovieCard from '@/components/MovieCard';
+import MovieModal from '@/components/MovieModal';
 import { type Movie } from '@/lib/supabase';
 
 export default function Home() {
+  const router = useRouter();
   const [latestMovies, setLatestMovies] = useState<Movie[]>([]);
   const [latestSeries, setLatestSeries] = useState<Movie[]>([]);
   const [topRatedMovies, setTopRatedMovies] = useState<Movie[]>([]);
   const [topRatedSeries, setTopRatedSeries] = useState<Movie[]>([]);
   const [loading, setLoading] = useState(true);
   const [topRatedTab, setTopRatedTab] = useState<'movies' | 'series'>('movies');
+  const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   
   const topRatedScrollRef = useRef<HTMLDivElement>(null);
 
@@ -64,6 +69,19 @@ export default function Home() {
         left: direction === 'right' ? scrollAmount : -scrollAmount,
         behavior: 'smooth'
       });
+    }
+  };
+
+  const handleCardClick = (movie: Movie) => {
+    setSelectedMovie(movie);
+    setIsModalOpen(true);
+  };
+
+  const handleShowMore = () => {
+    if (topRatedTab === 'movies') {
+      router.push('/top-movies');
+    } else {
+      router.push('/top-series');
     }
   };
 
@@ -167,7 +185,7 @@ export default function Home() {
           ) : latestMovies.length > 0 ? (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
               {latestMovies.map((movie) => (
-                <MovieCard key={movie.id} movie={movie} />
+                <MovieCard key={movie.id} movie={movie} onCardClick={() => handleCardClick(movie)} />
               ))}
             </div>
           ) : (
@@ -202,7 +220,7 @@ export default function Home() {
           ) : latestSeries.length > 0 ? (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
               {latestSeries.map((series) => (
-                <MovieCard key={series.id} movie={series} />
+                <MovieCard key={series.id} movie={series} onCardClick={() => handleCardClick(series)} />
               ))}
             </div>
           ) : (
@@ -217,7 +235,19 @@ export default function Home() {
       <section className="py-16 bg-black/30">
         <div className="container mx-auto px-4">
           <div className="mb-8">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">أفضل 10 تقييمات</h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-3xl md:text-4xl font-bold">أفضل 10 تقييمات</h2>
+              
+              {/* Show More Button */}
+              <Button
+                onClick={handleShowMore}
+                variant="outline"
+                className="border-blue-600 text-blue-400 hover:bg-blue-600 hover:text-white"
+              >
+                عرض المزيد
+                <ArrowLeft className="w-4 h-4 mr-2" />
+              </Button>
+            </div>
             
             {/* Tabs for Movies/Series */}
             <div className="flex gap-4 justify-center mb-6">
@@ -269,7 +299,7 @@ export default function Home() {
               >
                 {topRatedContent.map((item) => (
                   <div key={item.id} className="min-w-[200px] md:min-w-[250px]">
-                    <MovieCard movie={item} />
+                    <MovieCard movie={item} onCardClick={() => handleCardClick(item)} />
                   </div>
                 ))}
               </div>
@@ -356,6 +386,13 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      {/* Movie Modal */}
+      <MovieModal
+        movie={selectedMovie}
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+      />
 
       <Footer />
     </div>
