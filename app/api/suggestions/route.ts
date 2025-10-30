@@ -1,6 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 
+async function fetchTmdbDetails(tmdbId: number, type: 'movie' | 'series' = 'movie') {
+  const apiKey = process.env.TMDB_API_KEY;
+  if (!apiKey || !tmdbId) return null;
+  const endpoint = type === 'series' ? `tv/${tmdbId}` : `movie/${tmdbId}`;
+  const url = `https://api.themoviedb.org/3/${endpoint}?api_key=${apiKey}&language=ar`;
+  const resp = await fetch(url, { next: { revalidate: 3600 } });
+  if (!resp.ok) return null;
+  const item = await resp.json();
+  return {
+    title: type === 'series' ? item.name : item.title,
+    synopsis: item.overview || null,
+    rating: item.vote_average != null ? String(item.vote_average) : null,
+    duration: item.runtime ? `${item.runtime} دقيقة` : (item.episode_run_time?.[0] ? `${item.episode_run_time[0]} دقيقة` : null),
+    url: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null,
+    genres: Array.isArray(item.genres) ? item.genres.map((g: any) => g.name) : [],
+  };
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -85,10 +103,29 @@ export async function GET(request: NextRequest) {
       suggestions = shuffled.slice(0, limit);
     }
 
-    console.log('[API] Returning randomized suggestions:', suggestions.map(s => s.title));
+    // Enrich with TMDB if tmdb_id exists
+    const enriched = await Promise.all((suggestions || []).map(async (m: any) => {
+      if (m.tmdb_id) {
+        const tmdb = await fetchTmdbDetails(Number(m.tmdb_id), (m.type as any) === 'series' ? 'series' : 'movie');
+        if (tmdb) {
+          return {
+            ...m,
+            title: tmdb.title || m.title,
+            synopsis: tmdb.synopsis ?? m.synopsis,
+            rating: tmdb.rating ?? m.rating,
+            duration: tmdb.duration ?? m.duration,
+            url: tmdb.url ?? m.url,
+            genre: tmdb.genres && tmdb.genres.length ? tmdb.genres.join(', ') : m.genre,
+          };
+        }
+      }
+      return m;
+    }));
+
+    console.log('[API] Returning randomized suggestions:', enriched.map(s => s.title));
 
     return NextResponse.json({
-      suggestions: suggestions,
+      suggestions: enriched,
       count: suggestions.length,
     });
   } catch (error: any) {
