@@ -6,6 +6,7 @@ import dynamic from 'next/dynamic';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import MovieCard from '@/components/MovieCard';
+import MovieModal from '@/components/MovieModal';
 import { Button } from '@/components/ui/button';
 import { type Movie } from '@/lib/supabase';
 import { supabase } from '@/lib/supabase';
@@ -16,6 +17,8 @@ function WatchlistPageContent() {
   const [watchlist, setWatchlist] = useState<Movie[]>([]);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
+  const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     // Check authentication
@@ -83,12 +86,17 @@ function WatchlistPageContent() {
     fetchWatchlist();
   };
 
+  const handleCardClick = (movie: Movie) => {
+    setSelectedMovie(movie);
+    setIsModalOpen(true);
+  };
+
   if (!user) {
     return null; // Will redirect to /auth
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white" dir="rtl">
+    <div className="min-h-screen bg-black text-white" dir="rtl">
       <Header />
       <div className="pt-24 pb-20 container mx-auto px-4">
         <div className="max-w-7xl mx-auto">
@@ -133,7 +141,12 @@ function WatchlistPageContent() {
           ) : watchlist.length > 0 ? (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
               {watchlist.map((movie) => (
-                <MovieCard key={movie.id} movie={movie} onWatchlistChange={handleWatchlistChange} />
+                <MovieCard 
+                  key={movie.id} 
+                  movie={movie} 
+                  onWatchlistChange={handleWatchlistChange}
+                  onCardClick={() => handleCardClick(movie)}
+                />
               ))}
             </div>
           ) : (
@@ -155,6 +168,16 @@ function WatchlistPageContent() {
           )}
         </div>
       </div>
+
+      {/* Movie Modal with Delete Button */}
+      <MovieModal
+        movie={selectedMovie}
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        isWatchlistPage={true}
+        onWatchlistUpdate={handleWatchlistChange}
+      />
+
       <Footer />
     </div>
   );
@@ -163,7 +186,7 @@ function WatchlistPageContent() {
 export default dynamic(() => Promise.resolve(WatchlistPageContent), {
   ssr: false,
   loading: () => (
-    <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+    <div className="min-h-screen bg-black flex items-center justify-center">
       <div className="text-white text-xl">جاري التحميل...</div>
     </div>
   ),
