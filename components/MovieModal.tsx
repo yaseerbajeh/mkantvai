@@ -12,6 +12,8 @@ interface MovieModalProps {
   movie: Movie | null;
   isOpen: boolean;
   onClose: () => void;
+  isWatchlistPage?: boolean; // If true, only show delete button
+  onWatchlistUpdate?: () => void; // Callback when watchlist is updated
 }
 
 // Genre mapping: English database -> Arabic display
@@ -28,7 +30,7 @@ const GENRE_MAP_EN_TO_AR: Record<string, string> = {
   'Crime': 'جريمة'
 };
 
-export default function MovieModal({ movie, isOpen, onClose }: MovieModalProps) {
+export default function MovieModal({ movie, isOpen, onClose, isWatchlistPage = false, onWatchlistUpdate }: MovieModalProps) {
   const { toast } = useToast();
   const [user, setUser] = useState<any>(null);
   const [isInWatchlist, setIsInWatchlist] = useState(false);
@@ -114,6 +116,14 @@ export default function MovieModal({ movie, isOpen, onClose }: MovieModalProps) 
             title: '✅ تمت الإزالة',
             description: 'تمت إزالة العنصر من قائمة المشاهدة',
           });
+          // Call the update callback if provided
+          if (onWatchlistUpdate) {
+            onWatchlistUpdate();
+          }
+          // If on watchlist page, close modal after deletion
+          if (isWatchlistPage) {
+            setTimeout(() => onClose(), 500);
+          }
         } else {
           const data = await response.json();
           toast({
@@ -135,6 +145,10 @@ export default function MovieModal({ movie, isOpen, onClose }: MovieModalProps) 
             title: '✅ تمت الإضافة',
             description: 'تمت إضافة العنصر إلى قائمة المشاهدة',
           });
+          // Call the update callback if provided
+          if (onWatchlistUpdate) {
+            onWatchlistUpdate();
+          }
         } else {
           const data = await response.json();
           toast({
@@ -275,18 +289,31 @@ export default function MovieModal({ movie, isOpen, onClose }: MovieModalProps) 
 
             {/* Action Buttons */}
             <div className="flex gap-3 pt-4">
-              <Button
-                onClick={handleWatchlistToggle}
-                disabled={isLoading}
-                className={`flex-1 ${
-                  isInWatchlist
-                    ? 'bg-blue-600 hover:bg-blue-700'
-                    : 'bg-slate-700 hover:bg-slate-600'
-                }`}
-              >
-                <Bookmark className={`w-5 h-5 ml-2 ${isInWatchlist ? 'fill-white' : ''}`} />
-                {isInWatchlist ? 'في قائمة المشاهدة' : 'إضافة لقائمة المشاهدة'}
-              </Button>
+              {isWatchlistPage ? (
+                // Delete button for watchlist page
+                <Button
+                  onClick={handleWatchlistToggle}
+                  disabled={isLoading}
+                  className="flex-1 bg-red-600 hover:bg-red-700"
+                >
+                  <X className="w-5 h-5 ml-2" />
+                  حذف من قائمة المشاهدة
+                </Button>
+              ) : (
+                // Add/Remove button for other pages
+                <Button
+                  onClick={handleWatchlistToggle}
+                  disabled={isLoading}
+                  className={`flex-1 ${
+                    isInWatchlist
+                      ? 'bg-blue-600 hover:bg-blue-700'
+                      : 'bg-slate-700 hover:bg-slate-600'
+                  }`}
+                >
+                  <Bookmark className={`w-5 h-5 ml-2 ${isInWatchlist ? 'fill-white' : ''}`} />
+                  {isInWatchlist ? 'في قائمة المشاهدة' : 'إضافة لقائمة المشاهدة'}
+                </Button>
+              )}
             </div>
           </div>
         </div>
