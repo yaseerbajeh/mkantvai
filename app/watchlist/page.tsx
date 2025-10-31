@@ -62,7 +62,7 @@ function WatchlistPageContent() {
         return;
       }
 
-      const response = await fetch('/api/watchlist', {
+      const response = await fetch('/api/watchlist-tmdb', {
         headers: {
           'Authorization': `Bearer ${authToken}`,
         },
@@ -70,7 +70,32 @@ function WatchlistPageContent() {
 
       if (response.ok) {
         const data = await response.json();
-        setWatchlist(data.watchlist || []);
+        const items = data.items || [] as { tmdb_id: number }[];
+        // Fetch TMDB details for each id (sequential to limit calls)
+        const detailed: Movie[] = [] as any;
+        for (const it of items) {
+          const r = await fetch(`/api/tmdb/details?id=${it.tmdb_id}&type=movie&lang=ar`);
+          const json = await r.json();
+          const d = json.details;
+          if (d) {
+            detailed.push({
+              id: String(d.tmdb_id),
+              tmdb_id: d.tmdb_id,
+              type: 'movie',
+              title: d.title,
+              synopsis: d.overview,
+              year: d.year,
+              genre: null,
+              platform: null,
+              rating: String(d.rating ?? ''),
+              duration: d.runtime ? `${d.runtime} دقيقة` : null,
+              url: d.poster_url,
+              new: null,
+              note: null,
+            } as any);
+          }
+        }
+        setWatchlist(detailed);
       } else {
         console.error('Failed to fetch watchlist');
       }

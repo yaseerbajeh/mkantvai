@@ -25,6 +25,39 @@ const GENRE_MAP_EN_TO_AR: Record<string, string> = {
   'Crime': 'جريمة'
 };
 
+// Map common genre names (EN/AR) to TMDB numeric IDs
+const TMDB_GENRE_ID_MAP: Record<string, number> = {
+  // Movies (and shared)
+  'action': 28, 'أكشن': 28,
+  'adventure': 12, 'مغامرات': 12,
+  'animation': 16, 'رسوم متحركة': 16,
+  'comedy': 35, 'كوميديا': 35,
+  'crime': 80, 'جريمة': 80,
+  'documentary': 99, 'وثائقي': 99,
+  'drama': 18, 'دراما': 18,
+  'family': 10751, 'عائلي': 10751,
+  'fantasy': 14, 'فانتازيا': 14,
+  'history': 36, 'تاريخ': 36,
+  'horror': 27, 'رعب': 27,
+  'music': 10402, 'موسيقى': 10402,
+  'mystery': 9648, 'غموض': 9648,
+  'romance': 10749, 'رومانسي': 10749,
+  'science fiction': 878, 'sci-fi': 878, 'خيال علمي': 878,
+  'tv movie': 10770, 'فيلم تلفزيوني': 10770,
+  'thriller': 53, 'إثارة': 53,
+  'war': 10752, 'حرب': 10752,
+  'western': 37, 'غربي': 37,
+  // TV-specific (we include in case type=tv)
+  'action & adventure': 10759, 'أكشن ومغامرات': 10759,
+  'kids': 10762, 'أطفال': 10762,
+  'news': 10763, 'أخبار': 10763,
+  'reality': 10764, 'واقعي': 10764,
+  'sci-fi & fantasy': 10765, 'خيال علمي وفانتازيا': 10765,
+  'soap': 10766, 'دراما تلفزيونية': 10766,
+  'talk': 10767, 'حواري': 10767,
+  'war & politics': 10768, 'حرب وسياسة': 10768,
+};
+
 function SuggestionsPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -68,27 +101,21 @@ function SuggestionsPageContent() {
       // Build query params
       const params = new URLSearchParams();
       
-      if (filterObj.type && filterObj.type !== 'all') {
-        params.append('type', filterObj.type);
-      }
-      
+      const tmdbType = filterObj.type === 'series' ? 'tv' : 'movie';
+      params.append('type', tmdbType);
+      if (filterObj.yearMin) params.append('yearMin', filterObj.yearMin.toString());
+      if (filterObj.yearMax) params.append('yearMax', filterObj.yearMax.toString());
+      // Map selected genres to TMDB IDs
       if (filterObj.genres && filterObj.genres.length > 0) {
-        params.append('genres', filterObj.genres.join(','));
+        const ids = Array.from(new Set(filterObj.genres
+          .map((g: string) => (TMDB_GENRE_ID_MAP[g] || TMDB_GENRE_ID_MAP[g.toLowerCase()] || TMDB_GENRE_ID_MAP[(GENRE_MAP_EN_TO_AR[g] ? g : '')]) )
+        ))
+        .filter(Boolean) as number[];
+        if (ids.length > 0) {
+          params.append('genres', ids.join(','));
+        }
       }
-      
-      if (filterObj.platforms && filterObj.platforms.length > 0) {
-        params.append('platforms', filterObj.platforms.join(','));
-      }
-      
-      if (filterObj.yearMin) {
-        params.append('yearMin', filterObj.yearMin.toString());
-      }
-      
-      if (filterObj.yearMax) {
-        params.append('yearMax', filterObj.yearMax.toString());
-      }
-      
-      const apiUrl = `/api/suggestions?${params.toString()}`;
+      const apiUrl = `/api/tmdb/discover?${params.toString()}&limit=3`;
       console.log('[CLIENT] API URL:', apiUrl);
       
       // Fetch from API
@@ -102,11 +129,26 @@ function SuggestionsPageContent() {
         throw new Error(result.error || 'Failed to fetch suggestions');
       }
 
-      const moviesData = result.suggestions || [];
-      setMovies(moviesData);
-      console.log('[CLIENT] Movies set:', moviesData.length, 'movies', moviesData);
+      const items = result.items || [];
+      const mapped = items.map((m: any) => ({
+        id: String(m.tmdb_id),
+        tmdb_id: m.tmdb_id,
+        type: tmdbType === 'tv' ? 'series' : 'movie',
+        title: m.title,
+        synopsis: m.overview,
+        year: m.year,
+        genre: null,
+        platform: null,
+        rating: String(m.rating ?? ''),
+        duration: null,
+        url: m.poster_url,
+        new: null,
+        note: null,
+      })) as unknown as Movie[];
+      setMovies(mapped);
+      console.log('[CLIENT] Movies set:', mapped.length, 'movies');
       
-      if (moviesData.length === 0) {
+      if (mapped.length === 0) {
         console.warn('[CLIENT] No movies returned from API');
       }
     } catch (error: any) {

@@ -1,15 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
+import { getCachedTmdbDetails, setCachedTmdbDetails, generateCacheKey } from '@/lib/tmdb-cache';
 
 async function fetchTmdbDetails(tmdbId: number, type: 'movie' | 'series' = 'movie') {
   const apiKey = process.env.TMDB_API_KEY;
   if (!apiKey || !tmdbId) return null;
+
+  // Check cache first
+  const cacheKey = generateCacheKey(tmdbId, type === 'series' ? 'tv' : 'movie', 'ar');
+  const cached = getCachedTmdbDetails(cacheKey);
+  if (cached) {
+    return cached;
+  }
+
+  // Fetch from TMDB
   const endpoint = type === 'series' ? `tv/${tmdbId}` : `movie/${tmdbId}`;
   const url = `https://api.themoviedb.org/3/${endpoint}?api_key=${apiKey}&language=ar`;
   const resp = await fetch(url, { next: { revalidate: 3600 } });
   if (!resp.ok) return null;
   const item = await resp.json();
-  return {
+  
+  const result = {
     title: type === 'series' ? item.name : item.title,
     synopsis: item.overview || null,
     rating: item.vote_average != null ? String(item.vote_average) : null,
@@ -17,6 +28,10 @@ async function fetchTmdbDetails(tmdbId: number, type: 'movie' | 'series' = 'movi
     url: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null,
     genres: Array.isArray(item.genres) ? item.genres.map((g: any) => g.name) : [],
   };
+
+  // Cache the result
+  setCachedTmdbDetails(cacheKey, result);
+  return result;
 }
 
 export async function GET(request: NextRequest) {

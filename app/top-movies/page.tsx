@@ -25,9 +25,24 @@ function TopMoviesPageContent() {
   const fetchTopMovies = async () => {
     setLoading(true);
     try {
-      const response = await fetch('/api/movies?type=movie&sortBy=rating&limit=50');
+      const response = await fetch('/api/tmdb/top-rated?type=movie');
       const data = await response.json();
-      setMovies(data.movies || []);
+      const mapped = (data.items || []).map((m: any) => ({
+        id: String(m.tmdb_id),
+        tmdb_id: m.tmdb_id,
+        type: 'movie',
+        title: m.title,
+        synopsis: m.overview,
+        year: m.year,
+        genre: null,
+        platform: null,
+        rating: String(m.rating ?? ''),
+        duration: null,
+        url: m.poster_url,
+        new: null,
+        note: null,
+      })) as unknown as Movie[];
+      setMovies(mapped);
     } catch (error) {
       console.error('Error fetching top movies:', error);
     } finally {

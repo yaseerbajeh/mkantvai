@@ -25,9 +25,24 @@ function TopSeriesPageContent() {
   const fetchTopSeries = async () => {
     setLoading(true);
     try {
-      const response = await fetch('/api/movies?type=series&sortBy=rating&limit=50');
+      const response = await fetch('/api/tmdb/top-rated?type=tv');
       const data = await response.json();
-      setSeries(data.movies || []);
+      const mapped = (data.items || []).map((m: any) => ({
+        id: String(m.tmdb_id),
+        tmdb_id: m.tmdb_id,
+        type: 'series',
+        title: m.title,
+        synopsis: m.overview,
+        year: m.year,
+        genre: null,
+        platform: null,
+        rating: String(m.rating ?? ''),
+        duration: null,
+        url: m.poster_url,
+        new: null,
+        note: null,
+      })) as unknown as Movie[];
+      setSeries(mapped);
     } catch (error) {
       console.error('Error fetching top series:', error);
     } finally {

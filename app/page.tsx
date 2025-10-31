@@ -17,41 +17,129 @@ export default function Home() {
   const [latestSeries, setLatestSeries] = useState<Movie[]>([]);
   const [topRatedMovies, setTopRatedMovies] = useState<Movie[]>([]);
   const [topRatedSeries, setTopRatedSeries] = useState<Movie[]>([]);
+  const [trendingMovies, setTrendingMovies] = useState<Movie[]>([]);
   const [loading, setLoading] = useState(true);
   const [topRatedTab, setTopRatedTab] = useState<'movies' | 'series'>('movies');
   const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   
   const topRatedScrollRef = useRef<HTMLDivElement>(null);
+  const trendingScrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const fetchLatestContent = async () => {
       try {
-        // Fetch latest movies (October content)
-        const moviesResponse = await fetch('/api/movies?type=movie&limit=6');
-        const moviesData = await moviesResponse.json();
-        const octMovies = moviesData.movies?.filter((m: Movie) => 
-          m.new?.toLowerCase() === 'oct' || m.new?.toLowerCase() === 'october'
-        ).slice(0, 6) || [];
-        setLatestMovies(octMovies);
+        // Trending Movies (week)
+        const trendingResp = await fetch('/api/tmdb/trending?type=movie');
+        const trendingJson = await trendingResp.json();
+        const trendingMapped = (trendingJson.items || []).slice(0, 10).map((m: any) => ({
+          id: String(m.tmdb_id),
+          tmdb_id: m.tmdb_id,
+          type: 'movie',
+          title: m.title,
+          synopsis: m.overview,
+          year: m.year,
+          genre: null,
+          platform: null,
+          rating: String(m.rating ?? ''),
+          duration: null,
+          url: m.poster_url,
+          new: null,
+          note: null,
+        })) as unknown as Movie[];
+        setTrendingMovies(trendingMapped);
 
-        // Fetch latest series (October content)
-        const seriesResponse = await fetch('/api/movies?type=series&limit=6');
-        const seriesData = await seriesResponse.json();
-        const octSeries = seriesData.movies?.filter((m: Movie) => 
-          m.new?.toLowerCase() === 'oct' || m.new?.toLowerCase() === 'october'
-        ).slice(0, 6) || [];
-        setLatestSeries(octSeries);
+        // Latest Movies (Now Playing)
+        const nowMoviesResp = await fetch('/api/tmdb/now-playing?type=movie');
+        const nowMovies = await nowMoviesResp.json();
+        const latestMoviesMapped = (nowMovies.items || []).slice(0, 6).map((m: any) => ({
+          id: String(m.tmdb_id),
+          tmdb_id: m.tmdb_id,
+          type: 'movie',
+          title: m.title,
+          synopsis: m.overview,
+          year: m.year,
+          genre: null,
+          platform: null,
+          rating: String(m.rating ?? ''),
+          duration: null,
+          url: m.poster_url,
+          new: null,
+          note: null,
+        })) as unknown as Movie[];
+        setLatestMovies(latestMoviesMapped);
 
-        // Fetch top rated movies
-        const topMoviesResponse = await fetch('/api/movies?type=movie&sortBy=rating&limit=10');
+        // Latest Series (Filtered by Netflix, HBO Max, Amazon Prime, Apple TV+)
+        // TMDB Provider IDs: Netflix=8, HBO Max=384, Amazon Prime=9, Apple TV+=350
+        // Fetch with provider filter for latest series
+        const today = new Date();
+        const pastYear = new Date();
+        pastYear.setFullYear(today.getFullYear() - 1);
+        const yearMin = pastYear.getFullYear();
+        const yearMax = today.getFullYear();
+        const nowSeriesResp = await fetch(`/api/tmdb/discover?type=tv&with_watch_providers=8,384,9,350&watch_region=SA&yearMin=${yearMin}&yearMax=${yearMax}&sort_by=first_air_date.desc&limit=20`);
+        const nowSeries = await nowSeriesResp.json();
+        if (nowSeries.error) {
+          console.error('Error fetching latest series:', nowSeries.error);
+          setLatestSeries([]);
+        } else {
+          const latestSeriesMapped = (nowSeries.items || []).slice(0, 6).map((m: any) => ({
+            id: String(m.tmdb_id),
+            tmdb_id: m.tmdb_id,
+            type: 'series',
+            title: m.title,
+            synopsis: m.overview,
+            year: m.year,
+            genre: null,
+            platform: null,
+            rating: String(m.rating ?? ''),
+            duration: null,
+            url: m.poster_url,
+            new: null,
+            note: null,
+          })) as unknown as Movie[];
+          setLatestSeries(latestSeriesMapped);
+        }
+
+        // Top Rated Movies
+        const topMoviesResponse = await fetch('/api/tmdb/top-rated?type=movie');
         const topMoviesData = await topMoviesResponse.json();
-        setTopRatedMovies(topMoviesData.movies || []);
+        const topMoviesMapped = (topMoviesData.items || []).slice(0, 10).map((m: any) => ({
+          id: String(m.tmdb_id),
+          tmdb_id: m.tmdb_id,
+          type: 'movie',
+          title: m.title,
+          synopsis: m.overview,
+          year: m.year,
+          genre: null,
+          platform: null,
+          rating: String(m.rating ?? ''),
+          duration: null,
+          url: m.poster_url,
+          new: null,
+          note: null,
+        })) as unknown as Movie[];
+        setTopRatedMovies(topMoviesMapped);
 
-        // Fetch top rated series
-        const topSeriesResponse = await fetch('/api/movies?type=series&sortBy=rating&limit=10');
+        // Top Rated Series
+        const topSeriesResponse = await fetch('/api/tmdb/top-rated?type=tv');
         const topSeriesData = await topSeriesResponse.json();
-        setTopRatedSeries(topSeriesData.movies || []);
+        const topSeriesMapped = (topSeriesData.items || []).slice(0, 10).map((m: any) => ({
+          id: String(m.tmdb_id),
+          tmdb_id: m.tmdb_id,
+          type: 'series',
+          title: m.title,
+          synopsis: m.overview,
+          year: m.year,
+          genre: null,
+          platform: null,
+          rating: String(m.rating ?? ''),
+          duration: null,
+          url: m.poster_url,
+          new: null,
+          note: null,
+        })) as unknown as Movie[];
+        setTopRatedSeries(topSeriesMapped);
       } catch (error) {
         console.error('Error fetching latest content:', error);
       } finally {
@@ -161,6 +249,61 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Trending Movies */}
+      <section className="py-14 bg-black/40">
+        <div className="container mx-auto px-4">
+          <div className="mb-6">
+            <h2 className="text-3xl md:text-4xl font-bold">الأكثر رواجاً هذا الأسبوع</h2>
+            <p className="text-slate-400">أفضل 10 أفلام رائجة حالياً</p>
+          </div>
+
+          {loading ? (
+            <div className="flex gap-4 overflow-hidden">
+              {[...Array(5)].map((_, i) => (
+                <div key={i} className="bg-slate-800/50 rounded-lg h-[400px] min-w-[200px] animate-pulse" />
+              ))}
+            </div>
+          ) : trendingMovies.length > 0 ? (
+            <div className="relative group">
+              {/* Scroll Left Button */}
+              <button
+                onClick={() => scroll(trendingScrollRef, 'left')}
+                className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-black/90 hover:bg-slate-800 text-white p-3 rounded-full shadow-xl opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-0"
+                aria-label="Scroll left"
+              >
+                <ChevronLeft className="w-6 h-6" />
+              </button>
+
+              <div
+                ref={trendingScrollRef}
+                className="flex gap-4 overflow-x-auto scrollbar-hide scroll-smooth"
+                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+              >
+                {trendingMovies.map((item, idx) => (
+                  <div key={item.id} className="relative min-w-[200px] md:min-w-[250px]">
+                    <div className="absolute top-2 right-2 z-20 bg-gradient-to-r from-red-500 to-pink-500 text-white px-3 py-1 rounded-full font-bold text-sm shadow-lg">
+                      #{idx + 1}
+                    </div>
+                    <MovieCard movie={item} onCardClick={() => handleCardClick(item)} />
+                  </div>
+                ))}
+              </div>
+
+              {/* Scroll Right Button */}
+              <button
+                onClick={() => scroll(trendingScrollRef, 'right')}
+                className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-black/90 hover:bg-slate-800 text-white p-3 rounded-full shadow-xl opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-0"
+                aria-label="Scroll right"
+              >
+                <ChevronRight className="w-6 h-6" />
+              </button>
+            </div>
+          ) : (
+            <div className="text-center py-8 text-slate-400">لا يوجد محتوى رائج حالياً</div>
+          )}
+        </div>
+      </section>
+
       {/* Latest Movies Section */}
       <section className="py-16 bg-black/30">
         <div className="container mx-auto px-4">
@@ -202,9 +345,9 @@ export default function Home() {
           <div className="flex items-center justify-between mb-8">
             <div>
               <h2 className="text-3xl md:text-4xl font-bold mb-2">أحدث المسلسلات</h2>
-              <p className="text-slate-400">مسلسلات أكتوبر الجديدة</p>
+              <p className="text-slate-400">مسلسلات نتفلكس، HBO Max، أمازون برايم، و Apple TV+</p>
             </div>
-            <Link href="/latest?type=series&new=oct">
+            <Link href="/latest?type=series">
               <Button variant="outline" className="border-blue-600 text-blue-400 hover:bg-blue-600 hover:text-white">
                 عرض الكل ←
               </Button>

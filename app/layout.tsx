@@ -2,6 +2,7 @@ import './globals.css';
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import { Toaster } from '@/components/ui/toaster';
+import Script from 'next/script';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -28,6 +29,16 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ar" dir="rtl">
+      <head>
+        {process.env.NODE_ENV === 'development' && (
+          <Script
+            src="//unpkg.com/react-grab/dist/index.global.js"
+            crossOrigin="anonymous"
+            strategy="beforeInteractive"
+            data-enabled="true"
+          />
+        )}
+      </head>
       <body className={inter.className}>
         {children}
         <Toaster />
