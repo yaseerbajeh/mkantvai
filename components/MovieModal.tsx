@@ -210,18 +210,119 @@ export default function MovieModal({ movie, isOpen, onClose, isWatchlistPage = f
   const genres = genresRaw.map(g => GENRE_MAP_EN_TO_AR[g] || g);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" onClick={onClose}>
-      <div className="relative bg-slate-900 rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 md:p-4 bg-black/80 backdrop-blur-sm" onClick={onClose}>
+      <div className="relative bg-slate-900 rounded-2xl w-full max-w-2xl md:max-w-4xl max-h-[75vh] md:max-h-[90vh] overflow-hidden md:overflow-y-auto scale-90 md:scale-100" onClick={(e) => e.stopPropagation()}>
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="absolute top-4 left-4 z-10 p-2 bg-black/50 hover:bg-black/70 rounded-full transition"
+          className="absolute top-2 left-2 md:top-4 md:left-4 z-10 p-1.5 md:p-2 bg-black/50 hover:bg-black/70 rounded-full transition"
         >
-          <X className="w-6 h-6 text-white" />
+          <X className="w-4 h-4 md:w-6 md:h-6 text-white" />
         </button>
 
-        <div className="grid md:grid-cols-2 gap-6">
-          {/* Poster */}
+        <div className="grid grid-cols-2 md:grid-cols-2 gap-2 md:gap-6">
+          {/* Details - Left side on mobile */}
+          <div className="p-2 md:p-8 space-y-2 md:space-y-6 overflow-y-auto md:overflow-y-auto">
+            <div>
+              <h2 className="text-sm md:text-3xl font-bold mb-1 md:mb-4 line-clamp-2 md:line-clamp-none">{movie.title}</h2>
+              
+              {/* Info Pills */}
+              <div className="flex flex-wrap items-center gap-1.5 md:gap-3 mb-2 md:mb-4">
+                {movie.year && (
+                  <div className="flex items-center gap-0.5 md:gap-1 text-slate-300 text-xs md:text-base">
+                    <Calendar className="w-3 h-3 md:w-4 md:h-4" />
+                    <span>{movie.year}</span>
+                  </div>
+                )}
+                {movie.duration && (
+                  <div className="flex items-center gap-0.5 md:gap-1 text-slate-300 text-xs md:text-base">
+                    <Clock className="w-3 h-3 md:w-4 md:h-4" />
+                    <span>{movie.duration}</span>
+                  </div>
+                )}
+                {movie.rating && (
+                  <div className="flex items-center gap-0.5 md:gap-1 text-yellow-500 font-semibold text-xs md:text-base">
+                    <Star className="w-3 h-3 md:w-4 md:h-4 fill-yellow-500" />
+                    <span>{movie.rating}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Genres */}
+              <div className="flex flex-wrap gap-1 md:gap-2 mb-2 md:mb-6">
+                {genres.map((genre, idx) => (
+                  <Badge key={idx} variant="secondary" className="bg-slate-700 text-slate-200 text-xs md:text-sm px-1.5 py-0.5 md:px-2 md:py-1">
+                    {genre}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+
+            {/* Description */}
+            <div>
+              <h3 className="text-xs md:text-xl font-bold mb-1 md:mb-3">القصة</h3>
+              <p className="text-slate-300 leading-tight md:leading-relaxed text-xs md:text-base line-clamp-3 md:line-clamp-none">
+                {movie.synopsis || 'لا يوجد وصف متاح'}
+              </p>
+            </div>
+
+            {/* Watch Providers */}
+            {providers.length > 0 && (
+              <div>
+                <h3 className="text-xs md:text-xl font-bold mb-1 md:mb-3">أماكن المشاهدة</h3>
+                <div className="flex flex-wrap gap-1 md:gap-2">
+                  {providers.slice(0, 3).map((p, i) => (
+                    <Badge key={i} className="bg-slate-700 text-slate-200 text-xs md:text-sm px-1.5 py-0.5 md:px-2 md:py-1">{p}</Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Top Cast */}
+            {credits?.cast?.length ? (
+              <div>
+                <h3 className="text-xs md:text-xl font-bold mb-1 md:mb-3 flex items-center gap-1 md:gap-2"><Users className="w-3 h-3 md:w-5 md:h-5" /> <span className="hidden md:inline">أبرز الممثلين</span><span className="md:hidden">الممثلين</span></h3>
+                <div className="flex flex-wrap gap-1 md:gap-2 text-slate-300">
+                  {credits.cast.slice(0, 4).map((c: any) => (
+                    <span key={c.cast_id || c.credit_id} className="px-1.5 py-0.5 md:px-2 md:py-1 bg-slate-800 rounded-full text-xs md:text-sm">{c.name}</span>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            {/* Action Buttons */}
+            <div className="flex gap-2 md:gap-3 pt-2 md:pt-4">
+              {isWatchlistPage ? (
+                // Delete button for watchlist page
+                <Button
+                  onClick={handleWatchlistToggle}
+                  disabled={isLoading}
+                  className="flex-1 bg-red-600 hover:bg-red-700 text-xs md:text-base h-8 md:h-10"
+                >
+                  <X className="w-3 h-3 md:w-5 md:h-5 ml-1 md:ml-2" />
+                  <span className="hidden md:inline">حذف من قائمة المشاهدة</span>
+                  <span className="md:hidden">حذف</span>
+                </Button>
+              ) : (
+                // Add/Remove button for other pages
+                <Button
+                  onClick={handleWatchlistToggle}
+                  disabled={isLoading}
+                  className={`flex-1 text-xs md:text-base h-8 md:h-10 ${
+                    isInWatchlist
+                      ? 'bg-blue-600 hover:bg-blue-700'
+                      : 'bg-slate-700 hover:bg-slate-600'
+                  }`}
+                >
+                  <Bookmark className={`w-3 h-3 md:w-5 md:h-5 ml-1 md:ml-2 ${isInWatchlist ? 'fill-white' : ''}`} />
+                  <span className="hidden md:inline">{isInWatchlist ? 'في قائمة المشاهدة' : 'إضافة لقائمة المشاهدة'}</span>
+                  <span className="md:hidden">{isInWatchlist ? 'في القائمة' : 'إضافة'}</span>
+                </Button>
+              )}
+            </div>
+          </div>
+
+          {/* Poster - Right side on mobile */}
           <div className="relative aspect-[2/3] md:rounded-r-2xl overflow-hidden">
             {movie.url ? (
               <img src={movie.url} alt={movie.title} className="w-full h-full object-cover" />
@@ -235,109 +336,10 @@ export default function MovieModal({ movie, isOpen, onClose, isWatchlistPage = f
 
             {/* Note Badge */}
             {movie.note && (
-              <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-gradient-to-r from-amber-500 to-orange-500 text-white px-5 py-2 rounded-full text-sm font-bold shadow-xl">
+              <div className="absolute bottom-2 md:bottom-4 left-1/2 transform -translate-x-1/2 bg-gradient-to-r from-amber-500 to-orange-500 text-white px-2 py-1 md:px-5 md:py-2 rounded-full text-xs md:text-sm font-bold shadow-xl">
                 ✨ {movie.note}
               </div>
             )}
-          </div>
-
-          {/* Details */}
-          <div className="p-8 space-y-6">
-            <div>
-              <h2 className="text-3xl font-bold mb-4">{movie.title}</h2>
-              
-              {/* Info Pills */}
-              <div className="flex flex-wrap items-center gap-3 mb-4">
-                {movie.year && (
-                  <div className="flex items-center gap-1 text-slate-300">
-                    <Calendar className="w-4 h-4" />
-                    <span>{movie.year}</span>
-                  </div>
-                )}
-                {movie.duration && (
-                  <div className="flex items-center gap-1 text-slate-300">
-                    <Clock className="w-4 h-4" />
-                    <span>{movie.duration}</span>
-                  </div>
-                )}
-                {movie.rating && (
-                  <div className="flex items-center gap-1 text-yellow-500 font-semibold">
-                    <Star className="w-4 h-4 fill-yellow-500" />
-                    <span>{movie.rating}</span>
-                  </div>
-                )}
-              </div>
-
-              {/* Genres */}
-              <div className="flex flex-wrap gap-2 mb-6">
-                {genres.map((genre, idx) => (
-                  <Badge key={idx} variant="secondary" className="bg-slate-700 text-slate-200">
-                    {genre}
-                  </Badge>
-                ))}
-              </div>
-            </div>
-
-            {/* Description */}
-            <div>
-              <h3 className="text-xl font-bold mb-3">القصة</h3>
-              <p className="text-slate-300 leading-relaxed">
-                {movie.synopsis || 'لا يوجد وصف متاح'}
-              </p>
-            </div>
-
-            {/* Watch Providers */}
-            {providers.length > 0 && (
-              <div>
-                <h3 className="text-xl font-bold mb-3">أماكن المشاهدة</h3>
-                <div className="flex flex-wrap gap-2">
-                  {providers.map((p, i) => (
-                    <Badge key={i} className="bg-slate-700 text-slate-200">{p}</Badge>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Top Cast */}
-            {credits?.cast?.length ? (
-              <div>
-                <h3 className="text-xl font-bold mb-3 flex items-center gap-2"><Users className="w-5 h-5" /> أبرز الممثلين</h3>
-                <div className="flex flex-wrap gap-2 text-slate-300">
-                  {credits.cast.slice(0, 8).map((c: any) => (
-                    <span key={c.cast_id || c.credit_id} className="px-2 py-1 bg-slate-800 rounded-full text-sm">{c.name}</span>
-                  ))}
-                </div>
-              </div>
-            ) : null}
-
-            {/* Action Buttons */}
-            <div className="flex gap-3 pt-4">
-              {isWatchlistPage ? (
-                // Delete button for watchlist page
-                <Button
-                  onClick={handleWatchlistToggle}
-                  disabled={isLoading}
-                  className="flex-1 bg-red-600 hover:bg-red-700"
-                >
-                  <X className="w-5 h-5 ml-2" />
-                  حذف من قائمة المشاهدة
-                </Button>
-              ) : (
-                // Add/Remove button for other pages
-                <Button
-                  onClick={handleWatchlistToggle}
-                  disabled={isLoading}
-                  className={`flex-1 ${
-                    isInWatchlist
-                      ? 'bg-blue-600 hover:bg-blue-700'
-                      : 'bg-slate-700 hover:bg-slate-600'
-                  }`}
-                >
-                  <Bookmark className={`w-5 h-5 ml-2 ${isInWatchlist ? 'fill-white' : ''}`} />
-                  {isInWatchlist ? 'في قائمة المشاهدة' : 'إضافة لقائمة المشاهدة'}
-                </Button>
-              )}
-            </div>
           </div>
         </div>
       </div>

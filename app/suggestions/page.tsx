@@ -2,13 +2,14 @@
 
 import { useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import Header from '@/components/Header';
 import MovieCard from '@/components/MovieCard';
 import MovieModal from '@/components/MovieModal';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { RefreshCw, Sparkles, Film } from 'lucide-react';
+import { RefreshCw, Sparkles, Film, ShoppingCart, Tv, Smartphone, Monitor, Laptop } from 'lucide-react';
 import { type Movie } from '@/lib/supabase';
 
 // Genre mapping: English database -> Arabic display
@@ -254,57 +255,61 @@ function SuggestionsPageContent() {
                 </Button>
               </div>
 
-              {/* Subscription CTA Banner */}
+              {/* Makaan TU Logo and CTA Section */}
               <div className="my-16 relative">
-                {/* Film strip decorative elements */}
-                <div className="absolute inset-0 opacity-10">
-                  <div className="flex gap-2 overflow-hidden h-full">
-                    {[...Array(20)].map((_, i) => (
-                      <div key={i} className="flex flex-col gap-2">
-                        <div className="w-12 h-12 bg-white rounded" />
-                        <div className="w-12 h-8 bg-white rounded" />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                
-                {/* Main banner content */}
-                <div className="relative bg-black rounded-3xl p-8 md:p-12 shadow-2xl border-4 border-slate-700/50 overflow-hidden">
-                  {/* Animated film icons */}
-                  <div className="absolute top-4 left-4 opacity-10">
-                    <Film className="w-20 h-20 text-white" />
-                  </div>
-                  <div className="absolute bottom-4 right-4 opacity-10">
-                    <Film className="w-24 h-24 text-white" />
-                  </div>
-                  
-                  {/* Content */}
-                  <div className="relative z-10 text-center">
-                    <div className="mb-4">
-                      <Film className="w-16 h-16 text-white mx-auto mb-4 animate-pulse" />
-                      <h2 className="text-3xl md:text-5xl font-bold text-white mb-3 drop-shadow-lg" style={{ fontFamily: 'var(--font-arabic)' }}>
-                        ما عندك اشتراك تتابع الفلم؟
-                      </h2>
-                      <p className="text-xl md:text-2xl text-gray-300 font-semibold mb-6" style={{ fontFamily: 'var(--font-arabic)' }}>
-                        احصل على اشتراك IPTV لمتابعة الفلم
-                      </p>
+                <div className="max-w-4xl mx-auto text-center">
+                  {/* Makaan TU Logo */}
+                  <div className="mb-12">
+                    {/* Arabic Text */}
+                    <h1 className="text-5xl md:text-7xl font-bold text-white mb-4" style={{ fontFamily: 'var(--font-arabic)' }}>
+                      مَكَان
+                    </h1>
+                    
+                    {/* Latin Text with Glitch Effect on TU */}
+                    <div className="relative inline-block mb-3">
+                      <span className="text-2xl md:text-3xl font-bold text-white tracking-wider">
+                        MAKAAN{' '}
+                        <span 
+                          className="relative inline-block"
+                          style={{
+                            textShadow: `
+                              -2px 0 0 cyan,
+                              2px 0 0 magenta,
+                              0 -2px 0 cyan,
+                              0 2px 0 magenta
+                            `,
+                          }}
+                        >
+                          <span className="relative z-10 text-white">TU</span>
+                        </span>
+                      </span>
                     </div>
                     
-                    <Button
-                      size="lg"
-                      className="bg-white text-black hover:bg-gray-100 font-bold text-xl px-12 py-6 h-auto rounded-full shadow-xl hover:scale-105 transition-transform duration-200"
-                      style={{ fontFamily: 'var(--font-arabic)' }}
-                    >
-                      <Film className="w-6 h-6 ml-2" />
-                      زور متجرنا
-                    </Button>
+                    {/* Star Icon */}
+                    <div className="flex justify-center">
+                      <svg width="16" height="16" viewBox="0 0 16 16" fill="white" className="mt-2">
+                        <path d="M8 0 L9.5 5.5 L15 7 L9.5 8.5 L8 14 L6.5 8.5 L1 7 L6.5 5.5 Z" />
+                      </svg>
+                    </div>
                   </div>
                   
-                  {/* Bottom film strip decoration */}
-                  <div className="absolute bottom-0 left-0 right-0 h-4 bg-gray-800/50 flex gap-2 px-2">
-                    {[...Array(30)].map((_, i) => (
-                      <div key={i} className="w-2 h-full bg-white/30" />
-                    ))}
+                  {/* Title Text */}
+                  <h2 className="text-3xl md:text-5xl font-bold text-white mb-8" style={{ fontFamily: 'var(--font-arabic)' }}>
+                    ما معك اشتراك تتابع الفلم ؟
+                  </h2>
+                  
+                  {/* CTA Button */}
+                  <div className="flex justify-center">
+                    <Link href="https://your-store-url.com" target="_blank" rel="noopener noreferrer">
+                      <Button
+                        size="lg"
+                        className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xl md:text-2xl px-12 py-6 md:px-16 md:py-8 h-auto rounded-xl shadow-2xl hover:scale-105 transition-all duration-200 flex items-center gap-3"
+                        style={{ fontFamily: 'var(--font-arabic)' }}
+                      >
+                        <ShoppingCart className="w-6 h-6 md:w-7 md:h-7" />
+                        شيك متجرنا
+                      </Button>
+                    </Link>
                   </div>
                 </div>
               </div>
@@ -352,6 +357,172 @@ function SuggestionsPageContent() {
           )}
         </div>
       </div>
+
+      {/* Details Section */}
+      <section className="py-20 bg-gradient-to-b from-black via-slate-900 to-black">
+        <div className="container mx-auto px-4">
+          {/* Statistics Section */}
+          <div className="grid md:grid-cols-2 gap-8 mb-16 max-w-4xl mx-auto">
+            {/* Movies Library */}
+            <div className="bg-gradient-to-br from-blue-600/20 to-purple-600/20 border border-blue-500/30 rounded-2xl p-8 text-center hover:border-blue-500/50 transition-all duration-300 hover:scale-105">
+              <div className="flex justify-center mb-4">
+                <div className="w-16 h-16 bg-blue-600/30 rounded-full flex items-center justify-center">
+                  <Film className="w-8 h-8 text-blue-400" />
+                </div>
+              </div>
+              <div className="text-5xl md:text-6xl font-bold text-white mb-2" style={{ fontFamily: 'var(--font-arabic)' }}>
+                9000+
+              </div>
+              <p className="text-xl md:text-2xl text-slate-300" style={{ fontFamily: 'var(--font-arabic)' }}>
+                مكتبة أفلام فوق ال 9000 فلم
+              </p>
+            </div>
+
+            {/* Series Library */}
+            <div className="bg-gradient-to-br from-purple-600/20 to-pink-600/20 border border-purple-500/30 rounded-2xl p-8 text-center hover:border-purple-500/50 transition-all duration-300 hover:scale-105">
+              <div className="flex justify-center mb-4">
+                <div className="w-16 h-16 bg-purple-600/30 rounded-full flex items-center justify-center">
+                  <Tv className="w-8 h-8 text-purple-400" />
+                </div>
+              </div>
+              <div className="text-5xl md:text-6xl font-bold text-white mb-2" style={{ fontFamily: 'var(--font-arabic)' }}>
+                5000+
+              </div>
+              <p className="text-xl md:text-2xl text-slate-300" style={{ fontFamily: 'var(--font-arabic)' }}>
+                مكتبة مسلسلات فوق ال5000 مسلسل
+              </p>
+            </div>
+          </div>
+
+          {/* Platforms Section */}
+          <div className="mb-16">
+            <h2 className="text-3xl md:text-4xl font-bold text-white text-center mb-8" style={{ fontFamily: 'var(--font-arabic)' }}>
+              جميع المنصات
+            </h2>
+            <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6 max-w-5xl mx-auto">
+              {/* Netflix */}
+              <div className="flex flex-col items-center justify-center p-4 bg-slate-800/50 rounded-xl hover:bg-slate-700/50 transition-all duration-300 hover:scale-110">
+                <img src="/logos/netflix.svg" alt="Netflix" className="h-12 w-auto mb-2 opacity-90 hover:opacity-100 transition-opacity" />
+              </div>
+              
+              {/* Shahid */}
+              <div className="flex flex-col items-center justify-center p-4 bg-slate-800/50 rounded-xl hover:bg-slate-700/50 transition-all duration-300 hover:scale-110">
+                <img src="/logos/shahid.svg" alt="Shahid" className="h-12 w-auto mb-2 opacity-90 hover:opacity-100 transition-opacity" />
+              </div>
+              
+              {/* IPTV */}
+              <div className="flex flex-col items-center justify-center p-4 bg-slate-800/50 rounded-xl hover:bg-slate-700/50 transition-all duration-300 hover:scale-110">
+                <img src="/logos/iptv.png" alt="IPTV" className="h-12 w-auto mb-2 opacity-90 hover:opacity-100 transition-opacity" />
+              </div>
+              
+              {/* Amazon Prime */}
+              <div className="flex flex-col items-center justify-center p-4 bg-slate-800/50 rounded-xl hover:bg-slate-700/50 transition-all duration-300 hover:scale-110">
+                <img src="/logos/amazon-prime.svg" alt="Amazon Prime" className="h-12 w-auto mb-2 opacity-90 hover:opacity-100 transition-opacity" />
+              </div>
+              
+              {/* Disney+ */}
+              <div className="flex flex-col items-center justify-center p-4 bg-slate-800/50 rounded-xl hover:bg-slate-700/50 transition-all duration-300 hover:scale-110">
+                <img src="/logos/disney-plus.svg" alt="Disney+" className="h-12 w-auto mb-2 opacity-90 hover:opacity-100 transition-opacity" />
+              </div>
+              
+              {/* HBO Max */}
+              <div className="flex flex-col items-center justify-center p-4 bg-slate-800/50 rounded-xl hover:bg-slate-700/50 transition-all duration-300 hover:scale-110">
+                <img src="/logos/hbo-max.svg" alt="HBO Max" className="h-12 w-auto mb-2 opacity-90 hover:opacity-100 transition-opacity" />
+              </div>
+              
+              {/* Hulu */}
+              <div className="flex flex-col items-center justify-center p-4 bg-slate-800/50 rounded-xl hover:bg-slate-700/50 transition-all duration-300 hover:scale-110">
+                <img src="/logos/hulu.svg" alt="Hulu" className="h-12 w-auto mb-2 opacity-90 hover:opacity-100 transition-opacity" />
+              </div>
+              
+              {/* Apple TV+ */}
+              <div className="flex flex-col items-center justify-center p-4 bg-slate-800/50 rounded-xl hover:bg-slate-700/50 transition-all duration-300 hover:scale-110">
+                <img src="/logos/apple-tv.svg" alt="Apple TV+" className="h-12 w-auto mb-2 opacity-90 hover:opacity-100 transition-opacity" />
+              </div>
+            </div>
+          </div>
+
+          {/* Devices Section */}
+          <div>
+            <h2 className="text-3xl md:text-4xl font-bold text-white text-center mb-8" style={{ fontFamily: 'var(--font-arabic)' }}>
+              يضبط على جميع الاجهزة
+            </h2>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6 max-w-6xl mx-auto">
+              {/* Smart TV */}
+              <div className="flex flex-col items-center justify-center p-6 bg-slate-800/50 rounded-xl hover:bg-slate-700/50 transition-all duration-300 hover:scale-105 border border-slate-700/50 hover:border-blue-500/50">
+                <Tv className="w-10 h-10 text-blue-400 mb-3" />
+                <span className="text-white text-sm font-semibold text-center" style={{ fontFamily: 'var(--font-arabic)' }}>
+                  Smart TV
+                </span>
+              </div>
+
+              {/* iPhone / iOS */}
+              <div className="flex flex-col items-center justify-center p-6 bg-slate-800/50 rounded-xl hover:bg-slate-700/50 transition-all duration-300 hover:scale-105 border border-slate-700/50 hover:border-blue-500/50">
+                <Smartphone className="w-10 h-10 text-blue-400 mb-3" />
+                <span className="text-white text-sm font-semibold text-center" style={{ fontFamily: 'var(--font-arabic)' }}>
+                  iPhone / iOS
+                </span>
+              </div>
+
+              {/* Android Phone */}
+              <div className="flex flex-col items-center justify-center p-6 bg-slate-800/50 rounded-xl hover:bg-slate-700/50 transition-all duration-300 hover:scale-105 border border-slate-700/50 hover:border-blue-500/50">
+                <Smartphone className="w-10 h-10 text-green-400 mb-3" />
+                <span className="text-white text-sm font-semibold text-center" style={{ fontFamily: 'var(--font-arabic)' }}>
+                  Android
+                </span>
+              </div>
+
+              {/* Windows PC */}
+              <div className="flex flex-col items-center justify-center p-6 bg-slate-800/50 rounded-xl hover:bg-slate-700/50 transition-all duration-300 hover:scale-105 border border-slate-700/50 hover:border-blue-500/50">
+                <Monitor className="w-10 h-10 text-blue-400 mb-3" />
+                <span className="text-white text-sm font-semibold text-center" style={{ fontFamily: 'var(--font-arabic)' }}>
+                  Windows PC
+                </span>
+              </div>
+
+              {/* Mac */}
+              <div className="flex flex-col items-center justify-center p-6 bg-slate-800/50 rounded-xl hover:bg-slate-700/50 transition-all duration-300 hover:scale-105 border border-slate-700/50 hover:border-blue-500/50">
+                <Laptop className="w-10 h-10 text-blue-400 mb-3" />
+                <span className="text-white text-sm font-semibold text-center" style={{ fontFamily: 'var(--font-arabic)' }}>
+                  Mac
+                </span>
+              </div>
+
+              {/* Fire TV Stick */}
+              <div className="flex flex-col items-center justify-center p-6 bg-slate-800/50 rounded-xl hover:bg-slate-700/50 transition-all duration-300 hover:scale-105 border border-slate-700/50 hover:border-blue-500/50">
+                <Tv className="w-10 h-10 text-orange-400 mb-3" />
+                <span className="text-white text-sm font-semibold text-center" style={{ fontFamily: 'var(--font-arabic)' }}>
+                  Fire TV Stick
+                </span>
+              </div>
+
+              {/* Apple TV */}
+              <div className="flex flex-col items-center justify-center p-6 bg-slate-800/50 rounded-xl hover:bg-slate-700/50 transition-all duration-300 hover:scale-105 border border-slate-700/50 hover:border-blue-500/50">
+                <Tv className="w-10 h-10 text-blue-400 mb-3" />
+                <span className="text-white text-sm font-semibold text-center" style={{ fontFamily: 'var(--font-arabic)' }}>
+                  Apple TV
+                </span>
+              </div>
+
+              {/* Samsung TV */}
+              <div className="flex flex-col items-center justify-center p-6 bg-slate-800/50 rounded-xl hover:bg-slate-700/50 transition-all duration-300 hover:scale-105 border border-slate-700/50 hover:border-blue-500/50">
+                <Tv className="w-10 h-10 text-blue-400 mb-3" />
+                <span className="text-white text-sm font-semibold text-center" style={{ fontFamily: 'var(--font-arabic)' }}>
+                  Samsung TV
+                </span>
+              </div>
+
+              {/* LG TV */}
+              <div className="flex flex-col items-center justify-center p-6 bg-slate-800/50 rounded-xl hover:bg-slate-700/50 transition-all duration-300 hover:scale-105 border border-slate-700/50 hover:border-blue-500/50">
+                <Tv className="w-10 h-10 text-red-400 mb-3" />
+                <span className="text-white text-sm font-semibold text-center" style={{ fontFamily: 'var(--font-arabic)' }}>
+                  LG TV
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
 
       {/* Movie Modal */}
       <MovieModal
