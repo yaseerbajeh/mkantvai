@@ -46,6 +46,7 @@ export default function MovieCard({ movie, onWatchlistChange, onCardClick }: Mov
   const [isLoading, setIsLoading] = useState(false);
   const [user, setUser] = useState<any>(null);
   const [showAuthDialog, setShowAuthDialog] = useState(false);
+  const [providers, setProviders] = useState<string[]>([]);
 
   // Split genre string into array (if it contains commas or other separators)
   const genresRaw = movie.genre ? movie.genre.split(/[,|/]/).map(g => g.trim()).filter(Boolean) : [];
@@ -67,34 +68,61 @@ export default function MovieCard({ movie, onWatchlistChange, onCardClick }: Mov
     return () => subscription.unsubscribe();
   }, []);
 
-  // Check if movie is in user's watchlist
+  // Check if movie is in user's watchlist (TMDB-first)
   useEffect(() => {
     if (user) {
       checkWatchlistStatus();
     }
-  }, [user, movie.id]);
+  }, [user, (movie as any)?.tmdb_id, movie.id]);
 
   const checkWatchlistStatus = async () => {
     if (!user) return;
     
     try {
-      const { data, error } = await supabase
-        .from('watchlist')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('content_id', movie.id)
-        .single();
-
-      if (error && error.code !== 'PGRST116') {
-        // PGRST116 is "no rows returned" which is expected if not in watchlist
-        console.error('Error checking watchlist:', error);
+      const tmdbId = (movie as any)?.tmdb_id;
+      if (tmdbId) {
+        const { data, error } = await supabase
+          .from('watchlist_tmdb')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('tmdb_id', tmdbId)
+          .single();
+        if (error && error.code !== 'PGRST116') {
+          console.error('Error checking tmdb watchlist:', error);
+        }
+        setIsInWatchlist(!!data);
+      } else {
+        const { data, error } = await supabase
+          .from('watchlist')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('content_id', movie.id)
+          .single();
+        if (error && error.code !== 'PGRST116') {
+          console.error('Error checking watchlist:', error);
+        }
+        setIsInWatchlist(!!data);
       }
-
-      setIsInWatchlist(!!data);
     } catch (error) {
       console.error('Error checking watchlist:', error);
     }
   };
+
+  // Fetch TMDB providers for card if tmdb_id exists (lightweight: show first 2 badges)
+  useEffect(() => {
+    const tmdbId = (movie as any)?.tmdb_id;
+    const type = (movie as any)?.type === 'series' ? 'tv' : 'movie';
+    if (!tmdbId) return;
+    (async () => {
+      try {
+        const resp = await fetch(`/api/tmdb/providers?id=${tmdbId}&type=${type}&region=SA`);
+        if (resp.ok) {
+          const data = await resp.json();
+          setProviders((data.providers || []).slice(0, 2));
+        }
+      } catch {}
+    })();
+  }, [(movie as any)?.tmdb_id, (movie as any)?.type]);
 
   const handleWatchlistToggle = async (e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent card click
@@ -133,9 +161,11 @@ export default function MovieCard({ movie, onWatchlistChange, onCardClick }: Mov
       
       console.log('[MovieCard] Sending request with auth header');
 
+      const tmdbId = (movie as any)?.tmdb_id;
       if (isInWatchlist) {
         // Remove from watchlist
-        const response = await fetch(`/api/watchlist?content_id=${movie.id}`, {
+        const endpoint = tmdbId ? `/api/watchlist-tmdb?tmdb_id=${tmdbId}` : `/api/watchlist?content_id=${movie.id}`;
+        const response = await fetch(endpoint, {
           method: 'DELETE',
           headers,
         });
@@ -157,10 +187,11 @@ export default function MovieCard({ movie, onWatchlistChange, onCardClick }: Mov
         }
       } else {
         // Add to watchlist
-        const response = await fetch('/api/watchlist', {
+        const tmdbId = (movie as any)?.tmdb_id;
+        const response = await fetch(tmdbId ? '/api/watchlist-tmdb' : '/api/watchlist', {
           method: 'POST',
           headers,
-          body: JSON.stringify({ content_id: movie.id }),
+          body: JSON.stringify(tmdbId ? { tmdb_id: tmdbId } : { content_id: movie.id }),
         });
 
         if (response.ok) {
@@ -191,43 +222,7 @@ export default function MovieCard({ movie, onWatchlistChange, onCardClick }: Mov
     }
   };
   
-  // Get additional platform logos (excluding IPTV since it's always shown)
-  const getAdditionalPlatformLogos = () => {
-    if (!movie.platform) return [];
-    
-    const platformLower = movie.platform.toLowerCase();
-    const logos = [];
-    
-    if (platformLower.includes('netflix')) {
-      logos.push({ url: '/logos/netflix.svg', name: 'Netflix' });
-    }
-    if (platformLower.includes('shahid')) {
-      logos.push({ url: '/logos/shahid.svg', name: 'Shahid' });
-    }
-    if (platformLower.includes('amazon') || platformLower.includes('prime')) {
-      logos.push({ url: '/logos/amazon-prime.svg', name: 'Amazon Prime' });
-    }
-    if (platformLower.includes('disney')) {
-      logos.push({ url: '/logos/disney-plus.svg', name: 'Disney+' });
-    }
-    if (platformLower.includes('hbo')) {
-      logos.push({ url: '/logos/hbo-max.svg', name: 'HBO Max' });
-    }
-    if (platformLower.includes('apple')) {
-      logos.push({ url: '/logos/apple-tv.svg', name: 'Apple TV+' });
-    }
-    if (platformLower.includes('hulu')) {
-      logos.push({ url: '/logos/hulu.svg', name: 'Hulu' });
-    }
-    
-    return logos;
-  };
-
-  // Always show IPTV logo, plus any additional platforms found
-  const platformLogos = [
-    { url: '/logos/iptv.png', name: 'IPTV' },
-    ...getAdditionalPlatformLogos()
-  ];
+  // Platform logos removed per new TMDB provider approach
   
   return (
     <>
@@ -248,25 +243,12 @@ export default function MovieCard({ movie, onWatchlistChange, onCardClick }: Mov
           </div>
         )}
         
-        {/* Platform Logos Stacked Vertically in Upper Left (RTL) */}
-        {platformLogos.length > 0 && (
-          <div className="absolute top-2 left-2 flex flex-col gap-2">
-            {platformLogos.map((logo, index) => {
-              const isIPTV = logo.name === 'IPTV';
-              return (
-                <div 
-                  key={index}
-                  className={`${isIPTV ? '' : 'bg-black/70 backdrop-blur-sm'} rounded ${isIPTV ? 'p-0' : 'p-1.5'} shadow-lg`}
-                >
-                  <img
-                    src={logo.url}
-                    alt={logo.name}
-                    className={`${isIPTV ? 'h-12 w-12 object-cover' : 'h-4 w-auto'}`}
-                    title={logo.name}
-                  />
-                </div>
-              );
-            })}
+        {/* Provider badges from TMDB */}
+        {providers.length > 0 && (
+          <div className="absolute top-2 left-2 flex flex-col gap-1">
+            {providers.map((p, i) => (
+              <span key={i} className="bg-black/70 text-white text-[10px] px-2 py-0.5 rounded-full border border-white/10">{p}</span>
+            ))}
           </div>
         )}
 

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Calendar, Clock, Star, Heart, Bookmark } from 'lucide-react';
+import { X, Calendar, Clock, Star, Heart, Bookmark, Users } from 'lucide-react';
 import { type Movie } from '@/lib/supabase';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -35,6 +35,8 @@ export default function MovieModal({ movie, isOpen, onClose, isWatchlistPage = f
   const [user, setUser] = useState<any>(null);
   const [isInWatchlist, setIsInWatchlist] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [credits, setCredits] = useState<{ cast: any[]; crew: any[] } | null>(null);
+  const [providers, setProviders] = useState<string[]>([]);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -54,21 +56,49 @@ export default function MovieModal({ movie, isOpen, onClose, isWatchlistPage = f
     }
   }, [user, movie]);
 
+  useEffect(() => {
+    // Fetch credits and watch providers via server API if tmdb_id is present
+    const tmdbId = (movie as any)?.tmdb_id;
+    const type = (movie as any)?.type === 'series' ? 'tv' : 'movie';
+    if (!tmdbId) return;
+    (async () => {
+      try {
+        const credResp = await fetch(`/api/tmdb/credits?id=${tmdbId}&type=${type}&lang=ar`);
+        if (credResp.ok) {
+          const c = await credResp.json();
+          setCredits({ cast: c.cast || [], crew: c.crew || [] });
+        }
+        const provResp = await fetch(`/api/tmdb/providers?id=${tmdbId}&type=${type}&region=SA`);
+        if (provResp.ok) {
+          const p = await provResp.json();
+          setProviders(p.providers || []);
+        }
+      } catch {}
+    })();
+  }, [movie]);
+
   const checkWatchlistStatus = async () => {
     if (!user || !movie) return;
-    
     try {
-      const { data } = await supabase
-        .from('watchlist')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('content_id', movie.id)
-        .single();
-
-      setIsInWatchlist(!!data);
-    } catch (error) {
-      // Ignore error
-    }
+      const tmdbId = (movie as any)?.tmdb_id;
+      if (tmdbId) {
+        const { data } = await supabase
+          .from('watchlist_tmdb')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('tmdb_id', tmdbId)
+          .single();
+        setIsInWatchlist(!!data);
+      } else {
+        const { data } = await supabase
+          .from('watchlist')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('content_id', (movie as any)?.id)
+          .single();
+        setIsInWatchlist(!!data);
+      }
+    } catch {}
   };
 
   const handleWatchlistToggle = async () => {
@@ -104,8 +134,10 @@ export default function MovieModal({ movie, isOpen, onClose, isWatchlistPage = f
         'Authorization': `Bearer ${authToken}`,
       };
 
+      const tmdbId = (movie as any)?.tmdb_id;
       if (isInWatchlist) {
-        const response = await fetch(`/api/watchlist?content_id=${movie.id}`, {
+        const endpoint = tmdbId ? `/api/watchlist-tmdb?tmdb_id=${tmdbId}` : `/api/watchlist?content_id=${(movie as any)?.id}`;
+        const response = await fetch(endpoint, {
           method: 'DELETE',
           headers,
         });
@@ -133,10 +165,10 @@ export default function MovieModal({ movie, isOpen, onClose, isWatchlistPage = f
           });
         }
       } else {
-        const response = await fetch('/api/watchlist', {
+        const response = await fetch(tmdbId ? '/api/watchlist-tmdb' : '/api/watchlist', {
           method: 'POST',
           headers,
-          body: JSON.stringify({ content_id: movie.id }),
+          body: JSON.stringify(tmdbId ? { tmdb_id: tmdbId } : { content_id: (movie as any)?.id }),
         });
 
         if (response.ok) {
@@ -172,28 +204,7 @@ export default function MovieModal({ movie, isOpen, onClose, isWatchlistPage = f
 
   if (!isOpen || !movie) return null;
 
-  // Get platform logos
-  const getAdditionalPlatformLogos = () => {
-    if (!movie.platform) return [];
-    
-    const platformLower = movie.platform.toLowerCase();
-    const logos = [];
-    
-    if (platformLower.includes('netflix')) logos.push({ url: '/logos/netflix.svg', name: 'Netflix' });
-    if (platformLower.includes('shahid')) logos.push({ url: '/logos/shahid.svg', name: 'Shahid' });
-    if (platformLower.includes('amazon') || platformLower.includes('prime')) logos.push({ url: '/logos/amazon-prime.svg', name: 'Amazon Prime' });
-    if (platformLower.includes('disney')) logos.push({ url: '/logos/disney-plus.svg', name: 'Disney+' });
-    if (platformLower.includes('hbo')) logos.push({ url: '/logos/hbo-max.svg', name: 'HBO Max' });
-    if (platformLower.includes('apple')) logos.push({ url: '/logos/apple-tv.svg', name: 'Apple TV+' });
-    if (platformLower.includes('hulu')) logos.push({ url: '/logos/hulu.svg', name: 'Hulu' });
-    
-    return logos;
-  };
-
-  const platformLogos = [
-    { url: '/logos/iptv.png', name: 'IPTV' },
-    ...getAdditionalPlatformLogos()
-  ];
+  // Platform logos removed; providers will be shown as badges in details
 
   const genresRaw = movie.genre ? movie.genre.split(/[,|/]/).map(g => g.trim()).filter(Boolean) : [];
   const genres = genresRaw.map(g => GENRE_MAP_EN_TO_AR[g] || g);
@@ -220,19 +231,7 @@ export default function MovieModal({ movie, isOpen, onClose, isWatchlistPage = f
               </div>
             )}
             
-            {/* Platform Logos */}
-            {platformLogos.length > 0 && (
-              <div className="absolute top-4 left-4 flex flex-col gap-2">
-                {platformLogos.map((logo, idx) => {
-                  const isIPTV = logo.name === 'IPTV';
-                  return (
-                    <div key={idx} className={`${isIPTV ? '' : 'bg-black/70 backdrop-blur-sm'} rounded ${isIPTV ? 'p-0' : 'p-2'} shadow-lg`}>
-                      <img src={logo.url} alt={logo.name} className={`${isIPTV ? 'h-12 w-12 object-cover' : 'h-6 w-auto'}`} title={logo.name} />
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+            {/* Providers overlay intentionally omitted */}
 
             {/* Note Badge */}
             {movie.note && (
@@ -286,6 +285,30 @@ export default function MovieModal({ movie, isOpen, onClose, isWatchlistPage = f
                 {movie.synopsis || 'لا يوجد وصف متاح'}
               </p>
             </div>
+
+            {/* Watch Providers */}
+            {providers.length > 0 && (
+              <div>
+                <h3 className="text-xl font-bold mb-3">أماكن المشاهدة</h3>
+                <div className="flex flex-wrap gap-2">
+                  {providers.map((p, i) => (
+                    <Badge key={i} className="bg-slate-700 text-slate-200">{p}</Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Top Cast */}
+            {credits?.cast?.length ? (
+              <div>
+                <h3 className="text-xl font-bold mb-3 flex items-center gap-2"><Users className="w-5 h-5" /> أبرز الممثلين</h3>
+                <div className="flex flex-wrap gap-2 text-slate-300">
+                  {credits.cast.slice(0, 8).map((c: any) => (
+                    <span key={c.cast_id || c.credit_id} className="px-2 py-1 bg-slate-800 rounded-full text-sm">{c.name}</span>
+                  ))}
+                </div>
+              </div>
+            ) : null}
 
             {/* Action Buttons */}
             <div className="flex gap-3 pt-4">

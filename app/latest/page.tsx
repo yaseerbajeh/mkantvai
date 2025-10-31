@@ -18,32 +18,61 @@ export default function LatestPage() {
   const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   
-  const type = searchParams.get('type') || 'all';
-  const newMonth = searchParams.get('new') || 'oct';
+  const type = searchParams.get('type') || 'movie';
 
   useEffect(() => {
     const fetchMovies = async () => {
       setLoading(true);
       try {
-        const params = new URLSearchParams();
-        if (type !== 'all') params.set('type', type);
-        params.set('new', newMonth);
-        params.set('limit', '50'); // Show more results
-
-        const response = await fetch(`/api/movies?${params.toString()}`);
-        const data = await response.json();
-        
-        setMovies(data.movies || []);
-        setTotal(data.total || 0);
+        let resp;
+        if (type === 'series') {
+          // For series: use discover with provider filters (Netflix, HBO Max, Amazon Prime, Apple TV+)
+          // TMDB Provider IDs: Netflix=8, HBO Max=384, Amazon Prime=9, Apple TV+=350
+          const today = new Date();
+          const pastYear = new Date();
+          pastYear.setFullYear(today.getFullYear() - 1);
+          const yearMin = pastYear.getFullYear();
+          const yearMax = today.getFullYear();
+          resp = await fetch(`/api/tmdb/discover?type=tv&with_watch_providers=8,384,9,350&watch_region=SA&yearMin=${yearMin}&yearMax=${yearMax}&sort_by=first_air_date.desc&limit=50`);
+        } else {
+          // For movies: use now-playing
+          resp = await fetch(`/api/tmdb/now-playing?type=movie&lang=ar`);
+        }
+        const data = await resp.json();
+        if (data.error) {
+          console.error('Error fetching:', data.error);
+          setMovies([]);
+          setTotal(0);
+        } else {
+          const mapped = (data.items || []).map((m: any) => ({
+            id: String(m.tmdb_id),
+            tmdb_id: m.tmdb_id,
+            type: type === 'series' ? 'series' : 'movie',
+            title: m.title,
+            synopsis: m.overview,
+            year: m.year,
+            genre: null,
+            platform: null,
+            rating: String(m.rating ?? ''),
+            duration: null,
+            url: m.poster_url,
+            new: null,
+            note: null,
+          })) as unknown as Movie[];
+          setMovies(mapped);
+          setTotal(mapped.length);
+        }
       } catch (error) {
         console.error('Error fetching movies:', error);
+        setMovies([]);
+        setTotal(0);
       } finally {
         setLoading(false);
       }
     };
 
     fetchMovies();
-  }, [type, newMonth]);
+  }, [type]);
 
   const handleCardClick = (movie: Movie) => {
     setSelectedMovie(movie);
@@ -57,10 +86,9 @@ export default function LatestPage() {
   };
 
   const getSubtitle = () => {
-    const monthName = newMonth === 'oct' ? 'أكتوبر' : newMonth;
-    if (type === 'movie') return `أفلام ${monthName} الجديدة`;
-    if (type === 'series') return `مسلسلات ${monthName} الجديدة`;
-    return `محتوى ${monthName} الجديد`;
+    if (type === 'movie') return `أفلام معروضة الآن`;
+    if (type === 'series') return `مسلسلات نتفلكس، HBO Max، أمازون برايم، و Apple TV+`;
+    return '';
   };
 
   return (
