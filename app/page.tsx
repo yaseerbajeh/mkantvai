@@ -4,7 +4,8 @@ import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Clapperboard, Target, Sparkles, ChevronLeft, ChevronRight, Film, ArrowLeft } from 'lucide-react';
+import { Clapperboard, Target, Sparkles, ChevronLeft, ChevronRight, Film, ArrowLeft, ShoppingCart, Tv, Smartphone, Monitor, Laptop, CheckCircle2, Shield, Zap } from 'lucide-react';
+import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import MovieCard from '@/components/MovieCard';
@@ -253,7 +254,7 @@ export default function Home() {
       <section className="py-14 bg-black/40">
         <div className="container mx-auto px-4">
           <div className="mb-6">
-            <h2 className="text-3xl md:text-4xl font-bold">الأكثر رواجاً هذا الأسبوع</h2>
+            <h2 className="text-3xl md:text-4xl font-bold">الأكثر رواجاً في المنصات</h2>
             <p className="text-slate-400">أفضل 10 أفلام رائجة حالياً</p>
           </div>
 
@@ -310,7 +311,7 @@ export default function Home() {
           <div className="flex items-center justify-between mb-8">
             <div>
               <h2 className="text-3xl md:text-4xl font-bold mb-2">أحدث الأفلام</h2>
-              <p className="text-slate-400">أفلام أكتوبر الجديدة</p>
+              <p className="text-slate-400">أفلام تو نازلة</p>
             </div>
             <Link href="/latest?type=movie&new=oct">
               <Button variant="outline" className="border-blue-600 text-blue-400 hover:bg-blue-600 hover:text-white">
@@ -379,7 +380,7 @@ export default function Home() {
         <div className="container mx-auto px-4">
           <div className="mb-8">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-3xl md:text-4xl font-bold">أفضل 10 تقييمات</h2>
+              <h2 className="text-3xl md:text-4xl font-bold"> أفضل الأفلام والمسلسلات تقييما </h2>
               
               {/* Show More Button */}
               <Button
@@ -464,68 +465,365 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Subscription CTA Banner */}
-      <section className="py-16 bg-black/50">
+      {/* Makaan TU Logo and CTA Section */}
+      <section className="py-16 bg-black">
         <div className="container mx-auto px-4">
-          <div className="max-w-6xl mx-auto relative">
-            {/* Film strip decorative elements */}
-            <div className="absolute inset-0 opacity-10 pointer-events-none">
-              <div className="flex gap-2 overflow-hidden h-full justify-center">
-                {[...Array(20)].map((_, i) => (
-                  <div key={i} className="flex flex-col gap-2">
-                    <div className="w-12 h-12 bg-white rounded" />
-                    <div className="w-12 h-8 bg-white rounded" />
-                  </div>
-                ))}
+          <div className="max-w-4xl mx-auto text-center">
+            {/* Makaan TU Logo */}
+            <div className="mb-12">
+              {/* Arabic Text */}
+              <h1 className="text-5xl md:text-7xl font-bold text-white mb-4" style={{ fontFamily: 'var(--font-arabic)' }}>
+                مَكَان
+              </h1>
+              
+              {/* Latin Text with Glitch Effect on TU */}
+              <div className="relative inline-block mb-3">
+                <span className="text-2xl md:text-3xl font-bold text-white tracking-wider">
+                  MAKAAN{' '}
+                  <span 
+                    className="relative inline-block"
+                    style={{
+                      textShadow: `
+                        -2px 0 0 cyan,
+                        2px 0 0 magenta,
+                        0 -2px 0 cyan,
+                        0 2px 0 magenta
+                      `,
+                    }}
+                  >
+                    <span className="relative z-10 text-white">TU</span>
+                  </span>
+                </span>
+              </div>
+              
+              {/* Star Icon */}
+              <div className="flex justify-center">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="white" className="mt-2">
+                  <path d="M8 0 L9.5 5.5 L15 7 L9.5 8.5 L8 14 L6.5 8.5 L1 7 L6.5 5.5 Z" />
+                </svg>
               </div>
             </div>
             
-            {/* Main banner content */}
-            <div className="relative bg-gradient-to-br from-slate-900 via-black to-slate-900 rounded-3xl p-10 md:p-16 shadow-2xl border-4 border-slate-700/50 overflow-hidden">
-              {/* Top film strip decoration */}
-              <div className="absolute top-0 left-0 right-0 h-4 bg-gray-800/30 flex gap-2 px-2">
-                {[...Array(30)].map((_, i) => (
-                  <div key={i} className="w-2 h-full bg-white/20" />
-                ))}
-              </div>
-              
-              {/* Animated film icons */}
-              <div className="absolute top-8 left-8 opacity-10">
-                <Film className="w-24 h-24 text-white" />
-              </div>
-              <div className="absolute bottom-8 right-8 opacity-10">
-                <Film className="w-32 h-32 text-white" />
-              </div>
-              
-              {/* Content */}
-              <div className="relative z-10 text-center pt-6">
-                <div className="mb-6">
-                  <Film className="w-20 h-20 text-blue-400 mx-auto mb-6 animate-pulse" />
-                  <h2 className="text-4xl md:text-6xl font-bold text-white mb-4 drop-shadow-lg" style={{ fontFamily: 'var(--font-arabic)' }}>
-                    ما عندك اشتراك تتابع الفلم؟
-                  </h2>
-                  <p className="text-2xl md:text-3xl text-gray-300 font-semibold mb-8" style={{ fontFamily: 'var(--font-arabic)' }}>
-                    احصل على اشتراك IPTV لمتابعة الفلم
-                  </p>
-                </div>
-                
+            {/* Title Text */}
+            <h2 className="text-3xl md:text-5xl font-bold text-white mb-8" style={{ fontFamily: 'var(--font-arabic)' }}>
+              ما معك اشتراك تتابع الفلم ؟
+            </h2>
+            
+            {/* CTA Button */}
+            <div className="flex justify-center">
+              <Link href="https://your-store-url.com" target="_blank" rel="noopener noreferrer">
                 <Button
                   size="lg"
-                  className="bg-white text-black hover:bg-gray-100 font-bold text-2xl px-16 py-8 h-auto rounded-full shadow-2xl hover:scale-105 transition-all duration-200"
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xl md:text-2xl px-12 py-6 md:px-16 md:py-8 h-auto rounded-xl shadow-2xl hover:scale-105 transition-all duration-200 flex items-center gap-3"
                   style={{ fontFamily: 'var(--font-arabic)' }}
                 >
-                  <Film className="w-7 h-7 ml-3" />
-                  زور متجرنا
+                  <ShoppingCart className="w-6 h-6 md:w-7 md:h-7" />
+                  شيك متجرنا
                 </Button>
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Details Section */}
+      <section className="py-20 bg-gradient-to-b from-black via-slate-900 to-black">
+        <div className="container mx-auto px-4">
+          {/* Statistics Section */}
+          <div className="grid md:grid-cols-2 gap-8 mb-16 max-w-4xl mx-auto">
+            {/* Movies Library */}
+            <div className="bg-gradient-to-br from-blue-600/20 to-purple-600/20 border border-blue-500/30 rounded-2xl p-8 text-center hover:border-blue-500/50 transition-all duration-300 hover:scale-105">
+              <div className="flex justify-center mb-4">
+                <div className="w-16 h-16 bg-blue-600/30 rounded-full flex items-center justify-center">
+                  <Film className="w-8 h-8 text-blue-400" />
+                </div>
+              </div>
+              <div className="text-5xl md:text-6xl font-bold text-white mb-2" style={{ fontFamily: 'var(--font-arabic)' }}>
+                9000+
+              </div>
+              <p className="text-xl md:text-2xl text-slate-300" style={{ fontFamily: 'var(--font-arabic)' }}>
+                مكتبة أفلام فوق ال 9000 فلم
+              </p>
+            </div>
+
+            {/* Series Library */}
+            <div className="bg-gradient-to-br from-purple-600/20 to-pink-600/20 border border-purple-500/30 rounded-2xl p-8 text-center hover:border-purple-500/50 transition-all duration-300 hover:scale-105">
+              <div className="flex justify-center mb-4">
+                <div className="w-16 h-16 bg-purple-600/30 rounded-full flex items-center justify-center">
+                  <Tv className="w-8 h-8 text-purple-400" />
+                </div>
+              </div>
+              <div className="text-5xl md:text-6xl font-bold text-white mb-2" style={{ fontFamily: 'var(--font-arabic)' }}>
+                5000+
+              </div>
+              <p className="text-xl md:text-2xl text-slate-300" style={{ fontFamily: 'var(--font-arabic)' }}>
+                مكتبة مسلسلات فوق ال5000 مسلسل
+              </p>
+            </div>
+          </div>
+
+          {/* Platforms Section */}
+          <div className="mb-16">
+            <h2 className="text-3xl md:text-4xl font-bold text-white text-center mb-8" style={{ fontFamily: 'var(--font-arabic)' }}>
+              جميع المنصات
+            </h2>
+            <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6 max-w-5xl mx-auto">
+              {/* Netflix */}
+              <div className="flex flex-col items-center justify-center p-4 bg-slate-800/50 rounded-xl hover:bg-slate-700/50 transition-all duration-300 hover:scale-110">
+                <img src="/logos/netflix.svg" alt="Netflix" className="h-12 w-auto mb-2 opacity-90 hover:opacity-100 transition-opacity" />
               </div>
               
-              {/* Bottom film strip decoration */}
-              <div className="absolute bottom-0 left-0 right-0 h-4 bg-gray-800/30 flex gap-2 px-2">
-                {[...Array(30)].map((_, i) => (
-                  <div key={i} className="w-2 h-full bg-white/20" />
-                ))}
+              {/* Shahid */}
+              <div className="flex flex-col items-center justify-center p-4 bg-slate-800/50 rounded-xl hover:bg-slate-700/50 transition-all duration-300 hover:scale-110">
+                <img src="/logos/shahid.svg" alt="Shahid" className="h-12 w-auto mb-2 opacity-90 hover:opacity-100 transition-opacity" />
+              </div>
+              
+              {/* IPTV */}
+              <div className="flex flex-col items-center justify-center p-4 bg-slate-800/50 rounded-xl hover:bg-slate-700/50 transition-all duration-300 hover:scale-110">
+                <img src="/logos/iptv.png" alt="IPTV" className="h-12 w-auto mb-2 opacity-90 hover:opacity-100 transition-opacity" />
+              </div>
+              
+              {/* Amazon Prime */}
+              <div className="flex flex-col items-center justify-center p-4 bg-slate-800/50 rounded-xl hover:bg-slate-700/50 transition-all duration-300 hover:scale-110">
+                <img src="/logos/amazon-prime.svg" alt="Amazon Prime" className="h-12 w-auto mb-2 opacity-90 hover:opacity-100 transition-opacity" />
+              </div>
+              
+              {/* Disney+ */}
+              <div className="flex flex-col items-center justify-center p-4 bg-slate-800/50 rounded-xl hover:bg-slate-700/50 transition-all duration-300 hover:scale-110">
+                <img src="/logos/disney-plus.svg" alt="Disney+" className="h-12 w-auto mb-2 opacity-90 hover:opacity-100 transition-opacity" />
+              </div>
+              
+              {/* HBO Max */}
+              <div className="flex flex-col items-center justify-center p-4 bg-slate-800/50 rounded-xl hover:bg-slate-700/50 transition-all duration-300 hover:scale-110">
+                <img src="/logos/hbo-max.svg" alt="HBO Max" className="h-12 w-auto mb-2 opacity-90 hover:opacity-100 transition-opacity" />
+              </div>
+              
+              {/* Hulu */}
+              <div className="flex flex-col items-center justify-center p-4 bg-slate-800/50 rounded-xl hover:bg-slate-700/50 transition-all duration-300 hover:scale-110">
+                <img src="/logos/hulu.svg" alt="Hulu" className="h-12 w-auto mb-2 opacity-90 hover:opacity-100 transition-opacity" />
+              </div>
+              
+              {/* Apple TV+ */}
+              <div className="flex flex-col items-center justify-center p-4 bg-slate-800/50 rounded-xl hover:bg-slate-700/50 transition-all duration-300 hover:scale-110">
+                <img src="/logos/apple-tv.svg" alt="Apple TV+" className="h-12 w-auto mb-2 opacity-90 hover:opacity-100 transition-opacity" />
               </div>
             </div>
+          </div>
+
+          {/* Devices Section */}
+          <div>
+            <h2 className="text-3xl md:text-4xl font-bold text-white text-center mb-8" style={{ fontFamily: 'var(--font-arabic)' }}>
+              يضبط على جميع الاجهزة
+            </h2>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6 max-w-6xl mx-auto">
+              {/* Smart TV */}
+              <div className="flex flex-col items-center justify-center p-6 bg-slate-800/50 rounded-xl hover:bg-slate-700/50 transition-all duration-300 hover:scale-105 border border-slate-700/50 hover:border-blue-500/50">
+                <Tv className="w-10 h-10 text-blue-400 mb-3" />
+                <span className="text-white text-sm font-semibold text-center" style={{ fontFamily: 'var(--font-arabic)' }}>
+                  Smart TV
+                </span>
+              </div>
+
+              {/* iPhone / iOS */}
+              <div className="flex flex-col items-center justify-center p-6 bg-slate-800/50 rounded-xl hover:bg-slate-700/50 transition-all duration-300 hover:scale-105 border border-slate-700/50 hover:border-blue-500/50">
+                <Smartphone className="w-10 h-10 text-blue-400 mb-3" />
+                <span className="text-white text-sm font-semibold text-center" style={{ fontFamily: 'var(--font-arabic)' }}>
+                  iPhone / iOS
+                </span>
+              </div>
+
+              {/* Android Phone */}
+              <div className="flex flex-col items-center justify-center p-6 bg-slate-800/50 rounded-xl hover:bg-slate-700/50 transition-all duration-300 hover:scale-105 border border-slate-700/50 hover:border-blue-500/50">
+                <Smartphone className="w-10 h-10 text-green-400 mb-3" />
+                <span className="text-white text-sm font-semibold text-center" style={{ fontFamily: 'var(--font-arabic)' }}>
+                  Android
+                </span>
+              </div>
+
+              {/* Windows PC */}
+              <div className="flex flex-col items-center justify-center p-6 bg-slate-800/50 rounded-xl hover:bg-slate-700/50 transition-all duration-300 hover:scale-105 border border-slate-700/50 hover:border-blue-500/50">
+                <Monitor className="w-10 h-10 text-blue-400 mb-3" />
+                <span className="text-white text-sm font-semibold text-center" style={{ fontFamily: 'var(--font-arabic)' }}>
+                  Windows PC
+                </span>
+              </div>
+
+              {/* Mac */}
+              <div className="flex flex-col items-center justify-center p-6 bg-slate-800/50 rounded-xl hover:bg-slate-700/50 transition-all duration-300 hover:scale-105 border border-slate-700/50 hover:border-blue-500/50">
+                <Laptop className="w-10 h-10 text-blue-400 mb-3" />
+                <span className="text-white text-sm font-semibold text-center" style={{ fontFamily: 'var(--font-arabic)' }}>
+                  Mac
+                </span>
+              </div>
+
+              {/* Fire TV Stick */}
+              <div className="flex flex-col items-center justify-center p-6 bg-slate-800/50 rounded-xl hover:bg-slate-700/50 transition-all duration-300 hover:scale-105 border border-slate-700/50 hover:border-blue-500/50">
+                <Tv className="w-10 h-10 text-orange-400 mb-3" />
+                <span className="text-white text-sm font-semibold text-center" style={{ fontFamily: 'var(--font-arabic)' }}>
+                  Fire TV Stick
+                </span>
+              </div>
+
+              {/* Apple TV */}
+              <div className="flex flex-col items-center justify-center p-6 bg-slate-800/50 rounded-xl hover:bg-slate-700/50 transition-all duration-300 hover:scale-105 border border-slate-700/50 hover:border-blue-500/50">
+                <Tv className="w-10 h-10 text-blue-400 mb-3" />
+                <span className="text-white text-sm font-semibold text-center" style={{ fontFamily: 'var(--font-arabic)' }}>
+                  Apple TV
+                </span>
+              </div>
+
+              {/* Samsung TV */}
+              <div className="flex flex-col items-center justify-center p-6 bg-slate-800/50 rounded-xl hover:bg-slate-700/50 transition-all duration-300 hover:scale-105 border border-slate-700/50 hover:border-blue-500/50">
+                <Tv className="w-10 h-10 text-blue-400 mb-3" />
+                <span className="text-white text-sm font-semibold text-center" style={{ fontFamily: 'var(--font-arabic)' }}>
+                  Samsung TV
+                </span>
+              </div>
+
+              {/* LG TV */}
+              <div className="flex flex-col items-center justify-center p-6 bg-slate-800/50 rounded-xl hover:bg-slate-700/50 transition-all duration-300 hover:scale-105 border border-slate-700/50 hover:border-blue-500/50">
+                <Tv className="w-10 h-10 text-red-400 mb-3" />
+                <span className="text-white text-sm font-semibold text-center" style={{ fontFamily: 'var(--font-arabic)' }}>
+                  LG TV
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Installation Benefits Section */}
+      <section className="py-20 bg-gradient-to-b from-black via-slate-900 to-black relative overflow-hidden">
+        {/* Background decoration */}
+        <div className="absolute inset-0 opacity-10">
+          <div className="absolute top-0 left-0 w-96 h-96 bg-blue-500 rounded-full blur-3xl"></div>
+          <div className="absolute bottom-0 right-0 w-96 h-96 bg-purple-500 rounded-full blur-3xl"></div>
+        </div>
+        
+        <div className="container mx-auto px-4 relative z-10">
+          <div className="max-w-5xl mx-auto">
+            <div className="text-center mb-16">
+              <h2 className="text-4xl md:text-6xl font-bold text-white mb-4 bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent" style={{ fontFamily: 'var(--font-arabic)' }}>
+                طريقة تركيب سهلة وبسيطة
+              </h2>
+              <div className="w-24 h-1 bg-gradient-to-r from-blue-500 to-purple-500 mx-auto rounded-full"></div>
+            </div>
+            
+            {/* Benefits Grid */}
+            <div className="grid md:grid-cols-3 gap-6 mb-12">
+              <div className="group relative bg-gradient-to-br from-blue-600/20 to-blue-800/20 border border-blue-500/30 rounded-2xl p-8 hover:border-blue-400/50 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-blue-500/20">
+                <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 to-transparent rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                <div className="relative z-10">
+                  <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center mb-6 mx-auto shadow-lg shadow-blue-500/30">
+                    <Smartphone className="w-8 h-8 text-white" />
+                  </div>
+                  <p className="text-xl md:text-2xl text-white font-semibold text-center" style={{ fontFamily: 'var(--font-arabic)' }}>
+                    وتقدر تركبه على جميع أجهزتك
+                  </p>
+                </div>
+              </div>
+              
+              <div className="group relative bg-gradient-to-br from-purple-600/20 to-purple-800/20 border border-purple-500/30 rounded-2xl p-8 hover:border-purple-400/50 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-purple-500/20">
+                <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-transparent rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                <div className="relative z-10">
+                  <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center mb-6 mx-auto shadow-lg shadow-purple-500/30">
+                    <Shield className="w-8 h-8 text-white" />
+                  </div>
+                  <p className="text-xl md:text-2xl text-white font-semibold text-center" style={{ fontFamily: 'var(--font-arabic)' }}>
+                    مع ضمان المدة الكاملة
+                  </p>
+                </div>
+              </div>
+              
+              <div className="group relative bg-gradient-to-br from-pink-600/20 to-pink-800/20 border border-pink-500/30 rounded-2xl p-8 hover:border-pink-400/50 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-pink-500/20">
+                <div className="absolute inset-0 bg-gradient-to-br from-pink-500/10 to-transparent rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                <div className="relative z-10">
+                  <div className="w-16 h-16 bg-gradient-to-br from-pink-500 to-pink-600 rounded-xl flex items-center justify-center mb-6 mx-auto shadow-lg shadow-pink-500/30">
+                    <Zap className="w-8 h-8 text-white" />
+                  </div>
+                  <p className="text-xl md:text-2xl text-white font-semibold text-center" style={{ fontFamily: 'var(--font-arabic)' }}>
+                    وتسليم فوري خلال دقائق
+                  </p>
+                </div>
+              </div>
+            </div>
+            
+            {/* CTA Buttons */}
+            <div className="flex flex-col sm:flex-row gap-6 justify-center items-center">
+              <Link href="https://your-store-url.com" target="_blank" rel="noopener noreferrer">
+                <Button
+                  size="lg"
+                  className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-bold text-xl md:text-2xl px-12 py-6 md:px-16 md:py-8 h-auto rounded-xl shadow-2xl hover:scale-105 transition-all duration-200 border border-blue-400/30"
+                  style={{ fontFamily: 'var(--font-arabic)' }}
+                >
+                  اطلب الان
+                </Button>
+              </Link>
+              
+              <Link href="https://your-store-url.com/trial" target="_blank" rel="noopener noreferrer">
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="border-2 border-blue-500/50 text-blue-400 hover:bg-blue-500/20 hover:text-white hover:border-blue-400 font-bold text-xl md:text-2xl px-12 py-6 md:px-16 md:py-8 h-auto rounded-xl shadow-xl hover:scale-105 transition-all duration-200 backdrop-blur-sm"
+                  style={{ fontFamily: 'var(--font-arabic)' }}
+                >
+                  اطلب تجربة مجانية
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Customer Satisfaction Carousel Section */}
+      <section className="py-20 bg-black relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-b from-slate-900/50 to-black"></div>
+        
+        <div className="container mx-auto px-4 relative z-10">
+          <div className="max-w-6xl mx-auto">
+            <div className="text-center mb-12">
+              <h2 className="text-4xl md:text-5xl font-bold text-white mb-4" style={{ fontFamily: 'var(--font-arabic)' }}>
+                رضا العملاء
+              </h2>
+              <p className="text-xl text-slate-400" style={{ fontFamily: 'var(--font-arabic)' }}>
+                شاهد ما يقوله عملاؤنا عن خدماتنا
+              </p>
+            </div>
+            
+            <Carousel
+              opts={{
+                align: "start",
+                loop: true,
+              }}
+              className="w-full"
+            >
+              <CarouselContent className="-ml-2 md:-ml-4">
+                {/* Placeholder for customer images - replace with actual images later */}
+                {[1, 2, 3, 4, 5].map((index) => (
+                  <CarouselItem key={index} className="pl-2 md:pl-4 md:basis-1/2 lg:basis-1/3">
+                    <div className="group relative bg-gradient-to-br from-slate-800/80 to-slate-900/80 border border-slate-700/50 rounded-2xl overflow-hidden hover:border-blue-500/50 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-blue-500/20">
+                      <div className="aspect-[4/3] relative overflow-hidden bg-slate-800">
+                        {/* Placeholder for customer satisfaction image */}
+                        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-slate-700 to-slate-800">
+                          <div className="text-center p-4">
+                            <CheckCircle2 className="w-16 h-16 text-blue-400 mx-auto mb-4 opacity-50" />
+                            <p className="text-slate-500 text-sm" style={{ fontFamily: 'var(--font-arabic)' }}>
+                              صورة رضا العملاء {index}
+                            </p>
+                          </div>
+                        </div>
+                        {/* When images are uploaded, replace the div above with: */}
+                        {/* <img src={`/customer-satisfaction/${index}.jpg`} alt={`Customer Satisfaction ${index}`} className="w-full h-full object-cover" /> */}
+                      </div>
+                    </div>
+                  </CarouselItem>
+                ))}
+              </CarouselContent>
+              
+              {/* Navigation Buttons */}
+              <CarouselPrevious className="left-0 md:-left-12 bg-slate-800/90 hover:bg-slate-700 border-slate-700 text-white hover:text-blue-400 transition-all duration-200 shadow-xl" />
+              <CarouselNext className="right-0 md:-right-12 bg-slate-800/90 hover:bg-slate-700 border-slate-700 text-white hover:text-blue-400 transition-all duration-200 shadow-xl" />
+            </Carousel>
           </div>
         </div>
       </section>
