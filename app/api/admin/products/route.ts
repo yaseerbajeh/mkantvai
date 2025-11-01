@@ -3,7 +3,11 @@ import { createClient } from '@supabase/supabase-js';
 import { rateLimit, adminLimiter } from '@/lib/rateLimiter';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!supabaseServiceKey) {
+  console.error('SUPABASE_SERVICE_ROLE_KEY is not set in environment variables');
+}
 
 // Helper to get admin user from auth token
 async function getAdminUser(request: NextRequest) {
@@ -43,6 +47,14 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    if (!supabaseServiceKey) {
+      console.error('SUPABASE_SERVICE_ROLE_KEY is missing');
+      return NextResponse.json(
+        { error: 'خطأ في إعدادات الخادم: مفاتيح قاعدة البيانات غير متوفرة' },
+        { status: 500 }
+      );
+    }
+
     const adminUser = await getAdminUser(request);
     if (!adminUser) {
       return NextResponse.json(
@@ -73,8 +85,12 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       console.error('Error fetching products:', error);
+      console.error('Error details:', JSON.stringify(error, null, 2));
       return NextResponse.json(
-        { error: error.message || 'فشل في جلب المنتجات' },
+        { 
+          error: error.message || 'فشل في جلب المنتجات',
+          details: process.env.NODE_ENV === 'development' ? error : undefined
+        },
         { status: 500 }
       );
     }
@@ -82,8 +98,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ products: data || [] });
   } catch (error: any) {
     console.error('Unexpected error:', error);
+    console.error('Error stack:', error?.stack);
     return NextResponse.json(
-      { error: 'حدث خطأ غير متوقع' },
+      { 
+        error: 'حدث خطأ غير متوقع',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      },
       { status: 500 }
     );
   }
@@ -98,6 +118,14 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    if (!supabaseServiceKey) {
+      console.error('SUPABASE_SERVICE_ROLE_KEY is missing');
+      return NextResponse.json(
+        { error: 'خطأ في إعدادات الخادم: مفاتيح قاعدة البيانات غير متوفرة' },
+        { status: 500 }
+      );
+    }
+
     const adminUser = await getAdminUser(request);
     if (!adminUser) {
       return NextResponse.json(

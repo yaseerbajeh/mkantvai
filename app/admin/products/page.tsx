@@ -159,15 +159,18 @@ export default function AdminProductsPage() {
 
       const result = await response.json();
       if (!response.ok) {
-        throw new Error(result.error || 'فشل في جلب المنتجات');
+        const errorMessage = result.error || 'فشل في جلب المنتجات';
+        console.error('API Error:', errorMessage, result);
+        throw new Error(errorMessage);
       }
 
       setProducts(result.products || []);
     } catch (error: any) {
       console.error('Fetch products error:', error);
+      console.error('Error details:', error);
       toast({
-        title: 'خطأ',
-        description: error.message || 'حدث خطأ أثناء جلب المنتجات',
+        title: 'خطأ في الاتصال',
+        description: error.message || 'حدث خطأ أثناء جلب المنتجات. تأكد من إعدادات قاعدة البيانات.',
         variant: 'destructive',
       });
     } finally {
