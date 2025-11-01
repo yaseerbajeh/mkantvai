@@ -104,3 +104,41 @@ export async function getCurrentUser() {
   }
 }
 
+/**
+ * Request password reset email
+ */
+export async function resetPassword(email: string): Promise<AuthResult> {
+  try {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/auth/reset-password`,
+    });
+
+    if (error) {
+      return { error: { message: error.message, code: error.status?.toString() || error.name } };
+    }
+
+    return { error: null };
+  } catch (err) {
+    return { error: { message: 'حدث خطأ غير متوقع' } };
+  }
+}
+
+/**
+ * Update password (for password reset or change)
+ */
+export async function updatePassword(newPassword: string): Promise<AuthResult> {
+  try {
+    const { error } = await supabase.auth.updateUser({
+      password: newPassword,
+    });
+
+    if (error) {
+      return { error: { message: error.message, code: error.status?.toString() || error.name } };
+    }
+
+    return { error: null };
+  } catch (err) {
+    return { error: { message: 'حدث خطأ غير متوقع' } };
+  }
+}
+
