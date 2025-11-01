@@ -9,10 +9,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { signIn, signUp } from '@/lib/auth';
+import { signIn, signUp, resetPassword } from '@/lib/auth';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, Mail, Lock, UserPlus, LogIn, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Loader2, Mail, Lock, UserPlus, LogIn, AlertCircle, CheckCircle2, KeyRound } from 'lucide-react';
 
 // Sign in validation schema
 const signInSchema = z.object({
@@ -30,8 +31,14 @@ const signUpSchema = z.object({
   path: ['confirmPassword'],
 });
 
+// Forgot password validation schema
+const forgotPasswordSchema = z.object({
+  email: z.string().email('البريد الإلكتروني غير صالح'),
+});
+
 type SignInFormData = z.infer<typeof signInSchema>;
 type SignUpFormData = z.infer<typeof signUpSchema>;
+type ForgotPasswordFormData = z.infer<typeof forgotPasswordSchema>;
 
 export default function AuthForm() {
   const router = useRouter();
@@ -41,6 +48,10 @@ export default function AuthForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [forgotPasswordLoading, setForgotPasswordLoading] = useState(false);
+  const [forgotPasswordError, setForgotPasswordError] = useState<string | null>(null);
+  const [forgotPasswordSuccess, setForgotPasswordSuccess] = useState<string | null>(null);
 
   // Sign in form
   const signInForm = useForm<SignInFormData>({
@@ -58,6 +69,14 @@ export default function AuthForm() {
       email: '',
       password: '',
       confirmPassword: '',
+    },
+  });
+
+  // Forgot password form
+  const forgotPasswordForm = useForm<ForgotPasswordFormData>({
+    resolver: zodResolver(forgotPasswordSchema),
+    defaultValues: {
+      email: '',
     },
   });
 
@@ -80,13 +99,18 @@ export default function AuthForm() {
           errorCode.includes('email_not_confirmed')) {
         setError('يرجى التحقق من بريدك الإلكتروني أولاً');
       } 
-      // Check if user doesn't exist or invalid credentials
+      // Check for invalid credentials (wrong password or account doesn't exist)
+      // Supabase returns the same error for both cases for security reasons
       else if (errorMessage.includes('invalid login credentials') || 
                errorMessage.includes('invalid credentials') ||
-               errorMessage.includes('user not found') ||
                errorCode.includes('invalid_credentials') ||
                errorCode.includes('400')) {
-        // No account found
+        // Since Supabase doesn't differentiate, we'll show incorrect password
+        // This is more common - user trying to sign in likely has an account
+        setError('  لا يوجد حساب بهذا الإيميل أو كلمة المرور غير صحيحة');
+      } 
+      // Check for user not found (more specific error)
+      else if (errorMessage.includes('user not found')) {
         setError('no_account');
       } else {
         setError(result.error.message);
@@ -128,6 +152,30 @@ export default function AuthForm() {
         router.refresh();
       }, 1000);
     }
+  };
+
+  const handleForgotPassword = async (data: ForgotPasswordFormData) => {
+    setForgotPasswordLoading(true);
+    setForgotPasswordError(null);
+    setForgotPasswordSuccess(null);
+
+    const result = await resetPassword(data.email);
+
+    if (result.error) {
+      setForgotPasswordError(result.error.message);
+      setForgotPasswordLoading(false);
+      return;
+    }
+
+    setForgotPasswordSuccess('تم إرسال رابط إعادة تعيين كلمة المرور إلى بريدك الإلكتروني');
+    setForgotPasswordLoading(false);
+    forgotPasswordForm.reset();
+    
+    // Close dialog after 3 seconds
+    setTimeout(() => {
+      setShowForgotPassword(false);
+      setForgotPasswordSuccess(null);
+    }, 3000);
   };
 
   return (
@@ -213,6 +261,18 @@ export default function AuthForm() {
                     {signInForm.formState.errors.password.message}
                   </p>
                 )}
+              </div>
+
+              {/* Forgot Password Link */}
+              <div className="flex justify-end">
+                <Button
+                  type="button"
+                  variant="link"
+                  onClick={() => setShowForgotPassword(true)}
+                  className="text-sm text-blue-400 hover:text-blue-300 p-0 h-auto"
+                >
+                  نسيت كلمة المرور؟
+                </Button>
               </div>
 
               {error && error === 'no_account' && (
@@ -371,6 +431,92 @@ export default function AuthForm() {
           </TabsContent>
         </Tabs>
       </CardContent>
+
+      {/* Forgot Password Dialog */}
+      <Dialog open={showForgotPassword} onOpenChange={setShowForgotPassword}>
+        <DialogContent className="bg-gradient-to-br from-slate-800/95 to-slate-900/95 border-2 border-slate-700/50 text-white" dir="rtl">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-white via-blue-100 to-cyan-100 bg-clip-text text-transparent flex items-center gap-2">
+              <KeyRound className="h-6 w-6 text-blue-400" />
+              إعادة تعيين كلمة المرور
+            </DialogTitle>
+            <DialogDescription className="text-slate-300">
+              أدخل بريدك الإلكتروني وسنرسل لك رابطاً لإعادة تعيين كلمة المرور
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={forgotPasswordForm.handleSubmit(handleForgotPassword)} className="space-y-4 mt-4">
+            <div className="space-y-2">
+              <Label htmlFor="forgot-email" className="text-slate-200 flex items-center gap-2">
+                <Mail className="h-4 w-4" />
+                البريد الإلكتروني
+              </Label>
+              <Input
+                id="forgot-email"
+                type="email"
+                placeholder="example@email.com"
+                {...forgotPasswordForm.register('email')}
+                disabled={forgotPasswordLoading}
+                className="bg-slate-900/50 border-slate-600 text-white placeholder:text-slate-500 focus:border-blue-500 focus:ring-blue-500 h-12 text-right"
+                dir="rtl"
+              />
+              {forgotPasswordForm.formState.errors.email && (
+                <p className="text-sm text-red-400 flex items-center gap-1">
+                  <AlertCircle className="h-3 w-3" />
+                  {forgotPasswordForm.formState.errors.email.message}
+                </p>
+              )}
+            </div>
+
+            {forgotPasswordError && (
+              <Alert variant="destructive" className="bg-red-900/30 border-red-500/50">
+                <AlertCircle className="h-4 w-4 text-red-400" />
+                <AlertDescription className="text-red-300">{forgotPasswordError}</AlertDescription>
+              </Alert>
+            )}
+
+            {forgotPasswordSuccess && (
+              <Alert className="bg-green-900/30 border-green-500/50">
+                <CheckCircle2 className="h-4 w-4 text-green-400" />
+                <AlertDescription className="text-green-300">{forgotPasswordSuccess}</AlertDescription>
+              </Alert>
+            )}
+
+            <div className="flex gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setShowForgotPassword(false);
+                  setForgotPasswordError(null);
+                  setForgotPasswordSuccess(null);
+                  forgotPasswordForm.reset();
+                }}
+                className="flex-1 border-slate-600 text-slate-300 hover:bg-slate-700"
+                disabled={forgotPasswordLoading}
+              >
+                إلغاء
+              </Button>
+              <Button
+                type="submit"
+                className="flex-1 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white font-semibold"
+                disabled={forgotPasswordLoading}
+              >
+                {forgotPasswordLoading ? (
+                  <>
+                    <Loader2 className="ml-2 h-4 w-4 animate-spin" />
+                    جاري الإرسال...
+                  </>
+                ) : (
+                  <>
+                    <Mail className="h-4 w-4 ml-2" />
+                    إرسال الرابط
+                  </>
+                )}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }

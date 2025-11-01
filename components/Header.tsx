@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
-import { Menu, X, LogOut, User, Heart, Package, Store, Shield } from 'lucide-react';
+import { Menu, X, LogOut, User, Heart, Package, Store, Shield, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/supabase';
 import { signOut } from '@/lib/auth';
@@ -109,6 +109,10 @@ export default function Header() {
           {/* User info / Auth */}
           {user ? (
             <div className="hidden md:flex items-center gap-4">
+              <Link href="/profile" className="flex items-center gap-2 text-slate-300 hover:text-white transition">
+                <Settings className="w-4 h-4" />
+                <span className="text-sm">الإعدادات</span>
+              </Link>
               <div className="flex items-center gap-2 text-slate-300">
                 <User className="w-4 h-4" />
                 <span className="text-sm">{user.email}</span>
@@ -195,6 +199,14 @@ export default function Header() {
                 >
                   <Package className="w-4 h-4" />
                   طلباتي
+                </Link>
+                <Link
+                  href="/profile"
+                  className="text-slate-300 hover:text-white transition py-2 flex items-center gap-2"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  <Settings className="w-4 h-4" />
+                  الإعدادات
                 </Link>
                 <div className="flex items-center gap-2 text-slate-300 py-2">
                   <User className="w-4 h-4" />
