@@ -2,6 +2,7 @@ import { supabase } from './supabase';
 
 export type AuthError = {
   message: string;
+  code?: string;
 };
 
 export type AuthResult = {
@@ -23,7 +24,7 @@ export async function signUp(email: string, password: string): Promise<AuthResul
     });
 
     if (error) {
-      return { error: { message: error.message } };
+      return { error: { message: error.message, code: error.status?.toString() || error.name } };
     }
 
     return { error: null, data };
@@ -43,7 +44,7 @@ export async function signIn(email: string, password: string): Promise<AuthResul
     });
 
     if (error) {
-      return { error: { message: error.message } };
+      return { error: { message: error.message, code: error.status?.toString() || error.name } };
     }
 
     return { error: null, data };

@@ -300,7 +300,7 @@ function SuggestionsPageContent() {
                   
                   {/* CTA Button */}
                   <div className="flex justify-center">
-                    <Link href="https://your-store-url.com" target="_blank" rel="noopener noreferrer">
+                    <Link href="/subscribe">
                       <Button
                         size="lg"
                         className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xl md:text-2xl px-12 py-6 md:px-16 md:py-8 h-auto rounded-xl shadow-2xl hover:scale-105 transition-all duration-200 flex items-center gap-3"

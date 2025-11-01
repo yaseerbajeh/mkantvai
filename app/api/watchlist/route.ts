@@ -1,18 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { rateLimit, authenticatedLimiter } from '@/lib/rateLimiter';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 // GET - Fetch user's watchlist
 export async function GET(request: NextRequest) {
+  // Apply rate limiting for authenticated endpoints
+  const rateLimitResult = await rateLimit(request, authenticatedLimiter);
+  if (!rateLimitResult.success) {
+    return rateLimitResult.response!;
+  }
+
   try {
     // Get auth token from header
     const authHeader = request.headers.get('authorization');
-    console.log('[API] GET /api/watchlist - Auth header present:', !!authHeader);
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[API] GET /api/watchlist - Auth header present:', !!authHeader);
+    }
     
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      console.log('[API] No valid authorization header found');
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[API] No valid authorization header found');
+      }
       return NextResponse.json(
         { error: 'غير مصرح. يرجى تسجيل الدخول.' },
         { status: 401 }
@@ -33,10 +44,14 @@ export async function GET(request: NextRequest) {
     
     // Get authenticated user using the token directly
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    console.log('[API] User authenticated:', !!user, 'User ID:', user?.id, 'Error:', authError?.message);
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[API] User authenticated:', !!user, 'Error:', authError?.message);
+    }
     
     if (authError || !user) {
-      console.log('[API] Authentication failed');
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[API] Authentication failed');
+      }
       return NextResponse.json(
         { error: 'غير مصرح. يرجى تسجيل الدخول.' },
         { status: 401 }
@@ -95,13 +110,23 @@ export async function GET(request: NextRequest) {
 
 // POST - Add to watchlist
 export async function POST(request: NextRequest) {
+  // Apply rate limiting for authenticated endpoints
+  const rateLimitResult = await rateLimit(request, authenticatedLimiter);
+  if (!rateLimitResult.success) {
+    return rateLimitResult.response!;
+  }
+
   try {
     // Get auth token from header
     const authHeader = request.headers.get('authorization');
-    console.log('[API] POST /api/watchlist - Auth header present:', !!authHeader);
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[API] POST /api/watchlist - Auth header present:', !!authHeader);
+    }
     
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      console.log('[API] No valid authorization header found');
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[API] No valid authorization header found');
+      }
       return NextResponse.json(
         { error: 'غير مصرح. يرجى تسجيل الدخول.' },
         { status: 401 }
@@ -122,10 +147,14 @@ export async function POST(request: NextRequest) {
     
     // Get authenticated user using the token directly
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    console.log('[API] User authenticated:', !!user, 'User ID:', user?.id, 'Error:', authError?.message);
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[API] User authenticated:', !!user, 'Error:', authError?.message);
+    }
     
     if (authError || !user) {
-      console.log('[API] Authentication failed');
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[API] Authentication failed');
+      }
       return NextResponse.json(
         { error: 'غير مصرح. يرجى تسجيل الدخول.' },
         { status: 401 }
@@ -133,10 +162,14 @@ export async function POST(request: NextRequest) {
     }
 
     const { content_id } = await request.json();
-    console.log('[API] Adding to watchlist - User ID:', user.id, 'Content ID:', content_id);
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[API] Adding to watchlist - Content ID:', content_id);
+    }
 
     if (!content_id) {
-      console.log('[API] No content_id provided');
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[API] No content_id provided');
+      }
       return NextResponse.json(
         { error: 'معرف المحتوى مطلوب' },
         { status: 400 }
@@ -192,13 +225,23 @@ export async function POST(request: NextRequest) {
 
 // DELETE - Remove from watchlist
 export async function DELETE(request: NextRequest) {
+  // Apply rate limiting for authenticated endpoints
+  const rateLimitResult = await rateLimit(request, authenticatedLimiter);
+  if (!rateLimitResult.success) {
+    return rateLimitResult.response!;
+  }
+
   try {
     // Get auth token from header
     const authHeader = request.headers.get('authorization');
-    console.log('[API] DELETE /api/watchlist - Auth header present:', !!authHeader);
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[API] DELETE /api/watchlist - Auth header present:', !!authHeader);
+    }
     
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      console.log('[API] No valid authorization header found');
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[API] No valid authorization header found');
+      }
       return NextResponse.json(
         { error: 'غير مصرح. يرجى تسجيل الدخول.' },
         { status: 401 }
@@ -219,10 +262,14 @@ export async function DELETE(request: NextRequest) {
     
     // Get authenticated user using the token directly
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    console.log('[API] User authenticated:', !!user, 'User ID:', user?.id, 'Error:', authError?.message);
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[API] User authenticated:', !!user, 'Error:', authError?.message);
+    }
     
     if (authError || !user) {
-      console.log('[API] Authentication failed');
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[API] Authentication failed');
+      }
       return NextResponse.json(
         { error: 'غير مصرح. يرجى تسجيل الدخول.' },
         { status: 401 }

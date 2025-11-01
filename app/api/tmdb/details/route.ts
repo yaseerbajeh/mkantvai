@@ -1,8 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { rateLimit, tmdbLimiter } from '@/lib/rateLimiter';
 
 const TMDB_BASE = 'https://api.themoviedb.org/3';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
+  // Apply rate limiting for TMDB proxy endpoints
+  const rateLimitResult = await rateLimit(request, tmdbLimiter);
+  if (!rateLimitResult.success) {
+    return rateLimitResult.response!;
+  }
+
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');

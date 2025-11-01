@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { getCachedTmdbDetails, setCachedTmdbDetails, generateCacheKey } from '@/lib/tmdb-cache';
+import { rateLimit, publicApiLimiter } from '@/lib/rateLimiter';
+
+export const dynamic = 'force-dynamic';
 
 async function fetchTmdbDetails(tmdbId: number, type: 'movie' | 'series' = 'movie') {
   const apiKey = process.env.TMDB_API_KEY;
@@ -35,6 +38,12 @@ async function fetchTmdbDetails(tmdbId: number, type: 'movie' | 'series' = 'movi
 }
 
 export async function GET(request: NextRequest) {
+  // Apply rate limiting for public API endpoints
+  const rateLimitResult = await rateLimit(request, publicApiLimiter);
+  if (!rateLimitResult.success) {
+    return rateLimitResult.response!;
+  }
+
   try {
     const { searchParams } = new URL(request.url);
 
@@ -45,8 +54,26 @@ export async function GET(request: NextRequest) {
     const platforms = searchParams.get('platforms');
     const newMonth = searchParams.get('new'); // Filter by month (oct, nov, etc.)
     const sortBy = searchParams.get('sortBy') || 'popularity';
-    const limit = parseInt(searchParams.get('limit') || '12');
-    const offset = parseInt(searchParams.get('offset') || '0');
+    const limitRaw = searchParams.get('limit') || '12';
+    const offsetRaw = searchParams.get('offset') || '0';
+    
+    const limit = parseInt(limitRaw, 10);
+    const offset = parseInt(offsetRaw, 10);
+    
+    // Validate numeric inputs
+    if (isNaN(limit) || limit < 1 || limit > 100) {
+      return NextResponse.json(
+        { error: 'Invalid limit parameter. Must be between 1 and 100.' },
+        { status: 400 }
+      );
+    }
+    
+    if (isNaN(offset) || offset < 0) {
+      return NextResponse.json(
+        { error: 'Invalid offset parameter. Must be >= 0.' },
+        { status: 400 }
+      );
+    }
 
     let query = supabase
       .from('content')

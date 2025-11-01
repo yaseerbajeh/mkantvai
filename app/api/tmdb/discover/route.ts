@@ -1,6 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { rateLimit, tmdbLimiter } from '@/lib/rateLimiter';
+
+export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
+  // Apply rate limiting for TMDB proxy endpoints
+  const rateLimitResult = await rateLimit(request, tmdbLimiter);
+  if (!rateLimitResult.success) {
+    return rateLimitResult.response!;
+  }
+
   try {
     const { searchParams } = new URL(request.url);
     const type = (searchParams.get('type') || 'movie').toLowerCase(); // movie|tv
@@ -8,8 +17,20 @@ export async function GET(request: NextRequest) {
     const yearMin = searchParams.get('yearMin');
     const yearMax = searchParams.get('yearMax');
     const genres = searchParams.get('genres'); // comma-separated names or IDs; we expect TMDB IDs ideally
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '3');
+    const pageRaw = searchParams.get('page') || '1';
+    const limitRaw = searchParams.get('limit') || '3';
+    
+    const page = parseInt(pageRaw, 10);
+    const limit = parseInt(limitRaw, 10);
+    
+    // Validate numeric inputs
+    if (isNaN(page) || page < 1 || page > 1000) {
+      return NextResponse.json({ error: 'Invalid page parameter. Must be between 1 and 1000.' }, { status: 400 });
+    }
+    
+    if (isNaN(limit) || limit < 1 || limit > 20) {
+      return NextResponse.json({ error: 'Invalid limit parameter. Must be between 1 and 20.' }, { status: 400 });
+    }
     const withWatchProviders = searchParams.get('with_watch_providers'); // comma-separated provider IDs
     const watchRegion = searchParams.get('watch_region') || 'SA';
 

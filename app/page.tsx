@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Clapperboard, Target, Sparkles, ChevronLeft, ChevronRight, Film, ArrowLeft, ShoppingCart, Tv, Smartphone, Monitor, Laptop, CheckCircle2, Shield, Zap } from 'lucide-react';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import MovieCard from '@/components/MovieCard';
@@ -32,8 +33,16 @@ export default function Home() {
       try {
         // Trending Movies (week)
         const trendingResp = await fetch('/api/tmdb/trending?type=movie');
-        const trendingJson = await trendingResp.json();
-        const trendingMapped = (trendingJson.items || []).slice(0, 10).map((m: any) => ({
+        if (!trendingResp.ok) {
+          console.error('Trending API error:', trendingResp.status, await trendingResp.text());
+          setTrendingMovies([]);
+        } else {
+          const trendingJson = await trendingResp.json();
+          if (trendingJson.error) {
+            console.error('Trending API error:', trendingJson.error);
+            setTrendingMovies([]);
+          } else {
+            const trendingMapped = (trendingJson.items || []).slice(0, 10).map((m: any) => ({
           id: String(m.tmdb_id),
           tmdb_id: m.tmdb_id,
           type: 'movie',
@@ -48,27 +57,39 @@ export default function Home() {
           new: null,
           note: null,
         })) as unknown as Movie[];
-        setTrendingMovies(trendingMapped);
+            setTrendingMovies(trendingMapped);
+          }
+        }
 
         // Latest Movies (Now Playing)
         const nowMoviesResp = await fetch('/api/tmdb/now-playing?type=movie');
-        const nowMovies = await nowMoviesResp.json();
-        const latestMoviesMapped = (nowMovies.items || []).slice(0, 6).map((m: any) => ({
-          id: String(m.tmdb_id),
-          tmdb_id: m.tmdb_id,
-          type: 'movie',
-          title: m.title,
-          synopsis: m.overview,
-          year: m.year,
-          genre: null,
-          platform: null,
-          rating: String(m.rating ?? ''),
-          duration: null,
-          url: m.poster_url,
-          new: null,
-          note: null,
-        })) as unknown as Movie[];
-        setLatestMovies(latestMoviesMapped);
+        if (!nowMoviesResp.ok) {
+          console.error('Now Playing API error:', nowMoviesResp.status, await nowMoviesResp.text());
+          setLatestMovies([]);
+        } else {
+          const nowMovies = await nowMoviesResp.json();
+          if (nowMovies.error) {
+            console.error('Now Playing API error:', nowMovies.error);
+            setLatestMovies([]);
+          } else {
+            const latestMoviesMapped = (nowMovies.items || []).slice(0, 6).map((m: any) => ({
+              id: String(m.tmdb_id),
+              tmdb_id: m.tmdb_id,
+              type: 'movie',
+              title: m.title,
+              synopsis: m.overview,
+              year: m.year,
+              genre: null,
+              platform: null,
+              rating: String(m.rating ?? ''),
+              duration: null,
+              url: m.poster_url,
+              new: null,
+              note: null,
+            })) as unknown as Movie[];
+            setLatestMovies(latestMoviesMapped);
+          }
+        }
 
         // Latest Series (Filtered by Netflix, HBO Max, Amazon Prime, Apple TV+)
         // TMDB Provider IDs: Netflix=8, HBO Max=384, Amazon Prime=9, Apple TV+=350
@@ -79,70 +100,101 @@ export default function Home() {
         const yearMin = pastYear.getFullYear();
         const yearMax = today.getFullYear();
         const nowSeriesResp = await fetch(`/api/tmdb/discover?type=tv&with_watch_providers=8,384,9,350&watch_region=SA&yearMin=${yearMin}&yearMax=${yearMax}&sort_by=first_air_date.desc&limit=20`);
-        const nowSeries = await nowSeriesResp.json();
-        if (nowSeries.error) {
-          console.error('Error fetching latest series:', nowSeries.error);
+        if (!nowSeriesResp.ok) {
+          console.error('Discover Series API error:', nowSeriesResp.status, await nowSeriesResp.text());
           setLatestSeries([]);
         } else {
-          const latestSeriesMapped = (nowSeries.items || []).slice(0, 6).map((m: any) => ({
-            id: String(m.tmdb_id),
-            tmdb_id: m.tmdb_id,
-            type: 'series',
-            title: m.title,
-            synopsis: m.overview,
-            year: m.year,
-            genre: null,
-            platform: null,
-            rating: String(m.rating ?? ''),
-            duration: null,
-            url: m.poster_url,
-            new: null,
-            note: null,
-          })) as unknown as Movie[];
-          setLatestSeries(latestSeriesMapped);
+          const nowSeries = await nowSeriesResp.json();
+          if (nowSeries.error) {
+            console.error('Error fetching latest series:', nowSeries.error);
+            setLatestSeries([]);
+          } else {
+            const latestSeriesMapped = (nowSeries.items || []).slice(0, 6).map((m: any) => ({
+              id: String(m.tmdb_id),
+              tmdb_id: m.tmdb_id,
+              type: 'series',
+              title: m.title,
+              synopsis: m.overview,
+              year: m.year,
+              genre: null,
+              platform: null,
+              rating: String(m.rating ?? ''),
+              duration: null,
+              url: m.poster_url,
+              new: null,
+              note: null,
+            })) as unknown as Movie[];
+            setLatestSeries(latestSeriesMapped);
+          }
         }
 
         // Top Rated Movies
         const topMoviesResponse = await fetch('/api/tmdb/top-rated?type=movie');
-        const topMoviesData = await topMoviesResponse.json();
-        const topMoviesMapped = (topMoviesData.items || []).slice(0, 10).map((m: any) => ({
-          id: String(m.tmdb_id),
-          tmdb_id: m.tmdb_id,
-          type: 'movie',
-          title: m.title,
-          synopsis: m.overview,
-          year: m.year,
-          genre: null,
-          platform: null,
-          rating: String(m.rating ?? ''),
-          duration: null,
-          url: m.poster_url,
-          new: null,
-          note: null,
-        })) as unknown as Movie[];
-        setTopRatedMovies(topMoviesMapped);
+        if (!topMoviesResponse.ok) {
+          console.error('Top Rated Movies API error:', topMoviesResponse.status, await topMoviesResponse.text());
+          setTopRatedMovies([]);
+        } else {
+          const topMoviesData = await topMoviesResponse.json();
+          if (topMoviesData.error) {
+            console.error('Top Rated Movies API error:', topMoviesData.error);
+            setTopRatedMovies([]);
+          } else {
+            const topMoviesMapped = (topMoviesData.items || []).slice(0, 10).map((m: any) => ({
+              id: String(m.tmdb_id),
+              tmdb_id: m.tmdb_id,
+              type: 'movie',
+              title: m.title,
+              synopsis: m.overview,
+              year: m.year,
+              genre: null,
+              platform: null,
+              rating: String(m.rating ?? ''),
+              duration: null,
+              url: m.poster_url,
+              new: null,
+              note: null,
+            })) as unknown as Movie[];
+            setTopRatedMovies(topMoviesMapped);
+          }
+        }
 
         // Top Rated Series
         const topSeriesResponse = await fetch('/api/tmdb/top-rated?type=tv');
-        const topSeriesData = await topSeriesResponse.json();
-        const topSeriesMapped = (topSeriesData.items || []).slice(0, 10).map((m: any) => ({
-          id: String(m.tmdb_id),
-          tmdb_id: m.tmdb_id,
-          type: 'series',
-          title: m.title,
-          synopsis: m.overview,
-          year: m.year,
-          genre: null,
-          platform: null,
-          rating: String(m.rating ?? ''),
-          duration: null,
-          url: m.poster_url,
-          new: null,
-          note: null,
-        })) as unknown as Movie[];
-        setTopRatedSeries(topSeriesMapped);
+        if (!topSeriesResponse.ok) {
+          console.error('Top Rated Series API error:', topSeriesResponse.status, await topSeriesResponse.text());
+          setTopRatedSeries([]);
+        } else {
+          const topSeriesData = await topSeriesResponse.json();
+          if (topSeriesData.error) {
+            console.error('Top Rated Series API error:', topSeriesData.error);
+            setTopRatedSeries([]);
+          } else {
+            const topSeriesMapped = (topSeriesData.items || []).slice(0, 10).map((m: any) => ({
+              id: String(m.tmdb_id),
+              tmdb_id: m.tmdb_id,
+              type: 'series',
+              title: m.title,
+              synopsis: m.overview,
+              year: m.year,
+              genre: null,
+              platform: null,
+              rating: String(m.rating ?? ''),
+              duration: null,
+              url: m.poster_url,
+              new: null,
+              note: null,
+            })) as unknown as Movie[];
+            setTopRatedSeries(topSeriesMapped);
+          }
+        }
       } catch (error) {
         console.error('Error fetching latest content:', error);
+        // Set empty arrays on error to prevent loading state from persisting
+        setTrendingMovies([]);
+        setLatestMovies([]);
+        setLatestSeries([]);
+        setTopRatedMovies([]);
+        setTopRatedSeries([]);
       } finally {
         setLoading(false);
       }
@@ -511,7 +563,7 @@ export default function Home() {
             
             {/* CTA Button */}
             <div className="flex justify-center">
-              <Link href="https://your-store-url.com" target="_blank" rel="noopener noreferrer">
+              <Link href="/subscribe">
                 <Button
                   size="lg"
                   className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xl md:text-2xl px-12 py-6 md:px-16 md:py-8 h-auto rounded-xl shadow-2xl hover:scale-105 transition-all duration-200 flex items-center gap-3"
@@ -611,7 +663,7 @@ export default function Home() {
           </div>
 
           {/* Devices Section */}
-          <div>
+          <div id="devices-section">
             <h2 className="text-3xl md:text-4xl font-bold text-white text-center mb-8" style={{ fontFamily: 'var(--font-arabic)' }}>
               يضبط على جميع الاجهزة
             </h2>
@@ -750,7 +802,7 @@ export default function Home() {
             
             {/* CTA Buttons */}
             <div className="flex flex-col sm:flex-row gap-6 justify-center items-center">
-              <Link href="https://your-store-url.com" target="_blank" rel="noopener noreferrer">
+              <Link href="/subscribe">
                 <Button
                   size="lg"
                   className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-bold text-xl md:text-2xl px-12 py-6 md:px-16 md:py-8 h-auto rounded-xl shadow-2xl hover:scale-105 transition-all duration-200 border border-blue-400/30"
@@ -760,7 +812,7 @@ export default function Home() {
                 </Button>
               </Link>
               
-              <Link href="https://your-store-url.com/trial" target="_blank" rel="noopener noreferrer">
+              <Link href="/trial">
                 <Button
                   size="lg"
                   variant="outline"
@@ -824,6 +876,142 @@ export default function Home() {
               <CarouselPrevious className="left-0 md:-left-12 bg-slate-800/90 hover:bg-slate-700 border-slate-700 text-white hover:text-blue-400 transition-all duration-200 shadow-xl" />
               <CarouselNext className="right-0 md:-right-12 bg-slate-800/90 hover:bg-slate-700 border-slate-700 text-white hover:text-blue-400 transition-all duration-200 shadow-xl" />
             </Carousel>
+          </div>
+        </div>
+      </section>
+
+      {/* FAQ Section */}
+      <section className="py-20 bg-gradient-to-b from-black via-slate-900 to-black">
+        <div className="container mx-auto px-4">
+          <div className="max-w-4xl mx-auto">
+            <div className="text-center mb-12">
+              <h2 className="text-4xl md:text-5xl font-bold text-white mb-4" style={{ fontFamily: 'var(--font-arabic)' }}>
+                الأسئلة الشائعة
+              </h2>
+              <p className="text-lg md:text-xl text-slate-300 max-w-3xl mx-auto" style={{ fontFamily: 'var(--font-arabic)' }}>
+                نعرض لكم أكثر الأسئلة التي ترد إلينا مع إجاباتها لتعرف أكثر عن الخدمة ومدى ملائمتها لك وكيفية تشغيلها
+              </p>
+            </div>
+
+            <Accordion type="single" collapsible className="w-full space-y-4">
+              <AccordionItem value="item-1" className="bg-slate-800/50 border border-slate-700/50 rounded-xl px-6 hover:border-blue-500/50 transition-colors">
+                <AccordionTrigger className="text-white hover:no-underline py-6 text-right" style={{ fontFamily: 'var(--font-arabic)' }}>
+                  <span className="text-lg md:text-xl font-semibold">
+                    1. ما هي سرعة الإنترنت المناسبة لتشغيل الخدمة ؟
+                  </span>
+                </AccordionTrigger>
+                <AccordionContent className="text-slate-300 text-base md:text-lg pb-6 text-right" style={{ fontFamily: 'var(--font-arabic)' }}>
+                  لكي تحظي بخدمة مميزة بدون تقطيع يجب ألا تقل سرعة الإنترنت لديك عن 4 ميجا بت بالثانية ، بعض القنوات لدينا تعمل أيضاً مع سرعة إنترنت 2 ميجا بت بالثانية.
+                </AccordionContent>
+              </AccordionItem>
+
+              <AccordionItem value="item-2" className="bg-slate-800/50 border border-slate-700/50 rounded-xl px-6 hover:border-blue-500/50 transition-colors">
+                <AccordionTrigger className="text-white hover:no-underline py-6 text-right" style={{ fontFamily: 'var(--font-arabic)' }}>
+                  <span className="text-lg md:text-xl font-semibold">
+                    2. ما هي المدة التي يستغرها إرسال وتشغيل الإشتراك بعد الدفع؟
+                  </span>
+                </AccordionTrigger>
+                <AccordionContent className="text-slate-300 text-base md:text-lg pb-6 text-right" style={{ fontFamily: 'var(--font-arabic)' }}>
+                  لا يستغرق إرسال وتشغيل الملف سوي عدة دقائق فقط وبحد أقصي ساعة بعد إتمام عملية الدفع لتبدأ بالمشاهدة والإستمتاع بالخدمة.
+                </AccordionContent>
+              </AccordionItem>
+
+              <AccordionItem value="item-3" className="bg-slate-800/50 border border-slate-700/50 rounded-xl px-6 hover:border-blue-500/50 transition-colors">
+                <AccordionTrigger className="text-white hover:no-underline py-6 text-right" style={{ fontFamily: 'var(--font-arabic)' }}>
+                  <span className="text-lg md:text-xl font-semibold">
+                    3. كيف سأتمكن من تشغيل الخدمة ؟
+                  </span>
+                </AccordionTrigger>
+                <AccordionContent className="text-slate-300 text-base md:text-lg pb-6 text-right" style={{ fontFamily: 'var(--font-arabic)' }}>
+                  سيقدم طاقم الدعم الفني لدينا كافة الإرشادات والتعليمات الخاصة بتشغيل الملف وسيتابع معك حتي تتمكن من تشغيل الملف بكل سهولة على الواتس اب
+                </AccordionContent>
+              </AccordionItem>
+
+              <AccordionItem value="item-4" className="bg-slate-800/50 border border-slate-700/50 rounded-xl px-6 hover:border-blue-500/50 transition-colors">
+                <AccordionTrigger className="text-white hover:no-underline py-6 text-right" style={{ fontFamily: 'var(--font-arabic)' }}>
+                  <span className="text-lg md:text-xl font-semibold">
+                    4. هل يمكنني وضع الإشتراك في أكثر من جهاز
+                  </span>
+                </AccordionTrigger>
+                <AccordionContent className="text-slate-300 text-base md:text-lg pb-6 text-right" style={{ fontFamily: 'var(--font-arabic)' }}>
+                  نعم بشرط أن يعمل الاشتراك على جهاز واحد فقط في نفس وقت المشاهدة , في حالة تشغيل والمشاهدة على أكثر من جهاز في نفس الوقت فلن يعمل ان كنت تريد تشغيل الاشتراك على اكثر من جهاز في نفس الوقت ستحتاج الى اشتراك اخر..
+                </AccordionContent>
+              </AccordionItem>
+
+              <AccordionItem value="item-5" className="bg-slate-800/50 border border-slate-700/50 rounded-xl px-6 hover:border-blue-500/50 transition-colors">
+                <AccordionTrigger className="text-white hover:no-underline py-6 text-right" style={{ fontFamily: 'var(--font-arabic)' }}>
+                  <span className="text-lg md:text-xl font-semibold">
+                    5. ما هي طرق الدفع المتوفرة لديكم ؟
+                  </span>
+                </AccordionTrigger>
+                <AccordionContent className="text-slate-300 text-base md:text-lg pb-6 text-right" style={{ fontFamily: 'var(--font-arabic)' }}>
+                  يتوفر لدينا طرق دفع سهلة ومتعددة عبر التحويلات البنكية داخل السعودية أو عن طريق إرسال بطاقات شحن سوا
+                </AccordionContent>
+              </AccordionItem>
+
+              <AccordionItem value="item-6" className="bg-slate-800/50 border border-slate-700/50 rounded-xl px-6 hover:border-blue-500/50 transition-colors">
+                <AccordionTrigger className="text-white hover:no-underline py-6 text-right" style={{ fontFamily: 'var(--font-arabic)' }}>
+                  <span className="text-lg md:text-xl font-semibold">
+                    6. هل يمكنني الحصول علي فترة للتجربة ؟
+                  </span>
+                  
+                </AccordionTrigger>
+                <AccordionContent className="text-slate-300 text-base md:text-lg pb-6 text-right" style={{ fontFamily: 'var(--font-arabic)' }}>
+                  نعم يمكنك تجربة الخدمة  قبل الإشتراك للتأكد من جودة الخدمة ومدي ملائمتها لأجهزتك وسرعة إتصالك بالإنترنت.
+                  <div className="mt-4">
+                    <Link href="https://your-store-url.com/trial" target="_blank" rel="noopener noreferrer">
+                      <Button
+                        variant="outline"
+                        className="border-blue-500 text-blue-400 hover:bg-blue-500 hover:text-white"
+                        style={{ fontFamily: 'var(--font-arabic)' }}
+                      >
+                        اضغط هنا لطلب تجربة
+                      </Button>
+                    </Link>
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+
+              <AccordionItem value="item-7" className="bg-slate-800/50 border border-slate-700/50 rounded-xl px-6 hover:border-blue-500/50 transition-colors">
+                <AccordionTrigger className="text-white hover:no-underline py-6 text-right" style={{ fontFamily: 'var(--font-arabic)' }}>
+                  <span className="text-lg md:text-xl font-semibold">
+                    7. هل يمكنني تغيير الباقة لاحقاً؟
+                  </span>
+                </AccordionTrigger>
+                <AccordionContent className="text-slate-300 text-base md:text-lg pb-6 text-right" style={{ fontFamily: 'var(--font-arabic)' }}>
+                  نعم، يمكنك ترقية أو تغيير الباقة في أي وقت بالتواصل مع الدعم.
+               
+                </AccordionContent>
+              </AccordionItem>
+
+              <AccordionItem value="item-8" className="bg-slate-800/50 border border-slate-700/50 rounded-xl px-6 hover:border-blue-500/50 transition-colors">
+                <AccordionTrigger className="text-white hover:no-underline py-6 text-right" style={{ fontFamily: 'var(--font-arabic)' }}>
+                  <span className="text-lg md:text-xl font-semibold">
+                    8. هل يشتغل على جهازي؟
+                  </span>
+                </AccordionTrigger>
+                <AccordionContent className="text-slate-300 text-base md:text-lg pb-6 text-right" style={{ fontFamily: 'var(--font-arabic)' }}>
+                  تطبيقنا ييشتغل على جميع الأجهزة الذكية وأجهزة الكمبيوتر والشاشات، يمكنك تحميل التطبيق من المتجر المناسب لجهازك.
+                  <div className="mt-4">
+                    <Link href="/#devices" onClick={(e) => {
+                      e.preventDefault();
+                      const devicesSection = document.getElementById('devices-section');
+                      if (devicesSection) {
+                        devicesSection.scrollIntoView({ behavior: 'smooth' });
+                      }
+                    }}>
+                      <Button
+                        variant="outline"
+                        className="border-blue-500 text-blue-400 hover:bg-blue-500 hover:text-white"
+                        style={{ fontFamily: 'var(--font-arabic)' }}
+                      >
+                        اضغط هنا لمعرفة الأجهزة المدعومة
+                      </Button>
+                    </Link>
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
           </div>
         </div>
       </section>

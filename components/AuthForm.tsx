@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -12,7 +12,7 @@ import { Label } from '@/components/ui/label';
 import { signIn, signUp } from '@/lib/auth';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Mail, Lock, UserPlus, LogIn, AlertCircle, CheckCircle2 } from 'lucide-react';
 
 // Sign in validation schema
 const signInSchema = z.object({
@@ -35,6 +35,8 @@ type SignUpFormData = z.infer<typeof signUpSchema>;
 
 export default function AuthForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectTo = searchParams.get('redirect') || '/';
   const [activeTab, setActiveTab] = useState<'signin' | 'signup'>('signin');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -67,14 +69,35 @@ export default function AuthForm() {
     const result = await signIn(data.email, data.password);
 
     if (result.error) {
-      setError(result.error.message);
+      // Check for specific error types
+      const errorMessage = result.error.message.toLowerCase();
+      const errorCode = result.error.code?.toLowerCase() || '';
+      
+      // Check if it's an unverified email issue (Supabase returns 400 for email_not_confirmed)
+      if (errorMessage.includes('email not confirmed') || 
+          errorMessage.includes('email_not_confirmed') ||
+          errorMessage.includes('verification') ||
+          errorCode.includes('email_not_confirmed')) {
+        setError('يرجى التحقق من بريدك الإلكتروني أولاً');
+      } 
+      // Check if user doesn't exist or invalid credentials
+      else if (errorMessage.includes('invalid login credentials') || 
+               errorMessage.includes('invalid credentials') ||
+               errorMessage.includes('user not found') ||
+               errorCode.includes('invalid_credentials') ||
+               errorCode.includes('400')) {
+        // No account found
+        setError('no_account');
+      } else {
+        setError(result.error.message);
+      }
       setIsLoading(false);
       return;
     }
 
     setSuccessMessage('تم تسجيل الدخول بنجاح!');
     setTimeout(() => {
-      router.push('/');
+      router.push(redirectTo);
       router.refresh();
     }, 500);
   };
@@ -98,151 +121,250 @@ export default function AuthForm() {
       setIsLoading(false);
       signUpForm.reset();
     } else {
-      // If no email confirmation needed, redirect to home
+      // If no email confirmation needed, redirect to redirect URL or home
       setSuccessMessage('تم إنشاء الحساب بنجاح! يتم تسجيل الدخول...');
       setTimeout(() => {
-        router.push('/');
+        router.push(redirectTo);
         router.refresh();
       }, 1000);
     }
   };
 
   return (
-    <Card className="w-full max-w-md">
-      <CardHeader>
-        <CardTitle className="text-2xl text-center">مرحباً بك</CardTitle>
-        <CardDescription className="text-center">
+    <Card className="w-full max-w-md bg-gradient-to-br from-slate-800/95 to-slate-900/95 border-2 border-slate-700/50 shadow-2xl backdrop-blur-sm" dir="rtl">
+      <CardHeader className="space-y-4 pb-6">
+        <div className="flex items-center justify-center gap-3 mb-2">
+          <div className="p-2 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-lg">
+            <LogIn className="h-6 w-6 text-white" />
+          </div>
+          <CardTitle className="text-3xl font-bold bg-gradient-to-r from-white via-blue-100 to-cyan-100 bg-clip-text text-transparent">
+            مرحباً بك
+          </CardTitle>
+        </div>
+        <CardDescription className="text-center text-slate-300 text-base">
           سجل الدخول أو أنشئ حساباً جديداً للمتابعة
         </CardDescription>
       </CardHeader>
-      <CardContent>
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'signin' | 'signup')}>
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="signin">تسجيل الدخول</TabsTrigger>
-            <TabsTrigger value="signup">إنشاء حساب</TabsTrigger>
+      <CardContent className="space-y-6">
+        <Tabs value={activeTab} onValueChange={(v) => {
+          setActiveTab(v as 'signin' | 'signup');
+          setError(null);
+          setSuccessMessage(null);
+        }} dir="rtl">
+          <TabsList className="grid w-full grid-cols-2 bg-slate-900/50 p-1 rounded-lg border border-slate-700">
+            <TabsTrigger 
+              value="signin" 
+              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-cyan-600 data-[state=active]:text-white rounded-md transition-all"
+            >
+              <LogIn className="h-4 w-4 ml-2" />
+              تسجيل الدخول
+            </TabsTrigger>
+            <TabsTrigger 
+              value="signup"
+              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-cyan-600 data-[state=active]:text-white rounded-md transition-all"
+            >
+              <UserPlus className="h-4 w-4 ml-2" />
+              إنشاء حساب
+            </TabsTrigger>
           </TabsList>
 
           {/* Sign In Tab */}
-          <TabsContent value="signin">
-            <form onSubmit={signInForm.handleSubmit(handleSignIn)} className="space-y-4">
+          <TabsContent value="signin" className="mt-6 space-y-5">
+            <form onSubmit={signInForm.handleSubmit(handleSignIn)} className="space-y-5">
               <div className="space-y-2">
-                <Label htmlFor="signin-email">البريد الإلكتروني</Label>
+                <Label htmlFor="signin-email" className="text-slate-200 flex items-center gap-2">
+                  <Mail className="h-4 w-4" />
+                  البريد الإلكتروني
+                </Label>
                 <Input
                   id="signin-email"
                   type="email"
                   placeholder="example@email.com"
                   {...signInForm.register('email')}
                   disabled={isLoading}
+                  className="bg-slate-900/50 border-slate-600 text-white placeholder:text-slate-500 focus:border-blue-500 focus:ring-blue-500 h-12 text-right"
+                  dir="rtl"
                 />
                 {signInForm.formState.errors.email && (
-                  <p className="text-sm text-red-500">{signInForm.formState.errors.email.message}</p>
+                  <p className="text-sm text-red-400 flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" />
+                    {signInForm.formState.errors.email.message}
+                  </p>
                 )}
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="signin-password">كلمة المرور</Label>
+                <Label htmlFor="signin-password" className="text-slate-200 flex items-center gap-2">
+                  <Lock className="h-4 w-4" />
+                  كلمة المرور
+                </Label>
                 <Input
                   id="signin-password"
                   type="password"
                   placeholder="••••••••"
                   {...signInForm.register('password')}
                   disabled={isLoading}
+                  className="bg-slate-900/50 border-slate-600 text-white placeholder:text-slate-500 focus:border-blue-500 focus:ring-blue-500 h-12 text-right"
+                  dir="rtl"
                 />
                 {signInForm.formState.errors.password && (
-                  <p className="text-sm text-red-500">{signInForm.formState.errors.password.message}</p>
+                  <p className="text-sm text-red-400 flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" />
+                    {signInForm.formState.errors.password.message}
+                  </p>
                 )}
               </div>
 
-              {error && (
-                <Alert variant="destructive">
-                  <AlertDescription>{error}</AlertDescription>
+              {error && error === 'no_account' && (
+                <Alert variant="destructive" className="bg-red-900/30 border-red-500/50">
+                  <AlertCircle className="h-4 w-4 text-red-400" />
+                  <AlertDescription className="text-red-300 flex items-center justify-between gap-4">
+                    <span>لا يوجد لديك حساب يرجى التسجيل</span>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setActiveTab('signup')}
+                      className="border-red-400 text-red-300 hover:bg-red-900/50"
+                    >
+                      التسجيل
+                    </Button>
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {error && error !== 'no_account' && (
+                <Alert variant="destructive" className="bg-red-900/30 border-red-500/50">
+                  <AlertCircle className="h-4 w-4 text-red-400" />
+                  <AlertDescription className="text-red-300">{error}</AlertDescription>
                 </Alert>
               )}
 
               {successMessage && (
-                <Alert className="bg-green-50 text-green-900 border-green-200">
-                  <AlertDescription>{successMessage}</AlertDescription>
+                <Alert className="bg-green-900/30 border-green-500/50">
+                  <CheckCircle2 className="h-4 w-4 text-green-400" />
+                  <AlertDescription className="text-green-300">{successMessage}</AlertDescription>
                 </Alert>
               )}
 
-              <Button type="submit" className="w-full" disabled={isLoading}>
+              <Button 
+                type="submit" 
+                className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white font-semibold h-12 text-lg shadow-lg" 
+                disabled={isLoading}
+              >
                 {isLoading ? (
                   <>
-                    <Loader2 className="ml-2 h-4 w-4 animate-spin" />
+                    <Loader2 className="ml-2 h-5 w-5 animate-spin" />
                     جاري تسجيل الدخول...
                   </>
                 ) : (
-                  'تسجيل الدخول'
+                  <>
+                    <LogIn className="h-5 w-5 ml-2" />
+                    تسجيل الدخول
+                  </>
                 )}
               </Button>
             </form>
           </TabsContent>
 
           {/* Sign Up Tab */}
-          <TabsContent value="signup">
-            <form onSubmit={signUpForm.handleSubmit(handleSignUp)} className="space-y-4">
+          <TabsContent value="signup" className="mt-6 space-y-5">
+            <form onSubmit={signUpForm.handleSubmit(handleSignUp)} className="space-y-5">
               <div className="space-y-2">
-                <Label htmlFor="signup-email">البريد الإلكتروني</Label>
+                <Label htmlFor="signup-email" className="text-slate-200 flex items-center gap-2">
+                  <Mail className="h-4 w-4" />
+                  البريد الإلكتروني
+                </Label>
                 <Input
                   id="signup-email"
                   type="email"
                   placeholder="example@email.com"
                   {...signUpForm.register('email')}
                   disabled={isLoading}
+                  className="bg-slate-900/50 border-slate-600 text-white placeholder:text-slate-500 focus:border-blue-500 focus:ring-blue-500 h-12 text-right"
+                  dir="rtl"
                 />
                 {signUpForm.formState.errors.email && (
-                  <p className="text-sm text-red-500">{signUpForm.formState.errors.email.message}</p>
+                  <p className="text-sm text-red-400 flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" />
+                    {signUpForm.formState.errors.email.message}
+                  </p>
                 )}
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="signup-password">كلمة المرور</Label>
+                <Label htmlFor="signup-password" className="text-slate-200 flex items-center gap-2">
+                  <Lock className="h-4 w-4" />
+                  كلمة المرور
+                </Label>
                 <Input
                   id="signup-password"
                   type="password"
                   placeholder="••••••••"
                   {...signUpForm.register('password')}
                   disabled={isLoading}
+                  className="bg-slate-900/50 border-slate-600 text-white placeholder:text-slate-500 focus:border-blue-500 focus:ring-blue-500 h-12 text-right"
+                  dir="rtl"
                 />
                 {signUpForm.formState.errors.password && (
-                  <p className="text-sm text-red-500">{signUpForm.formState.errors.password.message}</p>
+                  <p className="text-sm text-red-400 flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" />
+                    {signUpForm.formState.errors.password.message}
+                  </p>
                 )}
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="signup-confirm-password">تأكيد كلمة المرور</Label>
+                <Label htmlFor="signup-confirm-password" className="text-slate-200 flex items-center gap-2">
+                  <Lock className="h-4 w-4" />
+                  تأكيد كلمة المرور
+                </Label>
                 <Input
                   id="signup-confirm-password"
                   type="password"
                   placeholder="••••••••"
                   {...signUpForm.register('confirmPassword')}
                   disabled={isLoading}
+                  className="bg-slate-900/50 border-slate-600 text-white placeholder:text-slate-500 focus:border-blue-500 focus:ring-blue-500 h-12 text-right"
+                  dir="rtl"
                 />
                 {signUpForm.formState.errors.confirmPassword && (
-                  <p className="text-sm text-red-500">{signUpForm.formState.errors.confirmPassword.message}</p>
+                  <p className="text-sm text-red-400 flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" />
+                    {signUpForm.formState.errors.confirmPassword.message}
+                  </p>
                 )}
               </div>
 
               {error && (
-                <Alert variant="destructive">
-                  <AlertDescription>{error}</AlertDescription>
+                <Alert variant="destructive" className="bg-red-900/30 border-red-500/50">
+                  <AlertCircle className="h-4 w-4 text-red-400" />
+                  <AlertDescription className="text-red-300">{error}</AlertDescription>
                 </Alert>
               )}
 
               {successMessage && (
-                <Alert className="bg-green-50 text-green-900 border-green-200">
-                  <AlertDescription>{successMessage}</AlertDescription>
+                <Alert className="bg-green-900/30 border-green-500/50">
+                  <CheckCircle2 className="h-4 w-4 text-green-400" />
+                  <AlertDescription className="text-green-300">{successMessage}</AlertDescription>
                 </Alert>
               )}
 
-              <Button type="submit" className="w-full" disabled={isLoading}>
+              <Button 
+                type="submit" 
+                className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white font-semibold h-12 text-lg shadow-lg" 
+                disabled={isLoading}
+              >
                 {isLoading ? (
                   <>
-                    <Loader2 className="ml-2 h-4 w-4 animate-spin" />
+                    <Loader2 className="ml-2 h-5 w-5 animate-spin" />
                     جاري إنشاء الحساب...
                   </>
                 ) : (
-                  'إنشاء حساب'
+                  <>
+                    <UserPlus className="h-5 w-5 ml-2" />
+                    إنشاء حساب
+                  </>
                 )}
               </Button>
             </form>
