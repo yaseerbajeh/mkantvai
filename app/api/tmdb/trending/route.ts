@@ -1,6 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { rateLimit, tmdbLimiter } from '@/lib/rateLimiter';
+
+// Disable static generation for API routes
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
 export async function GET(request: NextRequest) {
+  // Apply rate limiting for TMDB proxy endpoints
+  const rateLimitResult = await rateLimit(request, tmdbLimiter);
+  if (!rateLimitResult.success) {
+    return rateLimitResult.response!;
+  }
+
   try {
     const { searchParams } = new URL(request.url);
     const type = (searchParams.get('type') || 'movie').toLowerCase(); // movie|tv|all (all => movie)

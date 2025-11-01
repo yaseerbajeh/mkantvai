@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { getCachedTmdbDetails, setCachedTmdbDetails, generateCacheKey } from '@/lib/tmdb-cache';
+import { rateLimit, publicApiLimiter } from '@/lib/rateLimiter';
+
+export const dynamic = 'force-dynamic';
 
 async function fetchTmdbDetails(tmdbId: number, type: 'movie' | 'series' = 'movie') {
   const apiKey = process.env.TMDB_API_KEY;
@@ -35,6 +38,12 @@ async function fetchTmdbDetails(tmdbId: number, type: 'movie' | 'series' = 'movi
 }
 
 export async function GET(request: NextRequest) {
+  // Apply rate limiting for public API endpoints
+  const rateLimitResult = await rateLimit(request, publicApiLimiter);
+  if (!rateLimitResult.success) {
+    return rateLimitResult.response!;
+  }
+
   try {
     const { searchParams } = new URL(request.url);
 
@@ -45,7 +54,9 @@ export async function GET(request: NextRequest) {
     const platforms = searchParams.get('platforms');
     const limit = 3; // Always return max 3 suggestions
 
-    console.log('[API] Suggestions request:', { type, genres, yearMin, yearMax, platforms });
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[API] Suggestions request:', { type, genres, yearMin, yearMax, platforms });
+    }
 
     let query = supabase
       .from('content')
@@ -53,7 +64,6 @@ export async function GET(request: NextRequest) {
 
     if (type && type !== 'all') {
       query = query.eq('type', type);
-      console.log('[API] Filtering by type:', type);
     }
 
     if (genres) {
@@ -62,7 +72,6 @@ export async function GET(request: NextRequest) {
         // For text field, use OR condition with ilike for partial matching
         const genreFilter = genreArray.map(g => `genre.ilike.%${g}%`).join(',');
         query = query.or(genreFilter);
-        console.log('[API] Filtering by genres:', genreArray);
       }
     }
 
@@ -72,18 +81,15 @@ export async function GET(request: NextRequest) {
         // For text field, use OR condition with ilike for partial matching
         const platformFilter = platformArray.map(p => `platform.ilike.%${p}%`).join(',');
         query = query.or(platformFilter);
-        console.log('[API] Filtering by platforms:', platformArray);
       }
     }
 
     if (yearMin) {
       query = query.gte('year', parseInt(yearMin));
-      console.log('[API] Filtering yearMin:', yearMin);
     }
 
     if (yearMax) {
       query = query.lte('year', parseInt(yearMax));
-      console.log('[API] Filtering yearMax:', yearMax);
     }
 
     // Fetch more results to randomize from (fetch 50, then pick random 3)
@@ -91,11 +97,13 @@ export async function GET(request: NextRequest) {
 
     const { data, error } = await query;
 
-    console.log('[API] Query result:', { 
-      dataCount: data?.length || 0, 
-      error: error?.message,
-      firstMovie: data?.[0]?.title 
-    });
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[API] Query result:', { 
+        dataCount: data?.length || 0, 
+        error: error?.message,
+        firstMovie: data?.[0]?.title 
+      });
+    }
 
     if (error) {
       console.error('[API] Supabase error:', error);
@@ -137,7 +145,9 @@ export async function GET(request: NextRequest) {
       return m;
     }));
 
-    console.log('[API] Returning randomized suggestions:', enriched.map(s => s.title));
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[API] Returning randomized suggestions:', enriched.map(s => s.title));
+    }
 
     return NextResponse.json({
       suggestions: enriched,

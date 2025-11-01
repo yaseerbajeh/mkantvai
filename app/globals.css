@@ -100,6 +100,16 @@
     font-family: 'Wafeq', 'Inter', sans-serif;
   }
   
+  /* RTL support */
+  [dir="rtl"] {
+    direction: rtl;
+  }
+  
+  [dir="rtl"] input,
+  [dir="rtl"] textarea {
+    text-align: right;
+  }
+  
   /* Apply Janna LT Bold to all headings and bold text */
   h1, h2, h3, h4, h5, h6 {
     font-family: 'Janna LT', 'Inter', sans-serif;
@@ -138,5 +148,11 @@
   .scrollbar-hide {
     -ms-overflow-style: none;
     scrollbar-width: none;
+  }
+
+  /* Smooth horizontal scroll */
+  .overflow-x-auto {
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
   }
 }

@@ -1,11 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { rateLimit, tmdbLimiter } from '@/lib/rateLimiter';
+
+export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
+  // Apply rate limiting for TMDB proxy endpoints
+  const rateLimitResult = await rateLimit(request, tmdbLimiter);
+  if (!rateLimitResult.success) {
+    return rateLimitResult.response!;
+  }
+
   try {
     const { searchParams } = new URL(request.url);
     const type = (searchParams.get('type') || 'movie').toLowerCase(); // movie|tv
-    const page = parseInt(searchParams.get('page') || '1');
+    const pageRaw = searchParams.get('page') || '1';
     const language = searchParams.get('lang') || 'ar';
+    
+    const page = parseInt(pageRaw, 10);
+    
+    // Validate numeric input
+    if (isNaN(page) || page < 1 || page > 1000) {
+      return NextResponse.json({ error: 'Invalid page parameter. Must be between 1 and 1000.' }, { status: 400 });
+    }
 
     const apiKey = process.env.TMDB_API_KEY;
     if (!apiKey) return NextResponse.json({ error: 'TMDB_API_KEY not configured' }, { status: 500 });
