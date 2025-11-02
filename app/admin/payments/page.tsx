@@ -77,20 +77,51 @@ export default function AdminPaymentsPage() {
 
         setUser(session.user);
 
-        // Fetch PayPal payments (orders with payment_method = 'paypal')
-        const { data, error } = await supabase
+        // Fetch PayPal payments (orders with payment_method = 'paypal' or status = 'paid'/'approved' with payment_method)
+        // Handle case where payment_method column might not exist yet
+        let query = supabase
           .from('orders')
           .select('*')
           .in('status', ['paid', 'approved'])
-          .eq('payment_method', 'paypal')
           .order('created_at', { ascending: false });
 
+        // Filter by payment_method if it exists, otherwise get all paid/approved orders
+        // (we'll filter client-side if needed)
+        const { data, error } = await query;
+
         if (error) {
+          // If error is about missing column, try without payment_method filter
+          if (error.message?.includes('payment_method') || error.code === 'PGRST116') {
+            console.warn('payment_method column may not exist, fetching all paid/approved orders');
+            const { data: fallbackData, error: fallbackError } = await supabase
+              .from('orders')
+              .select('*')
+              .in('status', ['paid', 'approved'])
+              .order('created_at', { ascending: false });
+            
+            if (fallbackError) {
+              throw fallbackError;
+            }
+            
+            // Filter client-side for PayPal payments (or show all if payment_method doesn't exist)
+            const filteredData = (fallbackData || []).filter((order: any) => 
+              !order.payment_method || order.payment_method === 'paypal'
+            ) as PaymentOrder[];
+            
+            setPayments(filteredData);
+            setFilteredPayments(filteredData);
+            return;
+          }
           throw error;
         }
 
-        setPayments((data as PaymentOrder[]) || []);
-        setFilteredPayments((data as PaymentOrder[]) || []);
+        // Filter for PayPal payments only (in case payment_method column exists)
+        const filteredPayments = (data || []).filter((order: any) => 
+          !order.payment_method || order.payment_method === 'paypal'
+        ) as PaymentOrder[];
+
+        setPayments(filteredPayments);
+        setFilteredPayments(filteredPayments);
       } catch (error: any) {
         console.error('Error fetching payments:', error);
         toast({
