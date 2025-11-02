@@ -793,7 +793,7 @@ export default function AdminOrdersPage() {
                                   {format(new Date(order.created_at), 'yyyy-MM-dd HH:mm', { locale: ar })}
                                 </TableCell>
                                 <TableCell>
-                                  {(order.status === 'pending' || order.status === 'paid') && order.status !== 'approved' && (
+                                  {(order.status === 'pending' || order.status === 'paid') && (
                                     <div className="flex gap-2">
                                       <Button
                                         size="sm"
