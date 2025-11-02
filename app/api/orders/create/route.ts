@@ -15,7 +15,17 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { name, whatsapp, email, product_name, product_code, price } = body;
+    const { 
+      name, 
+      whatsapp, 
+      email, 
+      product_name, 
+      product_code, 
+      price,
+      payment_method,
+      payment_id,
+      payment_status
+    } = body;
 
     // Validate required fields
     if (!name || !email || !product_name || price === undefined || !whatsapp) {
@@ -37,18 +47,37 @@ export async function POST(request: NextRequest) {
     // Create Supabase client
     const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-    // Insert order
+    // Determine order status based on payment
+    let orderStatus = 'pending';
+    if (payment_status === 'paid' || payment_status === 'COMPLETED') {
+      orderStatus = 'paid';
+    }
+
+    // Insert order with payment information if available
+    const orderData: any = {
+      name,
+      whatsapp: whatsapp || null,
+      email,
+      product_name,
+      product_code: product_code || null,
+      price: parseFloat(price),
+      status: orderStatus,
+    };
+
+    // Add payment information if provided
+    if (payment_method) {
+      orderData.payment_method = payment_method;
+    }
+    if (payment_id) {
+      orderData.payment_id = payment_id;
+    }
+    if (payment_status) {
+      orderData.payment_status = payment_status;
+    }
+
     const { data: order, error } = await supabase
       .from('orders')
-      .insert({
-        name,
-        whatsapp: whatsapp || null,
-        email,
-        product_name,
-        product_code: product_code || null,
-        price: parseFloat(price),
-        status: 'pending',
-      })
+      .insert(orderData)
       .select()
       .single();
 

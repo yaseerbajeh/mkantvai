@@ -8,12 +8,14 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Separator } from '@/components/ui/separator';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
+import PayPalButton from '@/components/PayPalButton';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/lib/supabase';
 import { signIn, signUp } from '@/lib/auth';
-import { Loader2, User, Mail, MessageCircle, X } from 'lucide-react';
+import { Loader2, User, Mail, MessageCircle, X, CreditCard } from 'lucide-react';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
 
 // Product data (matching the 4-section structure)
@@ -380,6 +382,40 @@ export default function OrderPage() {
                   )}
                 </Button>
               </form>
+            </CardContent>
+          </Card>
+
+          {/* PayPal Payment Section */}
+          <Card className="bg-slate-800/50 border-slate-700 mt-6">
+            <CardHeader>
+              <CardTitle className="text-2xl text-white flex items-center gap-2">
+                <CreditCard className="h-5 w-5" />
+                الدفع عبر PayPal
+              </CardTitle>
+              <CardDescription className="text-slate-300">
+                ادفع مباشرة عبر PayPal بطريقة آمنة وسريعة
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {/* Validate form data before allowing PayPal payment */}
+              {(!formData.name || !formData.email || !formData.whatsapp) ? (
+                <div className="p-4 bg-yellow-900/20 border border-yellow-700 rounded-lg text-yellow-400 text-center">
+                  <p className="text-sm">يرجى ملء جميع الحقول أعلاه قبل استخدام PayPal</p>
+                </div>
+              ) : (
+                <PayPalButton
+                  productCode={product.code}
+                  productName={product.name}
+                  price={product.price}
+                  currency="SAR"
+                  orderDetails={{
+                    name: formData.name,
+                    email: formData.email,
+                    whatsapp: formData.whatsapp,
+                  }}
+                  className="mt-4"
+                />
+              )}
             </CardContent>
           </Card>
         </div>
