@@ -85,7 +85,53 @@ export async function POST(request: NextRequest) {
 
     const { access_token } = await tokenResponse.json();
 
+    // Format price to have exactly 2 decimal places (PayPal requirement)
+    const formattedPrice = typeof price === 'number' 
+      ? price.toFixed(2)
+      : parseFloat(price.toString()).toFixed(2);
+
+    // Validate price is a valid number
+    if (isNaN(parseFloat(formattedPrice)) || parseFloat(formattedPrice) <= 0) {
+      return NextResponse.json(
+        { error: 'Invalid price value', details: 'Price must be a positive number' },
+        { status: 400 }
+      );
+    }
+
+    // Validate currency code
+    const validCurrency = currency.toUpperCase();
+    const supportedCurrencies = ['USD', 'EUR', 'GBP', 'SAR', 'AED', 'EGP'];
+    if (!supportedCurrencies.includes(validCurrency)) {
+      console.warn(`Currency ${validCurrency} might not be supported by PayPal`);
+    }
+
     // Create PayPal order
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+    const orderPayload: any = {
+      intent: 'CAPTURE',
+      purchase_units: [
+        {
+          reference_id: productCode,
+          description: productName,
+          amount: {
+            currency_code: validCurrency,
+            value: formattedPrice,
+          },
+        },
+      ],
+      application_context: {
+        brand_name: 'مكان TV',
+        landing_page: 'NO_PREFERENCE',
+        user_action: 'PAY_NOW',
+        ...(appUrl && {
+          return_url: `${appUrl}/order-success`,
+          cancel_url: `${appUrl}/order-cancelled`,
+        }),
+      },
+    };
+
+    console.log('PayPal Order Payload:', JSON.stringify(orderPayload, null, 2));
+
     const orderResponse = await fetch(`${paypalBaseUrl}/v2/checkout/orders`, {
       method: 'POST',
       headers: {
@@ -93,26 +139,7 @@ export async function POST(request: NextRequest) {
         'Authorization': `Bearer ${access_token}`,
         'PayPal-Request-Id': `${productCode}-${Date.now()}`,
       },
-      body: JSON.stringify({
-        intent: 'CAPTURE',
-        purchase_units: [
-          {
-            reference_id: productCode,
-            description: productName,
-            amount: {
-              currency_code: currency,
-              value: price.toString(),
-            },
-          },
-        ],
-        application_context: {
-          brand_name: 'مكان TV',
-          landing_page: 'NO_PREFERENCE',
-          user_action: 'PAY_NOW',
-          return_url: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/order-success`,
-          cancel_url: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/order-cancelled`,
-        },
-      }),
+      body: JSON.stringify(orderPayload),
     });
 
     if (!orderResponse.ok) {
