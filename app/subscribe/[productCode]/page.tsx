@@ -11,9 +11,11 @@ import Footer from '@/components/Footer';
 import { Sparkles, Zap, Crown, Star, Check, ArrowRight, ImageIcon, CheckCircle2 } from 'lucide-react';
 import DOMPurify from 'isomorphic-dompurify';
 import { formatPriceWithSar } from '@/lib/utils';
+import { useEffect, useState } from 'react';
+import { Loader2 } from 'lucide-react';
 
-// Product data with descriptions
-const productsData: { [key: string]: any } = {
+// Product data with descriptions (fallback data)
+const fallbackProductsData: { [key: string]: any } = {
   'SUB-BASIC-1M': {
     id: 'PROD-001',
     name: 'اشتراك IPTV - 1 شهر',
@@ -432,7 +434,75 @@ export default function ProductDetailPage() {
   const params = useParams();
   const router = useRouter();
   const productCode = params.productCode as string;
-  const product = productsData[productCode];
+  const [product, setProduct] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  
+  useEffect(() => {
+    const fetchProduct = async () => {
+      try {
+        const response = await fetch('/api/products', {
+          cache: 'no-store',
+          headers: {
+            'Cache-Control': 'no-cache',
+          },
+        });
+        const result = await response.json();
+        
+        if (!response.ok) {
+          throw new Error(result.error || 'فشل في جلب المنتج');
+        }
+
+        // Find product by product_code
+        const foundProduct = result.products.find((p: any) => p.product_code === productCode);
+        
+        if (foundProduct) {
+          // Map database product to display format
+          setProduct({
+            id: foundProduct.id,
+            name: foundProduct.name,
+            price: foundProduct.price,
+            duration: foundProduct.duration,
+            code: foundProduct.product_code,
+            description: foundProduct.description,
+            gradient: foundProduct.gradient || 'from-blue-500 to-cyan-500',
+            badgeColor: foundProduct.badge_color || 'bg-blue-500',
+            image: foundProduct.image,
+            image2: foundProduct.image2,
+            logos: foundProduct.logos,
+            features: foundProduct.features,
+            icon: foundProduct.icon_name === 'crown' ? Crown : foundProduct.icon_name === 'star' ? Star : foundProduct.icon_name === 'zap' ? Zap : Sparkles,
+            fullDescription: foundProduct.full_description || foundProduct.description,
+          });
+        } else {
+          // Fallback to hardcoded data if not found in database
+          setProduct(fallbackProductsData[productCode]);
+        }
+      } catch (error: any) {
+        console.error('Error fetching product:', error);
+        // Fallback to hardcoded data on error
+        setProduct(fallbackProductsData[productCode]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProduct();
+  }, [productCode]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900">
+        <Header />
+        <main className="container mx-auto px-4 py-24 pt-32">
+          <div className="max-w-4xl mx-auto text-center">
+            <Loader2 className="h-8 w-8 animate-spin text-white mx-auto" />
+            <p className="text-slate-300 mt-4">جاري تحميل المنتج...</p>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   if (!product) {
     return (

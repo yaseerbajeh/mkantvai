@@ -19,30 +19,16 @@ import { Loader2, User, Mail, MessageCircle, X, CreditCard } from 'lucide-react'
 import type { User as SupabaseUser } from '@supabase/supabase-js';
 import { formatPriceWithSar, convertSarToUsd } from '@/lib/utils';
 
-// Product data (matching the 4-section structure)
-const productsData: { [key: string]: any } = {
-  'SUB-BASIC-1M': { name: 'اشتراك IPTV - 1 شهر', price: 49, duration: '1 شهر', code: 'SUB-BASIC-1M' },
-  'SUB-BASIC-3M': { name: 'اشتراك IPTV - 3 أشهر', price: 129, duration: '3 أشهر', code: 'SUB-BASIC-3M' },
-  'SUB-BASIC-6M': { name: 'اشتراك IPTV - 6 أشهر', price: 229, duration: '6 أشهر', code: 'SUB-BASIC-6M' },
-  'SUB-PREMIUM-1M': { name: 'اشتراك مميز - 1 شهر', price: 79, duration: '1 شهر', code: 'SUB-PREMIUM-1M' },
-  'SUB-PREMIUM-3M': { name: 'اشتراك مميز - 3 أشهر', price: 199, duration: '3 أشهر', code: 'SUB-PREMIUM-3M' },
-  'SUB-PREMIUM-6M': { name: 'اشتراك مميز - 6 أشهر', price: 349, duration: '6 أشهر', code: 'SUB-PREMIUM-6M' },
-  'SUB-ANNUAL-BASIC': { name: 'اشتراك سنوي - أساسي', price: 399, duration: '12 شهر', code: 'SUB-ANNUAL-BASIC' },
-  'SUB-ANNUAL-PREMIUM': { name: 'اشتراك سنوي - مميز', price: 699, duration: '12 شهر', code: 'SUB-ANNUAL-PREMIUM' },
-  'SUB-ANNUAL-VIP': { name: 'اشتراك سنوي - VIP', price: 1199, duration: '12 شهر', code: 'SUB-ANNUAL-VIP' },
-  'SUB-PACKAGE-PREMIUM': { name: 'البكج الفاخر', price: 299, duration: 'باقة متكاملة', code: 'SUB-PACKAGE-PREMIUM' },
-  'SUB-PACKAGE-LEGENDARY': { name: 'البكج الاسطوري', price: 199, duration: 'باقة مميزة', code: 'SUB-PACKAGE-LEGENDARY' },
-};
-
 export default function OrderPage() {
   const params = useParams();
   const router = useRouter();
   const { toast } = useToast();
   const productCode = params.productCode as string;
-  const product = productsData[productCode];
   
   const [user, setUser] = useState<SupabaseUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const [product, setProduct] = useState<any>(null);
+  const [productLoading, setProductLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [authDialogOpen, setAuthDialogOpen] = useState(false);
   const [showAuthOptions, setShowAuthOptions] = useState(false);
@@ -59,6 +45,48 @@ export default function OrderPage() {
     password: '',
     confirmPassword: '',
   });
+
+  useEffect(() => {
+    const fetchProduct = async () => {
+      try {
+        const response = await fetch('/api/products', {
+          cache: 'no-store',
+          headers: {
+            'Cache-Control': 'no-cache',
+          },
+        });
+        const result = await response.json();
+        
+        if (!response.ok) {
+          throw new Error(result.error || 'فشل في جلب المنتج');
+        }
+
+        // Find product by product_code
+        const foundProduct = result.products.find((p: any) => p.product_code === productCode);
+        
+        if (foundProduct) {
+          // Map database fields to expected format
+          setProduct({
+            name: foundProduct.name,
+            price: foundProduct.price,
+            duration: foundProduct.duration,
+            code: foundProduct.product_code,
+          });
+        }
+      } catch (error: any) {
+        console.error('Error fetching product:', error);
+        toast({
+          title: 'خطأ',
+          description: 'فشل في جلب معلومات المنتج',
+          variant: 'destructive',
+        });
+      } finally {
+        setProductLoading(false);
+      }
+    };
+
+    fetchProduct();
+  }, [productCode, toast]);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -79,7 +107,7 @@ export default function OrderPage() {
       setLoading(false);
     };
     checkAuth();
-  }, []);
+  }, [choseVisitorCheckout]);
 
   const handleSignIn = async () => {
     if (!authData.email || !authData.password) {
@@ -251,7 +279,7 @@ export default function OrderPage() {
     }
   };
 
-  if (loading) {
+  if (loading || productLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900">
         <Header />
@@ -285,11 +313,6 @@ export default function OrderPage() {
         <Footer />
       </div>
     );
-  }
-
-  // Still loading
-  if (loading) {
-    return null;
   }
 
   return (
