@@ -298,9 +298,10 @@ export default function AdminOrdersPage() {
     
     const totalOrders = filtered.length;
     const pendingOrders = filtered.filter(o => o.status === 'pending').length;
-    const approvedOrders = filtered.filter(o => o.status === 'approved').length;
+    const approvedOrders = filtered.filter(o => o.status === 'approved' || o.status === 'paid').length;
+    const paidOrders = filtered.filter(o => o.status === 'paid').length;
     const rejectedOrders = filtered.filter(o => o.status === 'rejected').length;
-    const totalRevenue = filtered.filter(o => o.status === 'approved').reduce((sum, o) => sum + Number(o.price), 0);
+    const totalRevenue = filtered.filter(o => o.status === 'approved' || o.status === 'paid').reduce((sum, o) => sum + Number(o.price), 0);
 
     // Orders over time (last 30 days)
     const ordersByDate: { [key: string]: number } = {};
@@ -587,6 +588,7 @@ export default function AdminOrdersPage() {
                         <SelectItem value="all">جميع الحالات</SelectItem>
                         <SelectItem value="pending">قيد الانتظار</SelectItem>
                         <SelectItem value="approved">مقبول</SelectItem>
+                        <SelectItem value="paid">مدفوع</SelectItem>
                         <SelectItem value="rejected">مرفوض</SelectItem>
                       </SelectContent>
                     </Select>
@@ -771,6 +773,8 @@ export default function AdminOrdersPage() {
                                     className={
                                       order.status === 'approved'
                                         ? 'bg-green-900/50 text-green-500 border-green-700'
+                                        : order.status === 'paid'
+                                        ? 'bg-blue-900/50 text-blue-500 border-blue-700'
                                         : order.status === 'rejected'
                                         ? 'bg-red-900/50 text-red-500 border-red-700'
                                         : 'bg-yellow-900/50 text-yellow-500 border-yellow-700'
@@ -778,6 +782,8 @@ export default function AdminOrdersPage() {
                                   >
                                     {order.status === 'approved'
                                       ? 'مقبول'
+                                      : order.status === 'paid'
+                                      ? 'مدفوع'
                                       : order.status === 'rejected'
                                       ? 'مرفوض'
                                       : 'قيد الانتظار'}
@@ -787,7 +793,7 @@ export default function AdminOrdersPage() {
                                   {format(new Date(order.created_at), 'yyyy-MM-dd HH:mm', { locale: ar })}
                                 </TableCell>
                                 <TableCell>
-                                  {order.status === 'pending' && (
+                                  {(order.status === 'pending' || order.status === 'paid') && order.status !== 'approved' && (
                                     <div className="flex gap-2">
                                       <Button
                                         size="sm"

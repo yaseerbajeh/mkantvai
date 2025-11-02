@@ -224,7 +224,7 @@ export default function OrderPage() {
       return;
     }
 
-    // Validate WhatsApp is required
+    // Validate WhatsApp is always required (for both signed-in and guest users)
     if (!formData.whatsapp || formData.whatsapp.trim() === '') {
       toast({
         title: 'خطأ',
@@ -234,7 +234,7 @@ export default function OrderPage() {
       return;
     }
 
-    // Validate all required fields for visitor checkout
+    // Validate all required fields for visitor checkout (only for non-signed-in users)
     if (!user && (!formData.name || !formData.email)) {
       toast({
         title: 'خطأ',
@@ -333,48 +333,52 @@ export default function OrderPage() {
             </CardHeader>
           </Card>
 
-          {/* Customer Information Form - Only required if not signed in */}
-          {!user && (
+          {/* Customer Information Form - Show name/email if not signed in, WhatsApp always required */}
+          {(!user || !formData.whatsapp) && (
             <Card className="bg-slate-800/50 border-slate-700 mb-6">
               <CardHeader>
                 <CardTitle className="text-2xl text-white">معلومات الطلب</CardTitle>
                 <CardDescription className="text-slate-300">
-                  يرجى ملء جميع الحقول للاستمرار في عملية الدفع
+                  {user ? 'يرجى إدخال رقم الواتساب لإكمال عملية الدفع' : 'يرجى ملء جميع الحقول للاستمرار في عملية الدفع'}
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-6">
-                  <div className="space-y-2">
-                    <Label htmlFor="name" className="text-slate-200">
-                      الاسم الكامل <span className="text-red-500">*</span>
-                    </Label>
-                    <Input
-                      id="name"
-                      type="text"
-                      required
-                      value={formData.name}
-                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      className="bg-slate-900 border-slate-700 text-white placeholder:text-slate-500"
-                      placeholder="أدخل اسمك الكامل"
-                      dir="rtl"
-                    />
-                  </div>
+                  {!user && (
+                    <>
+                      <div className="space-y-2">
+                        <Label htmlFor="name" className="text-slate-200">
+                          الاسم الكامل <span className="text-red-500">*</span>
+                        </Label>
+                        <Input
+                          id="name"
+                          type="text"
+                          required
+                          value={formData.name}
+                          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                          className="bg-slate-900 border-slate-700 text-white placeholder:text-slate-500"
+                          placeholder="أدخل اسمك الكامل"
+                          dir="rtl"
+                        />
+                      </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="email" className="text-slate-200">
-                      البريد الإلكتروني <span className="text-red-500">*</span>
-                    </Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      required
-                      value={formData.email}
-                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                      className="bg-slate-900 border-slate-700 text-white placeholder:text-slate-500"
-                      placeholder="example@email.com"
-                      dir="ltr"
-                    />
-                  </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="email" className="text-slate-200">
+                          البريد الإلكتروني <span className="text-red-500">*</span>
+                        </Label>
+                        <Input
+                          id="email"
+                          type="email"
+                          required
+                          value={formData.email}
+                          onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                          className="bg-slate-900 border-slate-700 text-white placeholder:text-slate-500"
+                          placeholder="example@email.com"
+                          dir="ltr"
+                        />
+                      </div>
+                    </>
+                  )}
 
                   <div className="space-y-2">
                     <Label htmlFor="whatsapp" className="text-slate-200">
@@ -409,10 +413,15 @@ export default function OrderPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {/* Validate form data before allowing PayPal payment - only if not signed in */}
-              {(!user && (!formData.name || !formData.email || !formData.whatsapp)) ? (
+              {/* Validate form data before allowing PayPal payment - WhatsApp is always required */}
+              {!formData.whatsapp || (!user && (!formData.name || !formData.email)) ? (
                 <div className="p-4 bg-yellow-900/20 border border-yellow-700 rounded-lg text-yellow-400 text-center">
-                  <p className="text-sm">يرجى ملء جميع الحقول أعلاه قبل استخدام PayPal</p>
+                  <p className="text-sm">
+                    {!formData.whatsapp 
+                      ? 'يرجى إدخال رقم الواتساب قبل إتمام الدفع'
+                      : 'يرجى ملء جميع الحقول أعلاه قبل استخدام PayPal'
+                    }
+                  </p>
                 </div>
               ) : (
                 <PayPalButton
@@ -422,7 +431,7 @@ export default function OrderPage() {
                   currency="USD"
                   orderDetails={{
                     name: formData.name || user?.user_metadata?.full_name || user?.email || '',
-                    email: formData.email || user?.email || '',
+                    email: user?.email || formData.email || '', // Prioritize signed-in user's email
                     whatsapp: formData.whatsapp || '',
                   }}
                   className="mt-4"
