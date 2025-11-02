@@ -333,99 +333,84 @@ export default function OrderPage() {
             </CardHeader>
           </Card>
 
-          {/* Order Form */}
-          <Card className="bg-slate-800/50 border-slate-700">
-            <CardHeader>
-              <CardTitle className="text-2xl text-white">معلومات الطلب</CardTitle>
-              <CardDescription className="text-slate-300">
-                {user ? 'تم ملء المعلومات تلقائياً من حسابك' : 'يرجى ملء جميع الحقول'}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleSubmit} className="space-y-6">
-                <div className="space-y-2">
-                  <Label htmlFor="name" className="text-slate-200">
-                    الاسم الكامل <span className="text-red-500">*</span>
-                  </Label>
-                  <Input
-                    id="name"
-                    type="text"
-                    required
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="bg-slate-900 border-slate-700 text-white placeholder:text-slate-500"
-                    placeholder="أدخل اسمك الكامل"
-                    dir="rtl"
-                  />
-                </div>
+          {/* Customer Information Form - Only required if not signed in */}
+          {!user && (
+            <Card className="bg-slate-800/50 border-slate-700 mb-6">
+              <CardHeader>
+                <CardTitle className="text-2xl text-white">معلومات الطلب</CardTitle>
+                <CardDescription className="text-slate-300">
+                  يرجى ملء جميع الحقول للاستمرار في عملية الدفع
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="name" className="text-slate-200">
+                      الاسم الكامل <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      id="name"
+                      type="text"
+                      required
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      className="bg-slate-900 border-slate-700 text-white placeholder:text-slate-500"
+                      placeholder="أدخل اسمك الكامل"
+                      dir="rtl"
+                    />
+                  </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="email" className="text-slate-200">
-                    البريد الإلكتروني <span className="text-red-500">*</span>
-                  </Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    required
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    className="bg-slate-900 border-slate-700 text-white placeholder:text-slate-500"
-                    placeholder="example@email.com"
-                    dir="ltr"
-                    disabled={!!user}
-                  />
-                </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="email" className="text-slate-200">
+                      البريد الإلكتروني <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      required
+                      value={formData.email}
+                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                      className="bg-slate-900 border-slate-700 text-white placeholder:text-slate-500"
+                      placeholder="example@email.com"
+                      dir="ltr"
+                    />
+                  </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="whatsapp" className="text-slate-200">
-                    رقم الواتساب <span className="text-red-500">*</span>
-                  </Label>
-                  <Input
-                    id="whatsapp"
-                    type="tel"
-                    required
-                    value={formData.whatsapp}
-                    onChange={(e) => setFormData({ ...formData, whatsapp: e.target.value })}
-                    className="bg-slate-900 border-slate-700 text-white placeholder:text-slate-500"
-                    placeholder="966xxxxxxxxx"
-                    dir="ltr"
-                  />
-                  <p className="text-slate-400 text-xs">مطلوب لإكمال عملية الطلب</p>
+                  <div className="space-y-2">
+                    <Label htmlFor="whatsapp" className="text-slate-200">
+                      رقم الواتساب <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      id="whatsapp"
+                      type="tel"
+                      required
+                      value={formData.whatsapp}
+                      onChange={(e) => setFormData({ ...formData, whatsapp: e.target.value })}
+                      className="bg-slate-900 border-slate-700 text-white placeholder:text-slate-500"
+                      placeholder="966xxxxxxxxx"
+                      dir="ltr"
+                    />
+                    <p className="text-slate-400 text-xs">مطلوب للتواصل معك</p>
+                  </div>
                 </div>
-
-                <Button
-                  type="submit"
-                  disabled={submitting}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-                  size="lg"
-                >
-                  {submitting ? (
-                    <>
-                      <Loader2 className="ml-2 h-4 w-4 animate-spin" />
-                      جاري المعالجة...
-                    </>
-                  ) : (
-                    'إرسال الطلب'
-                  )}
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          )}
 
           {/* PayPal Payment Section */}
           <Card className="bg-slate-800/50 border-slate-700 mt-6">
             <CardHeader>
               <CardTitle className="text-2xl text-white flex items-center gap-2">
                 <CreditCard className="h-5 w-5" />
-                الدفع عبر PayPal
+                بوابة الدفع الإلكترونية
               </CardTitle>
               <CardDescription className="text-slate-300">
-                ادفع مباشرة عبر PayPal بطريقة آمنة وسريعة
+                ادفع مباشرة عن طريق مدى/فيزا/ماستر كارد/بايبال
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {/* Validate form data before allowing PayPal payment */}
-              {(!formData.name || !formData.email || !formData.whatsapp) ? (
+              {/* Validate form data before allowing PayPal payment - only if not signed in */}
+              {(!user && (!formData.name || !formData.email || !formData.whatsapp)) ? (
                 <div className="p-4 bg-yellow-900/20 border border-yellow-700 rounded-lg text-yellow-400 text-center">
                   <p className="text-sm">يرجى ملء جميع الحقول أعلاه قبل استخدام PayPal</p>
                 </div>
@@ -436,9 +421,9 @@ export default function OrderPage() {
                   price={convertSarToUsd(product.price)}
                   currency="USD"
                   orderDetails={{
-                    name: formData.name,
-                    email: formData.email,
-                    whatsapp: formData.whatsapp,
+                    name: formData.name || user?.user_metadata?.full_name || user?.email || '',
+                    email: formData.email || user?.email || '',
+                    whatsapp: formData.whatsapp || '',
                   }}
                   className="mt-4"
                 />

@@ -1,8 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
+import { sendNewOrderEmail, sendApprovalEmail } from '@/utils/sendEmail';
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
 /**
  * PayPal Order Capture API
  * Captures payment after user approves on PayPal
+ * Automatically creates order, assigns subscription, and sends emails
  * 
  * Required Environment Variables:
  * - PAYPAL_CLIENT_ID
@@ -114,48 +120,147 @@ export async function POST(request: NextRequest) {
 
     const captureData = await captureResponse.json();
 
-    // If order details provided, create order in database
+    // If payment is not completed, return without creating order
+    if (captureData.status !== 'COMPLETED') {
+      return NextResponse.json({
+        success: false,
+        capture: captureData,
+        error: 'Payment was not completed',
+      });
+    }
+
+    // If order details provided, create order and auto-assign subscription
     if (orderDetails) {
       try {
-        const orderResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/orders/create`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
+        const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+
+        // Create order with paid status
+        const { data: order, error: orderError } = await supabaseAdmin
+          .from('orders')
+          .insert({
             name: orderDetails.name,
             email: orderDetails.email,
-            whatsapp: orderDetails.whatsapp,
+            whatsapp: orderDetails.whatsapp || null,
             product_name: orderDetails.product_name,
-            product_code: orderDetails.product_code,
-            price: orderDetails.price,
+            product_code: orderDetails.product_code || null,
+            price: parseFloat(orderDetails.price),
+            status: 'paid', // Set status to paid immediately
             payment_method: 'paypal',
             payment_id: captureData.id,
-            payment_status: captureData.status === 'COMPLETED' ? 'COMPLETED' : 'pending',
-          }),
-        });
+            payment_status: 'COMPLETED',
+          })
+          .select()
+          .single();
 
-        if (orderResponse.ok) {
-          const orderData = await orderResponse.json();
-          return NextResponse.json({
-            success: true,
-            capture: captureData,
-            order: orderData.order,
-          });
-        } else {
-          let errorData;
-          try {
-            errorData = await orderResponse.json();
-          } catch {
-            errorData = { error: 'Unknown error' };
-          }
-          console.error('Failed to create order in database:', errorData);
-          // Still return success since payment was captured, but log the error
+        if (orderError || !order) {
+          console.error('Failed to create order:', orderError);
           return NextResponse.json({
             success: true,
             capture: captureData,
             warning: 'Payment successful but order creation failed',
-            error: errorData.error || 'Unknown error',
+            error: orderError?.message || 'Database error',
+          });
+        }
+
+        // Automatically assign subscription (no admin approval needed for PayPal)
+        try {
+          const { data: assignedSubscription, error: assignError } = await supabaseAdmin.rpc(
+            'assign_subscription_to_order',
+            {
+              p_order_id: order.id,
+              p_admin_id: null, // No admin needed for automated assignment
+            }
+          );
+
+          if (assignError) {
+            console.error('Failed to assign subscription:', assignError);
+            // Order was created but subscription assignment failed
+            // Keep status as 'paid' (don't change to approved since no subscription assigned)
+
+            // Send email to admin about this issue
+            try {
+              const orderDisplayId = (order as any).order_number || order.id.slice(0, 8).toUpperCase();
+              await sendNewOrderEmail({
+                orderId: orderDisplayId,
+                name: order.name,
+                email: order.email,
+                whatsapp: order.whatsapp || undefined,
+                productName: order.product_name,
+                price: parseFloat(order.price as any),
+                createdAt: order.created_at,
+              });
+            } catch (emailErr) {
+              console.error('Error sending admin email:', emailErr);
+            }
+
+            return NextResponse.json({
+              success: true,
+              capture: captureData,
+              order: {
+                ...order,
+                status: 'paid',
+              },
+              warning: 'Subscription assignment failed - please assign manually',
+              subscriptionError: assignError.message,
+            });
+          }
+
+          // Fetch updated order with subscription
+          const { data: updatedOrder } = await supabaseAdmin
+            .from('orders')
+            .select('*')
+            .eq('id', order.id)
+            .single();
+
+          // Send email to admin about new PayPal order
+          try {
+            const orderDisplayId = (updatedOrder as any)?.order_number || order.id.slice(0, 8).toUpperCase();
+            await sendNewOrderEmail({
+              orderId: orderDisplayId,
+              name: order.name,
+              email: order.email,
+              whatsapp: order.whatsapp || undefined,
+              productName: order.product_name,
+              price: parseFloat(order.price as any),
+              createdAt: order.created_at,
+            });
+          } catch (emailErr) {
+            console.error('Error sending admin email:', emailErr);
+          }
+
+          // Send approval email to customer with subscription details
+          try {
+            const subscriptionData = (updatedOrder as any)?.assigned_subscription as any;
+            const orderDisplayId = (updatedOrder as any)?.order_number || order.id.slice(0, 8).toUpperCase();
+            
+            if (subscriptionData?.code) {
+              await sendApprovalEmail({
+                orderId: orderDisplayId,
+                name: order.name,
+                email: order.email,
+                subscriptionCode: subscriptionData.code,
+                subscriptionMeta: subscriptionData.meta,
+              });
+            }
+          } catch (emailErr) {
+            console.error('Error sending customer email:', emailErr);
+          }
+
+          return NextResponse.json({
+            success: true,
+            capture: captureData,
+            order: updatedOrder,
+            subscription: assignedSubscription,
+          });
+        } catch (assignErr: any) {
+          console.error('Error in subscription assignment:', assignErr);
+          
+          // Still return success with order
+          return NextResponse.json({
+            success: true,
+            capture: captureData,
+            order: order,
+            warning: 'Subscription assignment encountered an error',
           });
         }
       } catch (dbError: any) {

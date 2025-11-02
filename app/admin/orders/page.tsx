@@ -45,7 +45,12 @@ interface Order {
   product_name: string;
   product_code?: string;
   price: number;
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'pending' | 'approved' | 'rejected' | 'paid';
+  payment_method?: string;
+  assigned_subscription?: {
+    code: string;
+    meta?: any;
+  };
   created_at: string;
 }
 
