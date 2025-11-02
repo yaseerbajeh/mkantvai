@@ -152,17 +152,19 @@ function PayPalButtonInternal({ productCode, productName, price, currency = 'USD
   }
 
   return (
-    <PayPalButtons
-      createOrder={createOrder}
-      onApprove={onApprove}
-      onError={onPayPalError}
-      style={{
-        layout: 'vertical',
-        color: 'blue',
-        shape: 'rect',
-        label: 'paypal',
-      }}
-    />
+    <div style={{ width: '100%', maxWidth: '100%', minWidth: 0, overflow: 'hidden' }}>
+      <PayPalButtons
+        createOrder={createOrder}
+        onApprove={onApprove}
+        onError={onPayPalError}
+        style={{
+          layout: 'vertical',
+          color: 'blue',
+          shape: 'rect',
+          label: 'paypal',
+        }}
+      />
+    </div>
   );
 }
 
@@ -186,7 +188,17 @@ export default function PayPalButton({ className, ...props }: PayPalButtonProps)
         locale: 'ar_SA',
       }}
     >
-      <div className={className}>
+      <div 
+        className={className}
+        style={{
+          width: '100%',
+          maxWidth: '100%',
+          minWidth: 0,
+          overflow: 'hidden',
+          position: 'relative',
+          boxSizing: 'border-box',
+        }}
+      >
         <PayPalButtonInternal {...props} />
       </div>
     </PayPalScriptProvider>

@@ -15,7 +15,7 @@ import PayPalButton from '@/components/PayPalButton';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/lib/supabase';
 import { signIn, signUp } from '@/lib/auth';
-import { Loader2, User, Mail, MessageCircle, X, CreditCard } from 'lucide-react';
+import { Loader2, User, Mail, MessageCircle, X, CreditCard, Shield, CheckCircle2 } from 'lucide-react';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
 import { formatPriceWithSar, convertSarToUsd } from '@/lib/utils';
 
@@ -318,127 +318,174 @@ export default function OrderPage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900">
       <Header />
-      <main className="container mx-auto px-4 py-24 pt-32">
-        <div className="max-w-2xl mx-auto">
-          {/* Product Summary */}
-          <Card className="bg-slate-800/50 border-slate-700 mb-6">
-            <CardHeader>
-              <CardTitle className="text-xl text-white">{product.name}</CardTitle>
-              <CardDescription className="text-slate-300">
-                {(() => {
-                  const { usdPrice } = formatPriceWithSar(product.price);
-                  return `المدة: ${product.duration} | السعر: ${product.price} ريال (ما يساوي $${usdPrice})`;
-                })()}
-              </CardDescription>
-            </CardHeader>
-          </Card>
-
-          {/* Customer Information Form - Show name/email if not signed in, WhatsApp always required */}
-          {(!user || !formData.whatsapp) && (
-            <Card className="bg-slate-800/50 border-slate-700 mb-6">
-              <CardHeader>
-                <CardTitle className="text-2xl text-white">معلومات الطلب</CardTitle>
-                <CardDescription className="text-slate-300">
-                  {user ? 'يرجى إدخال رقم الواتساب لإكمال عملية الدفع' : 'يرجى ملء جميع الحقول للاستمرار في عملية الدفع'}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-6">
-                  {!user && (
-                    <>
-                      <div className="space-y-2">
-                        <Label htmlFor="name" className="text-slate-200">
-                          الاسم الكامل <span className="text-red-500">*</span>
-                        </Label>
-                        <Input
-                          id="name"
-                          type="text"
-                          required
-                          value={formData.name}
-                          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                          className="bg-slate-900 border-slate-700 text-white placeholder:text-slate-500"
-                          placeholder="أدخل اسمك الكامل"
-                          dir="rtl"
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label htmlFor="email" className="text-slate-200">
-                          البريد الإلكتروني <span className="text-red-500">*</span>
-                        </Label>
-                        <Input
-                          id="email"
-                          type="email"
-                          required
-                          value={formData.email}
-                          onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                          className="bg-slate-900 border-slate-700 text-white placeholder:text-slate-500"
-                          placeholder="example@email.com"
-                          dir="ltr"
-                        />
-                      </div>
-                    </>
-                  )}
-
-                  <div className="space-y-2">
-                    <Label htmlFor="whatsapp" className="text-slate-200">
-                      رقم الواتساب <span className="text-red-500">*</span>
-                    </Label>
-                    <Input
-                      id="whatsapp"
-                      type="tel"
-                      required
-                      value={formData.whatsapp}
-                      onChange={(e) => setFormData({ ...formData, whatsapp: e.target.value })}
-                      className="bg-slate-900 border-slate-700 text-white placeholder:text-slate-500"
-                      placeholder="966xxxxxxxxx"
-                      dir="ltr"
-                    />
-                    <p className="text-slate-400 text-xs">مطلوب للتواصل معك</p>
+      <main className="container mx-auto px-3 sm:px-4 py-4 sm:py-8 pt-20 sm:pt-32">
+        <div className="max-w-4xl mx-auto">
+          {/* Product Summary - Compact Header */}
+          <Card className="bg-gradient-to-br from-slate-800/90 to-slate-900/90 border-slate-700 mb-4 sm:mb-6">
+            <CardContent className="pt-4 sm:pt-6 px-4 sm:px-6">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div className="flex-1">
+                  <CardTitle className="text-lg sm:text-xl text-white mb-1">{product.name}</CardTitle>
+                  <CardDescription className="text-slate-300 text-sm">
+                    {(() => {
+                      const { usdPrice } = formatPriceWithSar(product.price);
+                      return `المدة: ${product.duration} | ${product.price} ريال ($${usdPrice})`;
+                    })()}
+                  </CardDescription>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className={`px-3 py-1.5 rounded-lg bg-gradient-to-r ${product.gradient || 'from-blue-500 to-cyan-500'} text-white text-sm font-semibold`}>
+                    {product.duration}
                   </div>
                 </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* PayPal Payment Section */}
-          <Card className="bg-slate-800/50 border-slate-700 mt-6">
-            <CardHeader>
-              <CardTitle className="text-2xl text-white flex items-center gap-2">
-                <CreditCard className="h-5 w-5" />
-                بوابة الدفع الإلكترونية
-              </CardTitle>
-              <CardDescription className="text-slate-300">
-                ادفع مباشرة عن طريق مدى/فيزا/ماستر كارد/بايبال
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {/* Validate form data before allowing PayPal payment - WhatsApp is always required */}
-              {!formData.whatsapp || (!user && (!formData.name || !formData.email)) ? (
-                <div className="p-4 bg-yellow-900/20 border border-yellow-700 rounded-lg text-yellow-400 text-center">
-                  <p className="text-sm">
-                    {!formData.whatsapp 
-                      ? 'يرجى إدخال رقم الواتساب قبل إتمام الدفع'
-                      : 'يرجى ملء جميع الحقول أعلاه قبل استخدام PayPal'
-                    }
-                  </p>
-                </div>
-              ) : (
-                <PayPalButton
-                  productCode={product.code}
-                  productName={product.name}
-                  price={convertSarToUsd(product.price)}
-                  currency="USD"
-                  orderDetails={{
-                    name: formData.name || user?.user_metadata?.full_name || user?.email || '',
-                    email: user?.email || formData.email || '', // Prioritize signed-in user's email
-                    whatsapp: formData.whatsapp || '',
-                  }}
-                  className="mt-4"
-                />
-              )}
+              </div>
             </CardContent>
           </Card>
+
+          {/* Main Content Grid - Mobile Stacked, Desktop Side by Side */}
+          <div className="grid lg:grid-cols-2 gap-4 sm:gap-6">
+            {/* Left Column - Customer Information */}
+            <div className="space-y-4 sm:space-y-6">
+              {/* Customer Information Form */}
+              {(!user || !formData.whatsapp) && (
+                <Card className="bg-gradient-to-br from-slate-800/90 to-slate-900/90 border-slate-700">
+                  <CardHeader className="pb-4">
+                    <CardTitle className="text-xl sm:text-2xl text-white flex items-center gap-2">
+                      <User className="h-5 w-5" />
+                      معلومات الطلب
+                    </CardTitle>
+                    <CardDescription className="text-slate-300 text-sm">
+                      {user ? 'يرجى إدخال رقم الواتساب' : 'يرجى ملء جميع الحقول'}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {!user && (
+                      <>
+                        <div className="space-y-2">
+                          <Label htmlFor="name" className="text-slate-200 text-sm">
+                            الاسم الكامل <span className="text-red-500">*</span>
+                          </Label>
+                          <Input
+                            id="name"
+                            type="text"
+                            required
+                            value={formData.name}
+                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                            className="bg-slate-900/50 border-slate-700 text-white placeholder:text-slate-500 h-11"
+                            placeholder="أدخل اسمك الكامل"
+                            dir="rtl"
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="email" className="text-slate-200 text-sm">
+                            البريد الإلكتروني <span className="text-red-500">*</span>
+                          </Label>
+                          <Input
+                            id="email"
+                            type="email"
+                            required
+                            value={formData.email}
+                            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                            className="bg-slate-900/50 border-slate-700 text-white placeholder:text-slate-500 h-11"
+                            placeholder="example@email.com"
+                            dir="ltr"
+                          />
+                        </div>
+                      </>
+                    )}
+
+                    <div className="space-y-2">
+                      <Label htmlFor="whatsapp" className="text-slate-200 text-sm">
+                        رقم الواتساب <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        id="whatsapp"
+                        type="tel"
+                        required
+                        value={formData.whatsapp}
+                        onChange={(e) => setFormData({ ...formData, whatsapp: e.target.value })}
+                        className="bg-slate-900/50 border-slate-700 text-white placeholder:text-slate-500 h-11"
+                        placeholder="966xxxxxxxxx"
+                        dir="ltr"
+                      />
+                      <p className="text-slate-400 text-xs">مطلوب للتواصل معك</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Trust Badges */}
+              <Card className="bg-slate-800/50 border-slate-700">
+                <CardContent className="pt-4 sm:pt-6 px-4 sm:px-6">
+                  <div className="grid grid-cols-2 gap-3 text-center">
+                    <div className="flex flex-col items-center">
+                      <div className="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center mb-2">
+                        <CheckCircle2 className="w-5 h-5 text-green-400" />
+                      </div>
+                      <p className="text-xs text-slate-300">دفع آمن</p>
+                    </div>
+                    <div className="flex flex-col items-center">
+                      <div className="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center mb-2">
+                        <Shield className="w-5 h-5 text-blue-400" />
+                      </div>
+                      <p className="text-xs text-slate-300">مضمون</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Right Column - Payment Gateway */}
+            <div>
+              <Card className="bg-gradient-to-br from-slate-800/90 to-slate-900/90 border-slate-700 sticky top-24">
+                <CardHeader className="pb-4">
+                  <CardTitle className="text-xl sm:text-2xl text-white flex items-center gap-2">
+                    <CreditCard className="h-5 w-5" />
+                    بوابة الدفع
+                  </CardTitle>
+                  <CardDescription className="text-slate-300 text-sm">
+                    ادفع بأمان عبر PayPal
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="pb-4 sm:pb-6">
+                  {/* Validate form data before allowing PayPal payment */}
+                  {!formData.whatsapp || (!user && (!formData.name || !formData.email)) ? (
+                    <div className="p-4 bg-yellow-900/20 border border-yellow-700 rounded-lg text-yellow-400 text-center">
+                      <p className="text-sm">
+                        {!formData.whatsapp 
+                          ? 'يرجى إدخال رقم الواتساب أولاً'
+                          : 'يرجى ملء جميع الحقول أعلاه'
+                        }
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="w-full max-w-full mx-auto overflow-hidden">
+                      <PayPalButton
+                        productCode={product.code}
+                        productName={product.name}
+                        price={convertSarToUsd(product.price)}
+                        currency="USD"
+                        orderDetails={{
+                          name: formData.name || user?.user_metadata?.full_name || user?.email || '',
+                          email: user?.email || formData.email || '',
+                          whatsapp: formData.whatsapp || '',
+                        }}
+                        className="w-full"
+                      />
+                    </div>
+                  )}
+                  
+                  {/* Payment Security Note */}
+                  <div className="mt-4 pt-4 border-t border-slate-700">
+                    <p className="text-xs text-slate-400 text-center">
+                      🔒 معاملاتك آمنة ومشفرة عبر PayPal
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
         </div>
       </main>
       <Footer />
