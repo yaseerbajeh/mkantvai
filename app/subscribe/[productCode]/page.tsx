@@ -8,11 +8,9 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
-import { Sparkles, Zap, Crown, Star, Check, ArrowRight, ImageIcon, CheckCircle2 } from 'lucide-react';
+import { Sparkles, Zap, Crown, Star, Check, ArrowRight, ImageIcon, CheckCircle2, Loader2 } from 'lucide-react';
 import DOMPurify from 'isomorphic-dompurify';
 import { formatPriceWithSar } from '@/lib/utils';
-import { useEffect, useState } from 'react';
-import { Loader2 } from 'lucide-react';
 
 // Product data with descriptions (fallback data)
 const fallbackProductsData: { [key: string]: any } = {
