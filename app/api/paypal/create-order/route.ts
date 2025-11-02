@@ -11,7 +11,7 @@ import { NextRequest, NextResponse } from 'next/server';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { productCode, productName, price, currency = 'SAR' } = body;
+    const { productCode, productName, price, currency = 'USD' } = body;
 
     // Validate required fields
     if (!productCode || !productName || price === undefined) {
@@ -149,18 +149,34 @@ export async function POST(request: NextRequest) {
       } catch {
         errorData = { message: 'Unknown error', status: orderResponse.status };
       }
+      
+      // Log full error details for debugging
       console.error('PayPal order creation error:', {
         status: orderResponse.status,
         statusText: orderResponse.statusText,
         error: errorData,
+        details: errorData.details,
+        debug_id: errorData.debug_id,
       });
+      
+      // Extract detailed error messages from details array
+      let detailedMessage = errorData.message || 'Failed to create PayPal order';
+      if (errorData.details && Array.isArray(errorData.details) && errorData.details.length > 0) {
+        const detailMessages = errorData.details.map((detail: any) => {
+          return detail.issue ? `${detail.field || 'Unknown'}: ${detail.issue}` : JSON.stringify(detail);
+        });
+        detailedMessage += ' - ' + detailMessages.join(', ');
+      }
+      
       return NextResponse.json(
         { 
           error: 'Failed to create PayPal order',
-          details: errorData.message || errorData.details || JSON.stringify(errorData),
+          details: detailedMessage,
+          debug_id: errorData.debug_id,
+          full_error: errorData,
           status: orderResponse.status
         },
-        { status: 500 }
+        { status: orderResponse.status }
       );
     }
 

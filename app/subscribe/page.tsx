@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { Sparkles, Zap, Crown, Star, Check, ArrowRight, ImageIcon, Package, Loader2 } from 'lucide-react';
+import { formatPriceWithSar } from '@/lib/utils';
 
 const sectionGradients = [
   'from-purple-600/20 via-blue-600/20 to-purple-600/20',
@@ -182,11 +183,17 @@ export default function SubscribePage() {
                             <CardContent className="mt-auto pb-6 md:pb-8 px-6 md:px-8">
                               {/* Price */}
                               <div className="mb-6 text-center p-4 md:p-6 bg-gradient-to-br from-slate-700/50 to-slate-800/50 rounded-xl border border-slate-600/50">
-                                <div className="flex items-baseline justify-center gap-2 md:gap-3 mb-2">
-                                  <span className="text-4xl md:text-6xl font-extrabold text-white">{product.price}</span>
-                                  <span className="text-xl md:text-2xl text-slate-400">ريال</span>
-                                </div>
-                                <p className="text-slate-400 text-sm md:text-base">قيمة استثنائية</p>
+                                {(() => {
+                                  return (
+                                    <>
+                                      <div className="flex items-baseline justify-center gap-2 md:gap-3 mb-2">
+                                        <span className="text-4xl md:text-6xl font-extrabold text-white">{product.price}</span>
+                                        <span className="text-xl md:text-2xl text-slate-400">ريال</span>
+                                      </div>
+                                      <p className="text-slate-400 text-sm md:text-base">قيمة استثنائية</p>
+                                    </>
+                                  );
+                                })()}
                               </div>
 
                               {/* CTA Button */}
@@ -288,15 +295,22 @@ export default function SubscribePage() {
                           <CardContent className="mt-auto pb-3 md:pb-6 px-3 md:px-6">
                             {/* Price */}
                             <div className="mb-3 md:mb-6 text-center">
-                              <div className="flex items-baseline justify-center gap-1 md:gap-2">
-                                <span className="text-2xl md:text-5xl font-extrabold text-white">{product.price}</span>
-                                <span className="text-sm md:text-xl text-slate-400">ريال</span>
-                              </div>
-                              {product.duration !== '1 شهر' && (
-                                <p className="text-xs md:text-sm text-slate-500 mt-1 md:mt-2">
-                                  {Math.round(product.price / (product.duration.includes('3') ? 3 : product.duration.includes('6') ? 6 : 12))} ريال/شهر
-                                </p>
-                              )}
+                              {(() => {
+                                const { sarText } = formatPriceWithSar(product.price);
+                                return (
+                                  <>
+                                    <div className="flex items-baseline justify-center gap-1 md:gap-2">
+                                      <span className="text-2xl md:text-5xl font-extrabold text-white">{product.price}</span>
+                                      <span className="text-sm md:text-xl text-slate-400">ريال</span>
+                                    </div>
+                                    {product.duration !== '1 شهر' && (
+                                      <p className="text-xs md:text-sm text-slate-500 mt-1 md:mt-2">
+                                        {Math.round(product.price / (product.duration.includes('3') ? 3 : product.duration.includes('6') ? 6 : 12))} ريال/شهر
+                                      </p>
+                                    )}
+                                  </>
+                                );
+                              })()}
                             </div>
 
                             {/* CTA Button */}
