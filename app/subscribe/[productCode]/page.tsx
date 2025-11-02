@@ -10,6 +10,7 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { Sparkles, Zap, Crown, Star, Check, ArrowRight, ImageIcon, CheckCircle2 } from 'lucide-react';
 import DOMPurify from 'isomorphic-dompurify';
+import { formatPriceWithSar } from '@/lib/utils';
 
 // Product data with descriptions
 const productsData: { [key: string]: any } = {
@@ -575,15 +576,25 @@ export default function ProductDetailPage() {
 
                 {/* Price */}
                 <div className="mb-8 p-6 bg-gradient-to-br from-slate-700/50 to-slate-800/50 rounded-2xl border border-slate-600/50">
-                  <div className="flex items-baseline gap-3 mb-2">
-                    <span className="text-6xl font-extrabold text-white">{product.price}</span>
-                    <span className="text-2xl text-slate-400">ريال</span>
-                  </div>
-                  {product.duration !== '1 شهر' && (
-                    <p className="text-slate-400 text-lg">
-                      {Math.round(product.price / (product.duration.includes('3') ? 3 : product.duration.includes('6') ? 6 : 12))} ريال/شهر
-                    </p>
-                  )}
+                  {(() => {
+                    const { usdPrice } = formatPriceWithSar(product.price);
+                    return (
+                      <>
+                        <div className="flex items-baseline gap-3 mb-2">
+                          <span className="text-6xl font-extrabold text-white">{product.price}</span>
+                          <span className="text-2xl text-slate-400">ريال</span>
+                        </div>
+                        <p className="text-slate-400 text-base mb-2">
+                          ما يساوي ${usdPrice} دولار أمريكي
+                        </p>
+                        {product.duration !== '1 شهر' && (
+                          <p className="text-slate-400 text-lg">
+                            {Math.round(product.price / (product.duration.includes('3') ? 3 : product.duration.includes('6') ? 6 : 12))} ريال/شهر
+                          </p>
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
 
                 {/* CTA Button */}

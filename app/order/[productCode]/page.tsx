@@ -17,6 +17,7 @@ import { supabase } from '@/lib/supabase';
 import { signIn, signUp } from '@/lib/auth';
 import { Loader2, User, Mail, MessageCircle, X, CreditCard } from 'lucide-react';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
+import { formatPriceWithSar, convertSarToUsd } from '@/lib/utils';
 
 // Product data (matching the 4-section structure)
 const productsData: { [key: string]: any } = {
@@ -301,7 +302,10 @@ export default function OrderPage() {
             <CardHeader>
               <CardTitle className="text-xl text-white">{product.name}</CardTitle>
               <CardDescription className="text-slate-300">
-                المدة: {product.duration} | السعر: {product.price} ريال
+                {(() => {
+                  const { usdPrice } = formatPriceWithSar(product.price);
+                  return `المدة: ${product.duration} | السعر: ${product.price} ريال (ما يساوي $${usdPrice})`;
+                })()}
               </CardDescription>
             </CardHeader>
           </Card>
@@ -406,8 +410,8 @@ export default function OrderPage() {
                 <PayPalButton
                   productCode={product.code}
                   productName={product.name}
-                  price={product.price}
-                  currency="SAR"
+                  price={convertSarToUsd(product.price)}
+                  currency="USD"
                   orderDetails={{
                     name: formData.name,
                     email: formData.email,

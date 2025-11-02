@@ -22,7 +22,7 @@ interface PayPalButtonProps {
 }
 
 // Internal component that uses PayPal hooks
-function PayPalButtonInternal({ productCode, productName, price, currency = 'SAR', orderDetails, onSuccess, onError }: Omit<PayPalButtonProps, 'className'>) {
+function PayPalButtonInternal({ productCode, productName, price, currency = 'USD', orderDetails, onSuccess, onError }: Omit<PayPalButtonProps, 'className'>) {
   const router = useRouter();
   const { toast } = useToast();
   const [{ isPending }] = usePayPalScriptReducer();
@@ -181,7 +181,7 @@ export default function PayPalButton({ className, ...props }: PayPalButtonProps)
     <PayPalScriptProvider
       options={{
         clientId: clientId,
-        currency: props.currency || 'SAR',
+        currency: props.currency || 'USD',
         intent: 'capture',
         locale: 'ar_SA',
       }}
