@@ -45,18 +45,29 @@ function PayPalButtonInternal({ productCode, productName, price, currency = 'SAR
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to create order');
+        const errorMessage = data.error || 'Failed to create order';
+        const errorDetails = data.details ? `${errorMessage}: ${data.details}` : errorMessage;
+        console.error('PayPal order creation error:', {
+          status: response.status,
+          error: data,
+        });
+        throw new Error(errorDetails);
       }
 
       return data.orderId;
     } catch (error: any) {
       console.error('PayPal order creation error:', error);
+      const errorMessage = error.message || 'فشل في إنشاء الطلب';
       toast({
-        title: 'خطأ',
-        description: error.message || 'فشل في إنشاء الطلب',
+        title: 'خطأ في الدفع',
+        description: errorMessage.includes('Payment service not configured') 
+          ? 'لم يتم تكوين PayPal. يرجى التحقق من إعدادات الخادم.'
+          : errorMessage.includes('authenticate')
+          ? 'فشل في المصادقة مع PayPal. تحقق من صحة بيانات الاعتماد.'
+          : errorMessage,
         variant: 'destructive',
       });
-      if (onError) onError(error.message);
+      if (onError) onError(errorMessage);
       throw error;
     }
   };
@@ -82,7 +93,13 @@ function PayPalButtonInternal({ productCode, productName, price, currency = 'SAR
       const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.error || 'Failed to capture payment');
+        const errorMessage = result.error || 'Failed to capture payment';
+        const errorDetails = result.details ? `${errorMessage}: ${result.details}` : errorMessage;
+        console.error('PayPal capture error:', {
+          status: response.status,
+          error: result,
+        });
+        throw new Error(errorDetails);
       }
 
       toast({
@@ -100,23 +117,29 @@ function PayPalButtonInternal({ productCode, productName, price, currency = 'SAR
       }
     } catch (error: any) {
       console.error('PayPal capture error:', error);
+      const errorMessage = error.message || 'فشل في معالجة الدفع';
       toast({
-        title: 'خطأ',
-        description: error.message || 'فشل في معالجة الدفع',
+        title: 'خطأ في الدفع',
+        description: errorMessage.includes('Payment service not configured')
+          ? 'لم يتم تكوين PayPal. يرجى التحقق من إعدادات الخادم.'
+          : errorMessage.includes('authenticate')
+          ? 'فشل في المصادقة مع PayPal. تحقق من صحة بيانات الاعتماد.'
+          : errorMessage,
         variant: 'destructive',
       });
-      if (onError) onError(error.message);
+      if (onError) onError(errorMessage);
     }
   };
 
   const onPayPalError = (err: any) => {
-    console.error('PayPal error:', err);
+    console.error('PayPal SDK error:', err);
+    const errorMessage = err.message || err.details || 'حدث خطأ أثناء معالجة الدفع';
     toast({
-      title: 'خطأ',
-      description: 'حدث خطأ أثناء معالجة الدفع',
+      title: 'خطأ في الدفع',
+      description: errorMessage,
       variant: 'destructive',
     });
-    if (onError) onError(err.message || 'Unknown error');
+    if (onError) onError(errorMessage);
   };
 
   if (isPending) {
