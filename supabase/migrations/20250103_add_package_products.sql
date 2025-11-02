@@ -38,3 +38,4 @@ WHERE product_code IN ('SUB-PACKAGE-PREMIUM', 'SUB-PACKAGE-LEGENDARY')
 GROUP BY product_code, subscription_meta->>'type';
 
 
+
