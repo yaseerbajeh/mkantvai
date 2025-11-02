@@ -8,7 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { supabase } from '@/lib/supabase';
-import { CheckCircle2, Clock, XCircle, Package, ExternalLink, MessageCircle, AlertCircle } from 'lucide-react';
+import { CheckCircle2, Clock, XCircle, Package, ExternalLink, MessageCircle, AlertCircle, Filter } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { User } from '@supabase/supabase-js';
 
 interface Order {
@@ -19,7 +20,8 @@ interface Order {
   whatsapp?: string;
   product_name: string;
   price: number;
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'pending' | 'approved' | 'rejected' | 'paid';
+  payment_method?: string;
   assigned_subscription?: {
     code: string;
     meta?: {
@@ -36,6 +38,7 @@ export default function MyOrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [timeRemaining, setTimeRemaining] = useState<{ [key: string]: number }>({});
+  const [filterStatus, setFilterStatus] = useState<'all' | 'completed' | 'pending' | 'rejected'>('all');
 
   useEffect(() => {
     const checkAuthAndFetchOrders = async () => {
@@ -87,7 +90,8 @@ export default function MyOrdersPage() {
     const updateTimers = () => {
       const timers: { [key: string]: number } = {};
       orders.forEach((order) => {
-        if (order.status === 'pending') {
+        // Only show timer for pending orders that are NOT PayPal payments
+        if (order.status === 'pending' && order.payment_method !== 'paypal') {
           timers[order.id] = calculateTimeRemaining(order.created_at);
         }
       });
@@ -119,6 +123,8 @@ export default function MyOrdersPage() {
     switch (status) {
       case 'approved':
         return <CheckCircle2 className="w-5 h-5 text-green-500" />;
+      case 'paid':
+        return <CheckCircle2 className="w-5 h-5 text-blue-500" />;
       case 'rejected':
         return <XCircle className="w-5 h-5 text-red-500" />;
       default:
@@ -130,6 +136,8 @@ export default function MyOrdersPage() {
     switch (status) {
       case 'approved':
         return 'مقبول';
+      case 'paid':
+        return 'مدفوع';
       case 'rejected':
         return 'مرفوض';
       default:
@@ -141,11 +149,36 @@ export default function MyOrdersPage() {
     switch (status) {
       case 'approved':
         return 'bg-green-900/20 border-green-700 text-green-500';
+      case 'paid':
+        return 'bg-blue-900/20 border-blue-700 text-blue-500';
       case 'rejected':
         return 'bg-red-900/20 border-red-700 text-red-500';
       default:
         return 'bg-yellow-900/20 border-yellow-700 text-yellow-500';
     }
+  };
+
+  // Filter orders based on selected status
+  const filteredOrders = orders.filter((order) => {
+    if (filterStatus === 'all') return true;
+    if (filterStatus === 'completed') {
+      return order.status === 'approved' || order.status === 'paid';
+    }
+    if (filterStatus === 'pending') {
+      return order.status === 'pending';
+    }
+    if (filterStatus === 'rejected') {
+      return order.status === 'rejected';
+    }
+    return true;
+  });
+
+  // Count orders by status
+  const orderStats = {
+    all: orders.length,
+    completed: orders.filter(o => o.status === 'approved' || o.status === 'paid').length,
+    pending: orders.filter(o => o.status === 'pending').length,
+    rejected: orders.filter(o => o.status === 'rejected').length,
   };
 
   if (loading) {
@@ -176,6 +209,24 @@ export default function MyOrdersPage() {
             <p className="text-slate-300">عرض جميع طلباتك الاشتراك</p>
           </div>
 
+          {/* Filter Tabs */}
+          <Tabs value={filterStatus} onValueChange={(value) => setFilterStatus(value as typeof filterStatus)} className="mb-6">
+            <TabsList className="grid w-full grid-cols-4 bg-slate-800/50">
+              <TabsTrigger value="all" className="data-[state=active]:bg-blue-600">
+                الكل ({orderStats.all})
+              </TabsTrigger>
+              <TabsTrigger value="completed" className="data-[state=active]:bg-green-600">
+                مكتملة ({orderStats.completed})
+              </TabsTrigger>
+              <TabsTrigger value="pending" className="data-[state=active]:bg-yellow-600">
+                قيد الانتظار ({orderStats.pending})
+              </TabsTrigger>
+              <TabsTrigger value="rejected" className="data-[state=active]:bg-red-600">
+                مرفوضة ({orderStats.rejected})
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+
           {orders.length === 0 ? (
             <Card className="bg-slate-800/50 border-slate-700">
               <CardContent className="pt-6">
@@ -193,9 +244,36 @@ export default function MyOrdersPage() {
                 </div>
               </CardContent>
             </Card>
+          ) : filteredOrders.length === 0 ? (
+            <Card className="bg-slate-800/50 border-slate-700">
+              <CardContent className="pt-6">
+                <div className="text-center py-12">
+                  <Package className="w-16 h-16 text-slate-500 mx-auto mb-4" />
+                  <h3 className="text-xl font-bold text-white mb-2">لا توجد طلبات</h3>
+                  <p className="text-slate-300 mb-6">
+                    {filterStatus === 'completed' 
+                      ? 'لا توجد طلبات مكتملة حالياً'
+                      : filterStatus === 'pending'
+                      ? 'لا توجد طلبات قيد الانتظار'
+                      : filterStatus === 'rejected'
+                      ? 'لا توجد طلبات مرفوضة'
+                      : 'لا توجد طلبات'}
+                  </p>
+                  {filterStatus !== 'all' && (
+                    <Button 
+                      variant="outline" 
+                      onClick={() => setFilterStatus('all')}
+                      className="border-slate-700 text-slate-300 hover:text-white"
+                    >
+                      عرض جميع الطلبات
+                    </Button>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
           ) : (
             <div className="space-y-4">
-              {orders.map((order) => (
+              {filteredOrders.map((order) => (
                 <Card key={order.id} className="bg-slate-800/50 border-slate-700 hover:border-slate-600 transition">
                   <CardHeader>
                     <div className="flex items-start justify-between">
@@ -235,36 +313,67 @@ export default function MyOrdersPage() {
                       </div>
                     </div>
 
-                    {order.status === 'approved' && order.assigned_subscription && (
-                      <div className="mt-4 p-4 bg-green-900/20 border border-green-700 rounded-lg">
-                        <h4 className="text-green-400 font-semibold mb-2 flex items-center gap-2">
-                          <CheckCircle2 className="w-4 h-4" />
-                          تفاصيل الاشتراك
+                    {/* Completed Order - Subscription Details */}
+                    {(order.status === 'approved' || (order.status === 'paid' && order.assigned_subscription)) && order.assigned_subscription && (
+                      <div className="mt-4 p-4 bg-gradient-to-br from-green-900/30 to-emerald-900/20 border-2 border-green-600 rounded-lg shadow-lg">
+                        <h4 className="text-green-300 font-bold mb-3 flex items-center gap-2 text-lg">
+                          <CheckCircle2 className="w-5 h-5" />
+                          ✅ طلب مكتمل - تفاصيل الاشتراك
                         </h4>
-                        <div className="space-y-2">
-                          <div>
-                            <p className="text-slate-400 text-sm">رمز الاشتراك</p>
-                            <p className="text-white font-mono font-bold text-lg bg-slate-900 px-3 py-2 rounded mt-1">
+                        <div className="space-y-3">
+                          <div className="bg-slate-900/50 p-3 rounded-lg">
+                            <p className="text-slate-400 text-xs mb-1">رمز الاشتراك</p>
+                            <p className="text-white font-mono font-bold text-xl bg-slate-950 px-4 py-3 rounded border border-green-600/50">
                               {order.assigned_subscription.code}
                             </p>
                           </div>
-                          {order.assigned_subscription.meta?.duration && (
-                            <div>
-                              <p className="text-slate-400 text-sm">مدة الاشتراك</p>
-                              <p className="text-white">{order.assigned_subscription.meta.duration}</p>
-                            </div>
-                          )}
-                          {order.assigned_subscription.meta?.type && (
-                            <div>
-                              <p className="text-slate-400 text-sm">نوع الاشتراك</p>
-                              <p className="text-white">{order.assigned_subscription.meta.type}</p>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            {order.assigned_subscription.meta?.duration && (
+                              <div className="bg-slate-900/50 p-3 rounded-lg">
+                                <p className="text-slate-400 text-xs mb-1">مدة الاشتراك</p>
+                                <p className="text-white font-semibold">{order.assigned_subscription.meta.duration}</p>
+                              </div>
+                            )}
+                            {order.assigned_subscription.meta?.type && (
+                              <div className="bg-slate-900/50 p-3 rounded-lg">
+                                <p className="text-slate-400 text-xs mb-1">نوع الاشتراك</p>
+                                <p className="text-white font-semibold">{order.assigned_subscription.meta.type}</p>
+                              </div>
+                            )}
+                          </div>
+                          {order.payment_method === 'paypal' && (
+                            <div className="bg-blue-900/30 p-2 rounded border border-blue-700/50">
+                              <p className="text-blue-300 text-xs flex items-center gap-2">
+                                <CheckCircle2 className="w-3 h-3" />
+                                تم الدفع عبر PayPal
+                              </p>
                             </div>
                           )}
                         </div>
                       </div>
                     )}
 
-                    {order.status === 'pending' && (
+                    {/* PayPal paid status - no timer needed */}
+                    {order.status === 'paid' && order.payment_method === 'paypal' && (
+                      <div className="mt-4 p-4 bg-blue-900/20 border border-blue-700 rounded-lg">
+                        <div className="flex items-start gap-3">
+                          <CheckCircle2 className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
+                          <div className="flex-1">
+                            <p className="text-blue-300 text-sm mb-2">
+                              ✅ تم استلام الدفع عبر PayPal بنجاح
+                            </p>
+                            <p className="text-blue-200 text-xs">
+                              {order.assigned_subscription 
+                                ? 'تم تفعيل اشتراكك تلقائياً. تم إرسال تفاصيل الاشتراك إلى بريدك الإلكتروني.'
+                                : 'جاري معالجة طلبك وتفعيل الاشتراك...'}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Pending status - only show timer for non-PayPal orders */}
+                    {order.status === 'pending' && order.payment_method !== 'paypal' && (
                       <div className="mt-4 space-y-3">
                         <div className="p-4 bg-yellow-900/20 border border-yellow-700 rounded-lg">
                           <div className="flex items-center justify-between mb-2">

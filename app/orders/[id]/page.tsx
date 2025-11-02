@@ -17,7 +17,8 @@ interface Order {
   whatsapp?: string;
   product_name: string;
   price: number;
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'pending' | 'approved' | 'rejected' | 'paid';
+  payment_method?: string;
   assigned_subscription?: {
     code: string;
     meta?: {
@@ -135,6 +136,27 @@ export default function OrderDetailsPage() {
             </Card>
           )}
 
+          {/* Paid Status (PayPal) */}
+          {order.status === 'paid' && (
+            <Card className="mb-6 bg-blue-900/20 border-blue-700">
+              <CardContent className="pt-6">
+                <div className="flex items-start gap-4">
+                  <CheckCircle2 className="w-8 h-8 text-blue-500 flex-shrink-0 mt-1" />
+                  <div>
+                    <h3 className="text-xl font-bold text-white mb-2">
+                      ✅ تم استلام الدفع بنجاح!
+                    </h3>
+                    <p className="text-slate-300">
+                      {order.assigned_subscription 
+                        ? 'تم تفعيل اشتراكك تلقائياً. تم إرسال تفاصيل الاشتراك إلى بريدك الإلكتروني.'
+                        : 'جاري معالجة طلبك وتفعيل الاشتراك...'}
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Approved Status */}
           {order.status === 'approved' && (
             <Card className="mb-6 bg-green-900/20 border-green-700">
@@ -209,14 +231,24 @@ export default function OrderDetailsPage() {
                 <span className="text-slate-400">الحالة:</span>
                 <span className={`font-bold ${
                   order.status === 'approved' ? 'text-green-500' :
+                  order.status === 'paid' ? 'text-blue-500' :
                   order.status === 'rejected' ? 'text-red-500' :
                   'text-yellow-500'
                 }`}>
                   {order.status === 'approved' ? 'مقبول' :
+                   order.status === 'paid' ? 'مدفوع' :
                    order.status === 'rejected' ? 'مرفوض' :
                    'قيد الانتظار'}
                 </span>
               </div>
+              {order.payment_method && (
+                <div className="flex justify-between items-center py-2 border-b border-slate-700">
+                  <span className="text-slate-400">طريقة الدفع:</span>
+                  <span className="text-white font-semibold">
+                    {order.payment_method === 'paypal' ? 'PayPal' : order.payment_method}
+                  </span>
+                </div>
+              )}
               <div className="flex justify-between items-center py-2">
                 <span className="text-slate-400">تاريخ الطلب:</span>
                 <span className="text-white">
@@ -226,8 +258,8 @@ export default function OrderDetailsPage() {
             </CardContent>
           </Card>
 
-          {/* Subscription Details (if approved) */}
-          {order.status === 'approved' && order.assigned_subscription && (
+          {/* Subscription Details (if approved or paid with subscription) */}
+          {(order.status === 'approved' || (order.status === 'paid' && order.assigned_subscription)) && order.assigned_subscription && (
             <Card className="mb-6 bg-blue-900/20 border-blue-700">
               <CardHeader>
                 <CardTitle className="text-2xl text-white">تفاصيل الاشتراك</CardTitle>
