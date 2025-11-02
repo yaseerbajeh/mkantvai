@@ -155,4 +155,121 @@
     scroll-behavior: smooth;
     -webkit-overflow-scrolling: touch;
   }
+
+  /* PayPal Mobile Responsive Fixes */
+  @media (max-width: 768px) {
+    /* PayPal Button Container */
+    #paypal-button-container,
+    .paypal-button-container,
+    [data-testid="paypal-button-container"],
+    div[id*="paypal"],
+    div[class*="paypal-button"] {
+      width: 100% !important;
+      max-width: 100% !important;
+      min-width: 0 !important;
+      margin: 0 auto !important;
+      padding: 0 !important;
+      box-sizing: border-box !important;
+      overflow: hidden !important;
+      position: relative !important;
+    }
+    
+    /* PayPal iframes - critical fix */
+    iframe[title*="PayPal"],
+    iframe[title*="paypal"],
+    iframe[id*="paypal"],
+    iframe[src*="paypal"],
+    .paypal-button iframe,
+    [class*="paypal"] iframe,
+    #zoid-paypal-buttons-iframe,
+    [id*="paypal-credit"],
+    [id*="paypal-card"] {
+      width: 100% !important;
+      max-width: 100% !important;
+      min-width: 0 !important;
+      margin: 0 auto !important;
+      display: block !important;
+      position: relative !important;
+      left: 0 !important;
+      right: 0 !important;
+      transform: none !important;
+      -webkit-transform: none !important;
+      box-sizing: border-box !important;
+    }
+    
+    /* PayPal form containers */
+    form[action*="paypal"],
+    [class*="paypal"] form,
+    [id*="paypal"] form,
+    form[method*="post"] {
+      width: 100% !important;
+      max-width: 100% !important;
+      margin: 0 auto !important;
+      padding: 8px 4px !important;
+      box-sizing: border-box !important;
+      display: flex !important;
+      flex-direction: column !important;
+      align-items: center !important;
+      position: relative !important;
+      left: 0 !important;
+      right: 0 !important;
+    }
+    
+    /* PayPal credit/debit card form */
+    .paypal-form,
+    [class*="card-form"],
+    [id*="card-form"],
+    [class*="credit-card"],
+    [id*="credit-card"],
+    div[class*="form-group"],
+    div[class*="field-group"] {
+      width: 100% !important;
+      max-width: 100% !important;
+      margin: 0 auto !important;
+      padding: 12px 8px !important;
+      box-sizing: border-box !important;
+      position: relative !important;
+      left: 0 !important;
+      right: 0 !important;
+    }
+    
+    /* Input fields in PayPal form */
+    form input[type="text"],
+    form input[type="number"],
+    form input[type="tel"],
+    form input[type="email"],
+    form select,
+    [class*="paypal"] input,
+    [id*="paypal"] input {
+      width: 100% !important;
+      max-width: 100% !important;
+      min-width: 0 !important;
+      box-sizing: border-box !important;
+      margin: 4px 0 !important;
+      padding: 8px 12px !important;
+    }
+    
+    /* PayPal buttons and labels */
+    [class*="paypal"] label,
+    [id*="paypal"] label,
+    [class*="paypal"] button,
+    [id*="paypal"] button {
+      width: 100% !important;
+      max-width: 100% !important;
+      box-sizing: border-box !important;
+    }
+    
+    /* PayPal wrapper divs */
+    div[class*="paypal"],
+    div[id*="paypal"] {
+      width: 100% !important;
+      max-width: 100% !important;
+      overflow: hidden !important;
+      position: relative !important;
+      left: 0 !important;
+      right: 0 !important;
+      margin: 0 auto !important;
+      box-sizing: border-box !important;
+    }
+  }
 }
