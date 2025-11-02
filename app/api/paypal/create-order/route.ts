@@ -22,16 +22,31 @@ export async function POST(request: NextRequest) {
     }
 
     // Get PayPal credentials from environment variables
-    const clientId = process.env.PAYPAL_CLIENT_ID;
+    // Server-side routes need PAYPAL_CLIENT_ID (not NEXT_PUBLIC_PAYPAL_CLIENT_ID)
+    const clientId = process.env.PAYPAL_CLIENT_ID || process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID;
     const clientSecret = process.env.PAYPAL_CLIENT_SECRET;
-    const paypalBaseUrl = process.env.PAYPAL_MODE === 'live' 
+    const paypalMode = process.env.PAYPAL_MODE || 'sandbox';
+    const paypalBaseUrl = paypalMode === 'live' 
       ? 'https://api-m.paypal.com'
       : 'https://api-m.sandbox.paypal.com';
 
+    console.log('PayPal Config:', {
+      hasClientId: !!clientId,
+      hasClientSecret: !!clientSecret,
+      mode: paypalMode,
+      baseUrl: paypalBaseUrl,
+    });
+
     if (!clientId || !clientSecret) {
-      console.error('PayPal credentials not configured');
+      console.error('PayPal credentials not configured:', {
+        hasClientId: !!clientId,
+        hasClientSecret: !!clientSecret,
+      });
       return NextResponse.json(
-        { error: 'Payment service not configured' },
+        { 
+          error: 'Payment service not configured',
+          details: !clientId ? 'PAYPAL_CLIENT_ID is missing' : 'PAYPAL_CLIENT_SECRET is missing'
+        },
         { status: 500 }
       );
     }
@@ -47,10 +62,23 @@ export async function POST(request: NextRequest) {
     });
 
     if (!tokenResponse.ok) {
-      const errorData = await tokenResponse.json();
-      console.error('PayPal token error:', errorData);
+      let errorData;
+      try {
+        errorData = await tokenResponse.json();
+      } catch {
+        errorData = { message: 'Unknown error', status: tokenResponse.status };
+      }
+      console.error('PayPal token error:', {
+        status: tokenResponse.status,
+        statusText: tokenResponse.statusText,
+        error: errorData,
+      });
       return NextResponse.json(
-        { error: 'Failed to authenticate with PayPal' },
+        { 
+          error: 'Failed to authenticate with PayPal',
+          details: errorData.error_description || errorData.message || 'Check your PayPal credentials',
+          status: tokenResponse.status
+        },
         { status: 500 }
       );
     }
@@ -88,10 +116,23 @@ export async function POST(request: NextRequest) {
     });
 
     if (!orderResponse.ok) {
-      const errorData = await orderResponse.json();
-      console.error('PayPal order creation error:', errorData);
+      let errorData;
+      try {
+        errorData = await orderResponse.json();
+      } catch {
+        errorData = { message: 'Unknown error', status: orderResponse.status };
+      }
+      console.error('PayPal order creation error:', {
+        status: orderResponse.status,
+        statusText: orderResponse.statusText,
+        error: errorData,
+      });
       return NextResponse.json(
-        { error: 'Failed to create PayPal order', details: errorData },
+        { 
+          error: 'Failed to create PayPal order',
+          details: errorData.message || errorData.details || JSON.stringify(errorData),
+          status: orderResponse.status
+        },
         { status: 500 }
       );
     }

@@ -21,15 +21,28 @@ export async function POST(request: NextRequest) {
     }
 
     // Get PayPal credentials
-    const clientId = process.env.PAYPAL_CLIENT_ID;
+    const clientId = process.env.PAYPAL_CLIENT_ID || process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID;
     const clientSecret = process.env.PAYPAL_CLIENT_SECRET;
-    const paypalBaseUrl = process.env.PAYPAL_MODE === 'live' 
+    const paypalMode = process.env.PAYPAL_MODE || 'sandbox';
+    const paypalBaseUrl = paypalMode === 'live' 
       ? 'https://api-m.paypal.com'
       : 'https://api-m.sandbox.paypal.com';
 
+    console.log('PayPal Capture Config:', {
+      hasClientId: !!clientId,
+      hasClientSecret: !!clientSecret,
+      mode: paypalMode,
+      baseUrl: paypalBaseUrl,
+      orderId,
+    });
+
     if (!clientId || !clientSecret) {
+      console.error('PayPal credentials not configured for capture');
       return NextResponse.json(
-        { error: 'Payment service not configured' },
+        { 
+          error: 'Payment service not configured',
+          details: !clientId ? 'PAYPAL_CLIENT_ID is missing' : 'PAYPAL_CLIENT_SECRET is missing'
+        },
         { status: 500 }
       );
     }
@@ -45,8 +58,23 @@ export async function POST(request: NextRequest) {
     });
 
     if (!tokenResponse.ok) {
+      let errorData;
+      try {
+        errorData = await tokenResponse.json();
+      } catch {
+        errorData = { message: 'Unknown error', status: tokenResponse.status };
+      }
+      console.error('PayPal token error during capture:', {
+        status: tokenResponse.status,
+        statusText: tokenResponse.statusText,
+        error: errorData,
+      });
       return NextResponse.json(
-        { error: 'Failed to authenticate with PayPal' },
+        { 
+          error: 'Failed to authenticate with PayPal',
+          details: errorData.error_description || errorData.message || 'Check your PayPal credentials',
+          status: tokenResponse.status
+        },
         { status: 500 }
       );
     }
@@ -63,10 +91,23 @@ export async function POST(request: NextRequest) {
     });
 
     if (!captureResponse.ok) {
-      const errorData = await captureResponse.json();
-      console.error('PayPal capture error:', errorData);
+      let errorData;
+      try {
+        errorData = await captureResponse.json();
+      } catch {
+        errorData = { message: 'Unknown error', status: captureResponse.status };
+      }
+      console.error('PayPal capture error:', {
+        status: captureResponse.status,
+        statusText: captureResponse.statusText,
+        error: errorData,
+      });
       return NextResponse.json(
-        { error: 'Failed to capture payment', details: errorData },
+        { 
+          error: 'Failed to capture payment',
+          details: errorData.message || errorData.details || JSON.stringify(errorData),
+          status: captureResponse.status
+        },
         { status: 500 }
       );
     }
