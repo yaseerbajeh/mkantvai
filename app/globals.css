@@ -172,18 +172,43 @@
       box-sizing: border-box !important;
       overflow: hidden !important;
       position: relative !important;
+      display: flex !important;
+      justify-content: center !important;
+      align-items: center !important;
     }
     
-    /* PayPal iframes - critical fix */
+    /* PayPal zoid containers - critical for mobile centering */
+    [id^="zoid-paypal"],
+    [id*="zoid-paypal"],
+    [id*="paypal-buttons"],
+    div[id*="zoid"] {
+      width: 100% !important;
+      max-width: 100% !important;
+      min-width: 0 !important;
+      margin: 0 auto !important;
+      padding: 0 !important;
+      box-sizing: border-box !important;
+      overflow: hidden !important;
+      position: relative !important;
+      left: 0 !important;
+      right: 0 !important;
+      display: flex !important;
+      justify-content: center !important;
+      align-items: flex-start !important;
+    }
+    
+    /* PayPal iframes - critical fix for mobile centering */
     iframe[title*="PayPal"],
     iframe[title*="paypal"],
     iframe[id*="paypal"],
     iframe[src*="paypal"],
+    iframe[id*="zoid"],
     .paypal-button iframe,
     [class*="paypal"] iframe,
     #zoid-paypal-buttons-iframe,
     [id*="paypal-credit"],
-    [id*="paypal-card"] {
+    [id*="paypal-card"],
+    [id^="zoid-paypal"] iframe {
       width: 100% !important;
       max-width: 100% !important;
       min-width: 0 !important;
@@ -195,13 +220,15 @@
       transform: none !important;
       -webkit-transform: none !important;
       box-sizing: border-box !important;
+      overflow: hidden !important;
     }
     
     /* PayPal form containers */
     form[action*="paypal"],
     [class*="paypal"] form,
     [id*="paypal"] form,
-    form[method*="post"] {
+    form[method*="post"],
+    [id*="zoid"] form {
       width: 100% !important;
       max-width: 100% !important;
       margin: 0 auto !important;
@@ -210,9 +237,22 @@
       display: flex !important;
       flex-direction: column !important;
       align-items: center !important;
+      justify-content: center !important;
       position: relative !important;
       left: 0 !important;
       right: 0 !important;
+    }
+    
+    /* PayPal country selector fix - hide or properly center */
+    [id*="country"],
+    [class*="country"],
+    select[name*="country"],
+    [id*="billing-country"],
+    [id*="country-selector"] {
+      width: 100% !important;
+      max-width: 100% !important;
+      box-sizing: border-box !important;
+      margin: 0 auto !important;
     }
     
     /* PayPal credit/debit card form */
@@ -261,7 +301,8 @@
     
     /* PayPal wrapper divs */
     div[class*="paypal"],
-    div[id*="paypal"] {
+    div[id*="paypal"],
+    div[id*="zoid"] {
       width: 100% !important;
       max-width: 100% !important;
       overflow: hidden !important;
@@ -270,6 +311,44 @@
       right: 0 !important;
       margin: 0 auto !important;
       box-sizing: border-box !important;
+      display: flex !important;
+      flex-direction: column !important;
+      align-items: center !important;
+      justify-content: center !important;
+    }
+    
+    /* Fix for PayPal checkout form alignment */
+    [id*="paypal"] > *,
+    [id*="zoid"] > *,
+    [class*="paypal"] > * {
+      width: 100% !important;
+      max-width: 100% !important;
+      margin-left: auto !important;
+      margin-right: auto !important;
+      box-sizing: border-box !important;
+    }
+    
+    /* Prevent left shift when country selector is hidden */
+    body[id*="paypal"],
+    html body {
+      overflow-x: hidden !important;
+    }
+    
+    /* Additional fix for PayPal iframe container alignment */
+    [id*="paypal"] iframe,
+    [id*="zoid"] iframe,
+    [id*="paypal"] form,
+    [id*="zoid"] form {
+      margin-left: auto !important;
+      margin-right: auto !important;
+    }
+    
+    /* Force center alignment for PayPal buttons wrapper */
+    .paypal-button-container iframe,
+    .paypal-button-container form,
+    .paypal-button-container [id*="zoid"] {
+      margin-left: auto !important;
+      margin-right: auto !important;
     }
   }
 }

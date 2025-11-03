@@ -24,6 +24,13 @@ export default function OrderPage() {
   const router = useRouter();
   const { toast } = useToast();
   const productCode = params.productCode as string;
+
+  // Redirect SUB-BASIC-1M directly to PayPal payment link
+  useEffect(() => {
+    if (productCode === 'SUB-BASIC-1M') {
+      window.location.href = 'https://www.paypal.com/ncp/payment/5ZMTA2LQS9UCN';
+    }
+  }, [productCode]);
   
   const [user, setUser] = useState<SupabaseUser | null>(null);
   const [loading, setLoading] = useState(true);
@@ -319,7 +326,7 @@ export default function OrderPage() {
     <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900">
       <Header />
       <main className="container mx-auto px-3 sm:px-4 py-4 sm:py-8 pt-20 sm:pt-32">
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-6xl mx-auto">
           {/* Product Summary - Compact Header */}
           <Card className="bg-gradient-to-br from-slate-800/90 to-slate-900/90 border-slate-700 mb-4 sm:mb-6">
             <CardContent className="pt-4 sm:pt-6 px-4 sm:px-6">
@@ -460,7 +467,13 @@ export default function OrderPage() {
                       </p>
                     </div>
                   ) : (
-                    <div className="w-full max-w-full mx-auto overflow-hidden">
+                    <div className="w-full max-w-full mx-auto overflow-hidden" style={{ 
+                      display: 'flex', 
+                      justifyContent: 'center', 
+                      alignItems: 'center',
+                      width: '100%',
+                      minWidth: 0,
+                    }}>
                       <PayPalButton
                         productCode={product.code}
                         productName={product.name}

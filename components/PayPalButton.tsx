@@ -152,7 +152,19 @@ function PayPalButtonInternal({ productCode, productName, price, currency = 'USD
   }
 
   return (
-    <div style={{ width: '100%', maxWidth: '100%', minWidth: 0, overflow: 'hidden' }}>
+    <div 
+      style={{ 
+        width: '100%', 
+        maxWidth: '100%', 
+        minWidth: 0, 
+        overflow: 'hidden',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        position: 'relative',
+      }}
+    >
       <PayPalButtons
         createOrder={createOrder}
         onApprove={onApprove}
@@ -189,7 +201,7 @@ export default function PayPalButton({ className, ...props }: PayPalButtonProps)
       }}
     >
       <div 
-        className={className}
+        className={`paypal-button-container ${className || ''}`}
         style={{
           width: '100%',
           maxWidth: '100%',
@@ -197,6 +209,10 @@ export default function PayPalButton({ className, ...props }: PayPalButtonProps)
           overflow: 'hidden',
           position: 'relative',
           boxSizing: 'border-box',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
         }}
       >
         <PayPalButtonInternal {...props} />
