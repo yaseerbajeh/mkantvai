@@ -5,15 +5,6 @@ import { sendNewOrderEmail, sendApprovalEmail } from '@/utils/sendEmail';
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
-// Product mapping for PayPal payment links
-const PAYPAL_PAYMENT_LINKS: { [key: string]: { product_code: string; product_name: string; price: number } } = {
-  '5ZMTA2LQS9UCN': {
-    product_code: 'SUB-BASIC-1M',
-    product_name: 'اشتراك IPTV - 1 شهر',
-    price: 49,
-  },
-};
-
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -36,15 +27,46 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get product details
-    const productDetails = PAYPAL_PAYMENT_LINKS[payment_link_id] || {
-      product_code: product_code,
-      product_name: 'اشتراك IPTV - 1 شهر',
-      price: 49,
-    };
-
     // Create Supabase admin client
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Fetch product details from products table
+    const { data: product, error: productError } = await supabaseAdmin
+      .from('products')
+      .select('product_code, name, price')
+      .eq('product_code', product_code)
+      .single();
+
+    if (productError || !product) {
+      console.error('Error fetching product:', productError);
+      return NextResponse.json(
+        { error: 'المنتج غير موجود' },
+        { status: 404 }
+      );
+    }
+
+    // Fetch payment link from database if payment_link_id not provided
+    let finalPaymentLinkId = payment_link_id;
+    if (!finalPaymentLinkId) {
+      const paypalMode = process.env.PAYPAL_MODE || 'sandbox';
+      const { data: paymentLink, error: linkError } = await supabaseAdmin
+        .from('paypal_payment_links')
+        .select('payment_link_id')
+        .eq('product_code', product_code)
+        .eq('environment', paypalMode)
+        .single();
+
+      if (!linkError && paymentLink) {
+        finalPaymentLinkId = paymentLink.payment_link_id;
+      }
+    }
+
+    // Use product details from database
+    const productDetails = {
+      product_code: product.product_code,
+      product_name: product.name,
+      price: parseFloat(product.price as any),
+    };
 
     // Create order with paid status (since they already paid via PayPal link)
     const { data: order, error: orderError } = await supabaseAdmin
@@ -59,7 +81,7 @@ export async function POST(request: NextRequest) {
         status: 'paid', // Already paid via PayPal link
         payment_method: 'paypal_link',
         payment_status: 'COMPLETED',
-        payment_id: payment_link_id || `paypal_link_${Date.now()}`,
+        payment_id: finalPaymentLinkId || `paypal_link_${Date.now()}`,
       })
       .select()
       .single();

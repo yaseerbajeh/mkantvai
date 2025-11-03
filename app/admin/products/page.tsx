@@ -34,6 +34,7 @@ import {
   ToggleLeft,
   ToggleRight,
   X,
+  Link as LinkIcon,
 } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
 
@@ -66,6 +67,15 @@ interface SubscriptionCode {
   created_at: string;
 }
 
+interface PayPalPaymentLink {
+  id: string;
+  product_code: string;
+  payment_link_id: string;
+  environment: 'sandbox' | 'live';
+  created_at: string;
+  updated_at: string;
+}
+
 export default function AdminProductsPage() {
   const router = useRouter();
   const { toast } = useToast();
@@ -83,6 +93,14 @@ export default function AdminProductsPage() {
   const [subscriptionCodesDialogOpen, setSubscriptionCodesDialogOpen] = useState(false);
   const [selectedProductCode, setSelectedProductCode] = useState<string>('');
   const [bulkCodes, setBulkCodes] = useState<string>('');
+  const [paymentLinks, setPaymentLinks] = useState<PayPalPaymentLink[]>([]);
+  const [paymentLinkDialogOpen, setPaymentLinkDialogOpen] = useState(false);
+  const [editingPaymentLink, setEditingPaymentLink] = useState<PayPalPaymentLink | null>(null);
+  const [paymentLinkForm, setPaymentLinkForm] = useState({
+    product_code: '',
+    payment_link_id: '',
+    environment: 'live' as 'sandbox' | 'live',
+  });
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -132,6 +150,7 @@ export default function AdminProductsPage() {
         setUser(session.user);
         fetchProducts();
         fetchSubscriptionCodes();
+        fetchPaymentLinks();
       } catch (error: any) {
         console.error('Auth check error:', error);
         toast({
@@ -198,6 +217,126 @@ export default function AdminProductsPage() {
       setSubscriptionCounts(result.counts || {});
     } catch (error: any) {
       console.error('Fetch subscription codes error:', error);
+    }
+  };
+
+  const fetchPaymentLinks = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const response = await fetch('/api/admin/paypal-links', {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      });
+
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || 'فشل في جلب روابط PayPal');
+      }
+
+      setPaymentLinks(result.paymentLinks || []);
+    } catch (error: any) {
+      console.error('Fetch payment links error:', error);
+    }
+  };
+
+  const handleCreatePaymentLink = () => {
+    setEditingPaymentLink(null);
+    setPaymentLinkForm({
+      product_code: '',
+      payment_link_id: '',
+      environment: 'live',
+    });
+    setPaymentLinkDialogOpen(true);
+  };
+
+  const handleEditPaymentLink = (link: PayPalPaymentLink) => {
+    setEditingPaymentLink(link);
+    setPaymentLinkForm({
+      product_code: link.product_code,
+      payment_link_id: link.payment_link_id,
+      environment: link.environment,
+    });
+    setPaymentLinkDialogOpen(true);
+  };
+
+  const handleSavePaymentLink = async () => {
+    if (!paymentLinkForm.product_code || !paymentLinkForm.payment_link_id) {
+      toast({
+        title: 'خطأ',
+        description: 'يرجى ملء جميع الحقول المطلوبة',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('غير مصرح');
+
+      const response = await fetch('/api/admin/paypal-links', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify(paymentLinkForm),
+      });
+
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || 'فشل في حفظ رابط PayPal');
+      }
+
+      toast({
+        title: 'نجح',
+        description: editingPaymentLink ? 'تم تحديث رابط PayPal بنجاح' : 'تم إضافة رابط PayPal بنجاح',
+      });
+
+      setPaymentLinkDialogOpen(false);
+      fetchPaymentLinks();
+    } catch (error: any) {
+      toast({
+        title: 'خطأ',
+        description: error.message || 'حدث خطأ',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleDeletePaymentLink = async (productCode: string) => {
+    if (!confirm('هل أنت متأكد من حذف رابط PayPal لهذا المنتج؟')) return;
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('غير مصرح');
+
+      const response = await fetch(`/api/admin/paypal-links?product_code=${productCode}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      });
+
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || 'فشل في حذف رابط PayPal');
+      }
+
+      toast({
+        title: 'نجح',
+        description: 'تم حذف رابط PayPal بنجاح',
+      });
+
+      fetchPaymentLinks();
+    } catch (error: any) {
+      toast({
+        title: 'خطأ',
+        description: error.message || 'حدث خطأ',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -464,6 +603,10 @@ export default function AdminProductsPage() {
                 <Key className="h-4 w-4 ml-2" />
                 رموز الاشتراكات
               </TabsTrigger>
+              <TabsTrigger value="paypal-links" className="data-[state=active]:bg-slate-700">
+                <LinkIcon className="h-4 w-4 ml-2" />
+                روابط PayPal
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="products" className="mt-6">
@@ -664,6 +807,93 @@ export default function AdminProductsPage() {
                 </CardContent>
               </Card>
             </TabsContent>
+
+            <TabsContent value="paypal-links" className="mt-6">
+              <Card className="bg-slate-800/50 border-slate-700 mb-6">
+                <CardHeader>
+                  <div className="flex justify-between items-center">
+                    <CardTitle className="text-2xl text-white">روابط PayPal للدفع</CardTitle>
+                    <Button
+                      onClick={handleCreatePaymentLink}
+                      className="bg-blue-600 hover:bg-blue-700"
+                    >
+                      <Plus className="h-4 w-4 ml-2" />
+                      إضافة رابط PayPal
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {paymentLinks.length === 0 ? (
+                    <p className="text-slate-300 text-center py-8">لا توجد روابط PayPal</p>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="border-slate-700">
+                            <TableHead className="text-white">رمز المنتج</TableHead>
+                            <TableHead className="text-white">رابط الدفع</TableHead>
+                            <TableHead className="text-white">البيئة</TableHead>
+                            <TableHead className="text-white">تاريخ الإنشاء</TableHead>
+                            <TableHead className="text-white">الإجراءات</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {paymentLinks.map((link) => {
+                            const product = products.find(p => p.product_code === link.product_code);
+                            return (
+                              <TableRow key={link.id} className="border-slate-700">
+                                <TableCell className="font-mono text-sm text-white">
+                                  {link.product_code}
+                                  {product && (
+                                    <p className="text-xs text-slate-400 mt-1">{product.name}</p>
+                                  )}
+                                </TableCell>
+                                <TableCell className="text-white font-mono text-xs">
+                                  {link.payment_link_id}
+                                </TableCell>
+                                <TableCell>
+                                  <Badge
+                                    className={
+                                      link.environment === 'live'
+                                        ? 'bg-green-900/50 text-green-400 border-green-700'
+                                        : 'bg-yellow-900/50 text-yellow-400 border-yellow-700'
+                                    }
+                                  >
+                                    {link.environment === 'live' ? 'Live' : 'Sandbox'}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell className="text-slate-300 text-sm">
+                                  {new Date(link.created_at).toLocaleDateString('ar-SA')}
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex gap-2">
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => handleEditPaymentLink(link)}
+                                      className="bg-slate-800 border-slate-700 text-white"
+                                    >
+                                      <Edit className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="destructive"
+                                      onClick={() => handleDeletePaymentLink(link.product_code)}
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
           </Tabs>
         </div>
       </main>
@@ -716,6 +946,75 @@ export default function AdminProductsPage() {
             </Button>
             <Button onClick={handleAddSubscriptionCodes} className="bg-blue-600 hover:bg-blue-700">
               إضافة
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* PayPal Payment Link Dialog */}
+      <Dialog open={paymentLinkDialogOpen} onOpenChange={setPaymentLinkDialogOpen}>
+        <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{editingPaymentLink ? 'تعديل رابط PayPal' : 'إضافة رابط PayPal جديد'}</DialogTitle>
+            <DialogDescription className="text-slate-400">
+              {editingPaymentLink 
+                ? 'قم بتعديل رابط PayPal لهذا المنتج'
+                : 'أدخل رابط PayPal للدفع للمنتج'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>رمز المنتج *</Label>
+              <Input
+                value={paymentLinkForm.product_code}
+                onChange={(e) => setPaymentLinkForm({ ...paymentLinkForm, product_code: e.target.value })}
+                placeholder="SUB-BASIC-1M"
+                className="bg-slate-900 border-slate-700 text-white mt-2"
+                required
+                disabled={!!editingPaymentLink}
+              />
+              <p className="text-xs text-slate-400 mt-1">رمز المنتج الموجود في قاعدة البيانات</p>
+            </div>
+            <div>
+              <Label>معرّف رابط الدفع *</Label>
+              <Input
+                value={paymentLinkForm.payment_link_id}
+                onChange={(e) => setPaymentLinkForm({ ...paymentLinkForm, payment_link_id: e.target.value })}
+                placeholder="5ZMTA2LQS9UCN"
+                className="bg-slate-900 border-slate-700 text-white mt-2 font-mono"
+                required
+              />
+              <p className="text-xs text-slate-400 mt-1">معرّف رابط الدفع من PayPal (بدون الرابط الكامل)</p>
+            </div>
+            <div>
+              <Label>البيئة *</Label>
+              <Select
+                value={paymentLinkForm.environment}
+                onValueChange={(value: 'sandbox' | 'live') => 
+                  setPaymentLinkForm({ ...paymentLinkForm, environment: value })
+                }
+              >
+                <SelectTrigger className="bg-slate-900 border-slate-700 text-white mt-2">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="live">Live (الإنتاج)</SelectItem>
+                  <SelectItem value="sandbox">Sandbox (الاختبار)</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-slate-400 mt-1">اختر البيئة المناسبة لنوع رابط PayPal</p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setPaymentLinkDialogOpen(false)}
+              className="bg-slate-700 border-slate-600 text-white"
+            >
+              إلغاء
+            </Button>
+            <Button onClick={handleSavePaymentLink} className="bg-blue-600 hover:bg-blue-700">
+              {editingPaymentLink ? 'تحديث' : 'إضافة'}
             </Button>
           </DialogFooter>
         </DialogContent>

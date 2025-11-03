@@ -65,6 +65,7 @@ export default function SubscribePage() {
             badgeColor: product.badge_color,
             isPackage: product.is_package,
             icon: iconMap[product.icon_name] || Sparkles,
+            available_stock: product.available_stock || 0,
           });
         });
 
@@ -196,10 +197,25 @@ export default function SubscribePage() {
                                 })()}
                               </div>
 
+                              {/* Stock Display */}
+                              {product.available_stock !== undefined && (
+                                <div className="mb-4 md:mb-6 p-3 md:p-4 bg-slate-800/50 rounded-lg border border-slate-700">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-slate-400 text-sm md:text-base">المخزون المتاح:</span>
+                                    <span className={`font-bold text-sm md:text-base ${product.available_stock > 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                      {product.available_stock > 0 ? `${product.available_stock} متاح` : 'نفد المخزون'}
+                                    </span>
+                                  </div>
+                                </div>
+                              )}
+
                               {/* CTA Button */}
-                              <Button className={`w-full ${product.code === 'SUB-PACKAGE-LEGENDARY' ? 'bg-slate-600 hover:bg-slate-700 border border-slate-500' : `bg-gradient-to-r ${product.gradient} hover:opacity-90`} text-white font-bold py-4 md:py-6 text-base md:text-lg shadow-xl hover:shadow-2xl transition-all duration-300 group-hover:scale-105`}>
-                                <span>اطلب الباقة الآن</span>
-                                <ArrowRight className="mr-2 h-5 w-5 md:h-6 md:w-6 group-hover:translate-x-1 transition-transform" />
+                              <Button 
+                                disabled={product.available_stock === 0}
+                                className={`w-full ${product.code === 'SUB-PACKAGE-LEGENDARY' ? 'bg-slate-600 hover:bg-slate-700 border border-slate-500' : `bg-gradient-to-r ${product.gradient} hover:opacity-90`} text-white font-bold py-4 md:py-6 text-base md:text-lg shadow-xl hover:shadow-2xl transition-all duration-300 group-hover:scale-105 ${product.available_stock === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                              >
+                                <span>{product.available_stock === 0 ? 'نفد المخزون' : 'اطلب الباقة الآن'}</span>
+                                {product.available_stock > 0 && <ArrowRight className="mr-2 h-5 w-5 md:h-6 md:w-6 group-hover:translate-x-1 transition-transform" />}
                               </Button>
                             </CardContent>
                           </Card>
@@ -313,10 +329,25 @@ export default function SubscribePage() {
                               })()}
                             </div>
 
+                            {/* Stock Display */}
+                            {product.available_stock !== undefined && (
+                              <div className="mb-3 md:mb-4 p-2 md:p-3 bg-slate-800/50 rounded-lg border border-slate-700">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-slate-400 text-xs md:text-sm">المخزون:</span>
+                                  <span className={`font-bold text-xs md:text-sm ${product.available_stock > 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                    {product.available_stock > 0 ? `${product.available_stock} متاح` : 'نفد'}
+                                  </span>
+                                </div>
+                              </div>
+                            )}
+
                             {/* CTA Button */}
-                            <Button className={`w-full bg-gradient-to-r ${product.gradient} hover:opacity-90 text-white font-semibold py-3 md:py-6 text-sm md:text-lg shadow-lg hover:shadow-xl transition-all duration-300 group-hover:scale-105`}>
-                              <span>اطلب الآن</span>
-                              <ArrowRight className="mr-1 md:mr-2 h-3 w-3 md:h-5 md:w-5 group-hover:translate-x-1 transition-transform" />
+                            <Button 
+                              disabled={product.available_stock === 0}
+                              className={`w-full bg-gradient-to-r ${product.gradient} hover:opacity-90 text-white font-semibold py-3 md:py-6 text-sm md:text-lg shadow-lg hover:shadow-xl transition-all duration-300 group-hover:scale-105 ${product.available_stock === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            >
+                              <span>{product.available_stock === 0 ? 'نفد المخزون' : 'اطلب الآن'}</span>
+                              {product.available_stock > 0 && <ArrowRight className="mr-1 md:mr-2 h-3 w-3 md:h-5 md:w-5 group-hover:translate-x-1 transition-transform" />}
                             </Button>
                           </CardContent>
                         </Card>
