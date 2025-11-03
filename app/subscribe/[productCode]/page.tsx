@@ -6,6 +6,8 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { Sparkles, Zap, Crown, Star, Check, ArrowRight, ImageIcon, CheckCircle2, Loader2 } from 'lucide-react';
@@ -434,6 +436,64 @@ export default function ProductDetailPage() {
   const productCode = params.productCode as string;
   const [product, setProduct] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [paymentLink, setPaymentLink] = useState<string | null>(null);
+  const [paymentLinkLoading, setPaymentLinkLoading] = useState(true);
+  const [customerInfo, setCustomerInfo] = useState({
+    name: '',
+    email: '',
+    whatsapp: '',
+  });
+  const [formValid, setFormValid] = useState(false);
+  
+  // Validate form whenever customer info changes
+  useEffect(() => {
+    const isValid = customerInfo.name.trim() !== '' && 
+                    customerInfo.email.trim() !== '' && 
+                    customerInfo.whatsapp.trim() !== '' &&
+                    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerInfo.email);
+    setFormValid(isValid);
+  }, [customerInfo]);
+  
+  // Fetch payment link for this product
+  useEffect(() => {
+    const fetchPaymentLink = async () => {
+      try {
+        // Try live first (default), then sandbox if not found
+        let response = await fetch(`/api/products/payment-link?product_code=${productCode}&environment=live`, {
+          cache: 'no-store',
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          if (data.paymentLink) {
+            setPaymentLink(data.paymentLink);
+            setPaymentLinkLoading(false);
+            return;
+          }
+        }
+        
+        // Try sandbox if live not found
+        response = await fetch(`/api/products/payment-link?product_code=${productCode}&environment=sandbox`, {
+          cache: 'no-store',
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          if (data.paymentLink) {
+            setPaymentLink(data.paymentLink);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching payment link:', error);
+      } finally {
+        setPaymentLinkLoading(false);
+      }
+    };
+
+    if (productCode) {
+      fetchPaymentLink();
+    }
+  }, [productCode]);
   
   useEffect(() => {
     const fetchProduct = async () => {
@@ -470,6 +530,7 @@ export default function ProductDetailPage() {
             features: foundProduct.features,
             icon: foundProduct.icon_name === 'crown' ? Crown : foundProduct.icon_name === 'star' ? Star : foundProduct.icon_name === 'zap' ? Zap : Sparkles,
             fullDescription: foundProduct.full_description || foundProduct.description,
+            available_stock: foundProduct.available_stock || 0,
           });
         } else {
           // Fallback to hardcoded data if not found in database
@@ -665,24 +726,106 @@ export default function ProductDetailPage() {
                   })()}
                 </div>
 
-                {/* CTA Button */}
-                {productCode === 'SUB-BASIC-1M' ? (
-                  <a 
-                    href="https://www.paypal.com/ncp/payment/5ZMTA2LQS9UCN" 
-                    className="block"
+                {/* Stock Display */}
+                {product.available_stock !== undefined && (
+                  <div className="mb-4 p-3 bg-slate-800/50 rounded-lg border border-slate-700">
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-300 text-sm">المخزون المتاح:</span>
+                      <span className={`font-bold ${product.available_stock > 0 ? 'text-green-400' : 'text-red-400'}`}>
+                        {product.available_stock > 0 ? `${product.available_stock} متاح` : 'نفد المخزون'}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Customer Information Form */}
+                <div className="mb-6 space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="customer-name" className="text-slate-200 text-sm font-semibold">
+                      الاسم الكامل <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      id="customer-name"
+                      type="text"
+                      value={customerInfo.name}
+                      onChange={(e) => setCustomerInfo({ ...customerInfo, name: e.target.value })}
+                      className="bg-slate-900/50 border-slate-700 text-white placeholder:text-slate-500 focus:border-blue-500"
+                      placeholder="أدخل اسمك الكامل"
+                      dir="rtl"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="customer-email" className="text-slate-200 text-sm font-semibold">
+                      البريد الإلكتروني <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      id="customer-email"
+                      type="email"
+                      value={customerInfo.email}
+                      onChange={(e) => setCustomerInfo({ ...customerInfo, email: e.target.value })}
+                      className="bg-slate-900/50 border-slate-700 text-white placeholder:text-slate-500 focus:border-blue-500"
+                      placeholder="example@email.com"
+                      dir="ltr"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="customer-whatsapp" className="text-slate-200 text-sm font-semibold">
+                      رقم الواتساب <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      id="customer-whatsapp"
+                      type="tel"
+                      value={customerInfo.whatsapp}
+                      onChange={(e) => setCustomerInfo({ ...customerInfo, whatsapp: e.target.value })}
+                      className="bg-slate-900/50 border-slate-700 text-white placeholder:text-slate-500 focus:border-blue-500"
+                      placeholder="966xxxxxxxxx"
+                      dir="ltr"
+                    />
+                    <p className="text-xs text-slate-400">مطلوب للتواصل معك بشأن الطلب</p>
+                  </div>
+                </div>
+
+                {/* CTA Button - Always show PayPal payment button */}
+                {paymentLinkLoading ? (
+                  <Button 
+                    disabled
+                    className="w-full bg-slate-600 text-white font-bold py-7 text-xl opacity-50 cursor-not-allowed"
                   >
-                    <Button className={`w-full bg-gradient-to-r ${product.gradient} hover:opacity-90 text-white font-bold py-7 text-xl shadow-2xl hover:shadow-3xl transition-all duration-300 hover:scale-105`}>
-                      <span>ادفع الآن</span>
-                      <ArrowRight className="mr-2 h-6 w-6" />
-                    </Button>
-                  </a>
+                    <Loader2 className="mr-2 h-6 w-6 animate-spin" />
+                    جاري تحميل رابط الدفع...
+                  </Button>
+                ) : !paymentLink ? (
+                  <div className="w-full p-4 bg-yellow-900/20 border border-yellow-700 rounded-lg text-center">
+                    <p className="text-yellow-400 text-sm mb-2">رابط الدفع غير متوفر حالياً</p>
+                    <p className="text-yellow-300/80 text-xs">سيتم إضافة رابط الدفع قريباً</p>
+                  </div>
                 ) : (
-                  <Link href={`/order/${productCode}`} className="block">
-                    <Button className={`w-full ${product.code === 'SUB-PACKAGE-LEGENDARY' ? 'bg-slate-600 hover:bg-slate-700 border border-slate-500' : `bg-gradient-to-r ${product.gradient} hover:opacity-90`} text-white font-bold py-7 text-xl shadow-2xl hover:shadow-3xl transition-all duration-300 hover:scale-105`}>
-                      <span>اطلب الآن</span>
-                      <ArrowRight className="mr-2 h-6 w-6" />
-                    </Button>
-                  </Link>
+                  <Button 
+                    disabled={!formValid || product.available_stock === 0}
+                    onClick={() => {
+                      if (formValid && product.available_stock > 0 && paymentLink) {
+                        // Save customer info to sessionStorage before redirecting to PayPal
+                        if (typeof window !== 'undefined') {
+                          sessionStorage.setItem('pending_order', JSON.stringify({
+                            product_code: productCode,
+                            name: customerInfo.name,
+                            email: customerInfo.email,
+                            whatsapp: customerInfo.whatsapp,
+                          }));
+                          // Redirect to PayPal payment link
+                          window.location.href = paymentLink;
+                        }
+                      }
+                    }}
+                    className={`w-full bg-gradient-to-r ${product.gradient} hover:opacity-90 text-white font-bold py-7 text-xl shadow-2xl hover:shadow-3xl transition-all duration-300 hover:scale-105 ${!formValid || product.available_stock === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  >
+                    <span>
+                      {!formValid ? 'يرجى ملء جميع الحقول' : product.available_stock === 0 ? 'نفد المخزون' : 'ادفع الآن'}
+                    </span>
+                    {formValid && product.available_stock > 0 && <ArrowRight className="mr-2 h-6 w-6" />}
+                  </Button>
                 )}
               </Card>
             </div>

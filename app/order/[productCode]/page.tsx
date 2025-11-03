@@ -11,11 +11,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
-import PayPalButton from '@/components/PayPalButton';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/lib/supabase';
 import { signIn, signUp } from '@/lib/auth';
-import { Loader2, User, Mail, MessageCircle, X, CreditCard, Shield, CheckCircle2 } from 'lucide-react';
+import { Loader2, User, Mail, MessageCircle, X, CreditCard, Shield, CheckCircle2, AlertCircle } from 'lucide-react';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
 import { formatPriceWithSar, convertSarToUsd } from '@/lib/utils';
 
@@ -24,11 +23,49 @@ export default function OrderPage() {
   const router = useRouter();
   const { toast } = useToast();
   const productCode = params.productCode as string;
-
-  // Redirect SUB-BASIC-1M directly to PayPal payment link
+  const [paymentLink, setPaymentLink] = useState<string | null>(null);
+  const [checkingPaymentLink, setCheckingPaymentLink] = useState(true);
+  
+  // Check if product has PayPal payment link and redirect if exists
   useEffect(() => {
-    if (productCode === 'SUB-BASIC-1M') {
-      window.location.href = 'https://www.paypal.com/ncp/payment/5ZMTA2LQS9UCN';
+    const checkPaymentLink = async () => {
+      try {
+        // Try live first, then sandbox
+        let response = await fetch(`/api/products/payment-link?product_code=${productCode}&environment=live`, {
+          cache: 'no-store',
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          if (data.paymentLink) {
+            setPaymentLink(data.paymentLink);
+            window.location.href = data.paymentLink;
+            return;
+          }
+        }
+        
+        // Try sandbox if live not found
+        response = await fetch(`/api/products/payment-link?product_code=${productCode}&environment=sandbox`, {
+          cache: 'no-store',
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          if (data.paymentLink) {
+            setPaymentLink(data.paymentLink);
+            window.location.href = data.paymentLink;
+            return;
+          }
+        }
+      } catch (error) {
+        console.error('Error checking payment link:', error);
+      } finally {
+        setCheckingPaymentLink(false);
+      }
+    };
+
+    if (productCode) {
+      checkPaymentLink();
     }
   }, [productCode]);
   
@@ -286,14 +323,17 @@ export default function OrderPage() {
     }
   };
 
-  if (loading || productLoading) {
+  // Show loading while checking payment link or loading product
+  if (checkingPaymentLink || loading || productLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900">
         <Header />
         <main className="container mx-auto px-4 py-24 pt-32">
           <div className="max-w-2xl mx-auto text-center">
             <Loader2 className="h-8 w-8 animate-spin text-white mx-auto" />
-            <p className="text-slate-300 mt-4">جاري التحميل...</p>
+            <p className="text-slate-300 mt-4">
+              {checkingPaymentLink ? 'جاري التحقق من رابط الدفع...' : 'جاري التحميل...'}
+            </p>
           </div>
         </main>
         <Footer />
@@ -467,25 +507,48 @@ export default function OrderPage() {
                       </p>
                     </div>
                   ) : (
-                    <div className="w-full max-w-full mx-auto overflow-hidden" style={{ 
-                      display: 'flex', 
-                      justifyContent: 'center', 
-                      alignItems: 'center',
-                      width: '100%',
-                      minWidth: 0,
-                    }}>
-                      <PayPalButton
-                        productCode={product.code}
-                        productName={product.name}
-                        price={convertSarToUsd(product.price)}
-                        currency="USD"
-                        orderDetails={{
-                          name: formData.name || user?.user_metadata?.full_name || user?.email || '',
-                          email: user?.email || formData.email || '',
-                          whatsapp: formData.whatsapp || '',
-                        }}
-                        className="w-full"
-                      />
+                    <div className="p-6 bg-slate-900/50 border border-slate-700 rounded-lg text-center">
+                      <AlertCircle className="h-12 w-12 text-yellow-400 mx-auto mb-4" />
+                      <h3 className="text-lg font-semibold text-white mb-2">معلومات طلبك</h3>
+                      <div className="space-y-3 text-right mb-6">
+                        <div className="bg-slate-800/50 p-3 rounded border border-slate-700">
+                          <p className="text-xs text-slate-400 mb-1">الاسم</p>
+                          <p className="text-white font-medium">{formData.name || user?.user_metadata?.full_name || user?.email || '-'}</p>
+                        </div>
+                        <div className="bg-slate-800/50 p-3 rounded border border-slate-700">
+                          <p className="text-xs text-slate-400 mb-1">البريد الإلكتروني</p>
+                          <p className="text-white font-medium">{user?.email || formData.email || '-'}</p>
+                        </div>
+                        <div className="bg-slate-800/50 p-3 rounded border border-slate-700">
+                          <p className="text-xs text-slate-400 mb-1">رقم الواتساب</p>
+                          <p className="text-white font-medium">{formData.whatsapp || '-'}</p>
+                        </div>
+                        <div className="bg-gradient-to-r from-blue-900/30 to-indigo-900/30 p-4 rounded border border-blue-600/50">
+                          <p className="text-xs text-slate-400 mb-1">المجموع</p>
+                          <p className="text-2xl font-bold text-white">{product.price} ريال</p>
+                        </div>
+                      </div>
+                      <Button
+                        onClick={handleSubmit}
+                        disabled={submitting}
+                        className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-6 text-lg"
+                        size="lg"
+                      >
+                        {submitting ? (
+                          <>
+                            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                            جاري إرسال الطلب...
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle2 className="mr-2 h-5 w-5" />
+                            إرسال الطلب
+                          </>
+                        )}
+                      </Button>
+                      <p className="text-xs text-slate-400 mt-3">
+                        سيتم مراجعة طلبك وإرسال تفاصيل الدفع إليك قريباً
+                      </p>
                     </div>
                   )}
                   
