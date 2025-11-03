@@ -104,8 +104,9 @@ export default function AdminPaymentsPage() {
             }
             
             // Filter client-side for PayPal payments (or show all if payment_method doesn't exist)
+            // Include both 'paypal' and 'paypal_link' payment methods
             const filteredData = (fallbackData || []).filter((order: any) => 
-              !order.payment_method || order.payment_method === 'paypal'
+              !order.payment_method || order.payment_method === 'paypal' || order.payment_method === 'paypal_link'
             ) as PaymentOrder[];
             
             setPayments(filteredData);
@@ -116,8 +117,9 @@ export default function AdminPaymentsPage() {
         }
 
         // Filter for PayPal payments only (in case payment_method column exists)
+        // Include both 'paypal' and 'paypal_link' payment methods
         const filteredPayments = (data || []).filter((order: any) => 
-          !order.payment_method || order.payment_method === 'paypal'
+          !order.payment_method || order.payment_method === 'paypal' || order.payment_method === 'paypal_link'
         ) as PaymentOrder[];
 
         setPayments(filteredPayments);
@@ -167,6 +169,17 @@ export default function AdminPaymentsPage() {
       return <Badge className="bg-green-900/20 text-green-400 border-green-700">مقبول</Badge>;
     }
     return <Badge className="bg-blue-900/20 text-blue-400 border-blue-700">مدفوع</Badge>;
+  };
+
+  const getPaymentMethodDisplay = (paymentMethod: string | undefined) => {
+    if (!paymentMethod) return <span className="text-slate-500">-</span>;
+    if (paymentMethod === 'paypal_link') {
+      return <Badge className="bg-purple-900/20 text-purple-400 border-purple-700">PayPal Link</Badge>;
+    }
+    if (paymentMethod === 'paypal') {
+      return <Badge className="bg-blue-900/20 text-blue-400 border-blue-700">PayPal</Badge>;
+    }
+    return <span className="text-slate-300 capitalize">{paymentMethod}</span>;
   };
 
   if (loading) {
@@ -292,6 +305,7 @@ export default function AdminPaymentsPage() {
                         <TableHead className="text-slate-300">المنتج</TableHead>
                         <TableHead className="text-slate-300">السعر</TableHead>
                         <TableHead className="text-slate-300">الحالة</TableHead>
+                        <TableHead className="text-slate-300">طريقة الدفع</TableHead>
                         <TableHead className="text-slate-300">معرف الدفع</TableHead>
                         <TableHead className="text-slate-300">الاشتراك</TableHead>
                         <TableHead className="text-slate-300">التاريخ</TableHead>
@@ -310,6 +324,7 @@ export default function AdminPaymentsPage() {
                             {payment.price} ريال
                           </TableCell>
                           <TableCell>{getStatusBadge(payment.status)}</TableCell>
+                          <TableCell>{getPaymentMethodDisplay(payment.payment_method)}</TableCell>
                           <TableCell className="font-mono text-xs text-slate-400">
                             {payment.payment_id ? payment.payment_id.slice(0, 12) + '...' : '-'}
                           </TableCell>

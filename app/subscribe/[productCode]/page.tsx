@@ -666,12 +666,24 @@ export default function ProductDetailPage() {
                 </div>
 
                 {/* CTA Button */}
-                <Link href={`/order/${productCode}`} className="block">
-                  <Button className={`w-full ${product.code === 'SUB-PACKAGE-LEGENDARY' ? 'bg-slate-600 hover:bg-slate-700 border border-slate-500' : `bg-gradient-to-r ${product.gradient} hover:opacity-90`} text-white font-bold py-7 text-xl shadow-2xl hover:shadow-3xl transition-all duration-300 hover:scale-105`}>
-                    <span>اطلب الآن</span>
-                    <ArrowRight className="mr-2 h-6 w-6" />
-                  </Button>
-                </Link>
+                {productCode === 'SUB-BASIC-1M' ? (
+                  <a 
+                    href="https://www.paypal.com/ncp/payment/5ZMTA2LQS9UCN" 
+                    className="block"
+                  >
+                    <Button className={`w-full bg-gradient-to-r ${product.gradient} hover:opacity-90 text-white font-bold py-7 text-xl shadow-2xl hover:shadow-3xl transition-all duration-300 hover:scale-105`}>
+                      <span>ادفع الآن</span>
+                      <ArrowRight className="mr-2 h-6 w-6" />
+                    </Button>
+                  </a>
+                ) : (
+                  <Link href={`/order/${productCode}`} className="block">
+                    <Button className={`w-full ${product.code === 'SUB-PACKAGE-LEGENDARY' ? 'bg-slate-600 hover:bg-slate-700 border border-slate-500' : `bg-gradient-to-r ${product.gradient} hover:opacity-90`} text-white font-bold py-7 text-xl shadow-2xl hover:shadow-3xl transition-all duration-300 hover:scale-105`}>
+                      <span>اطلب الآن</span>
+                      <ArrowRight className="mr-2 h-6 w-6" />
+                    </Button>
+                  </Link>
+                )}
               </Card>
             </div>
           </div>
