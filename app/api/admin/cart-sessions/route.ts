@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { rateLimit } from '@/lib/rateLimiter';
+import { rateLimit, adminLimiter } from '@/lib/rateLimiter';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
 // GET - Fetch all cart sessions for admin (uses service role)
 export async function GET(request: NextRequest) {
-  const rateLimitResult = await rateLimit(request);
+  const rateLimitResult = await rateLimit(request, adminLimiter);
   if (!rateLimitResult.success) {
     return rateLimitResult.response!;
   }
