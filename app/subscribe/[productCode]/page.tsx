@@ -603,9 +603,9 @@ export default function ProductDetailPage() {
             العودة إلى الخطط
           </Link>
 
-          <div className="grid md:grid-cols-2 gap-8 mb-12">
+          <div className="flex flex-nowrap overflow-x-auto md:grid md:grid-cols-2 gap-8 mb-12 -mx-4 md:mx-0 px-4 md:px-0">
             {/* Product Image Section */}
-            <div className="relative">
+            <div className="relative min-w-[85vw] md:min-w-0">
               <Card className="group relative overflow-hidden bg-gradient-to-br from-slate-800/90 to-slate-900/90 border border-slate-700/50 h-full">
                 <div className={`absolute inset-0 bg-gradient-to-br ${product.gradient} opacity-5`} />
                 <div className="relative h-96 md:h-full min-h-[400px] w-full overflow-hidden bg-gradient-to-br from-slate-700 to-slate-800">
@@ -698,7 +698,7 @@ export default function ProductDetailPage() {
             </div>
 
             {/* Product Info Section */}
-            <div className="flex flex-col justify-center">
+            <div className="flex flex-col justify-center min-w-[85vw] md:min-w-0">
               <Card className="bg-gradient-to-br from-slate-800/90 to-slate-900/90 border border-slate-700/50 p-8">
                 <div className="mb-6">
                   <h1 className="text-4xl md:text-5xl font-extrabold text-white mb-4">

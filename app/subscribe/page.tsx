@@ -150,14 +150,14 @@ export default function SubscribePage() {
                   </div>
 
                   {/* Products Grid - Packages: 2 columns (long cards), Others: 3 columns */}
-                  <div className={isPackageSection ? "grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8" : "grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-6"}>
+                  <div className={isPackageSection ? "flex flex-nowrap overflow-x-auto md:grid md:grid-cols-2 gap-6 md:gap-8 -mx-4 md:mx-0 px-4 md:px-0" : "flex flex-nowrap overflow-x-auto md:grid md:grid-cols-3 gap-3 md:gap-6 -mx-4 md:mx-0 px-4 md:px-0"}>
                     {section.map((product: any) => {
                       const Icon = product.icon || Sparkles;
                     
                     // Package section - long detailed cards
                     if (isPackageSection && product.isPackage) {
                       return (
-                        <Card key={product.id} className="group relative overflow-hidden bg-gradient-to-br from-slate-800/90 to-slate-900/90 border-2 border-slate-700/50 hover:border-slate-500 transition-all duration-300 hover:shadow-2xl hover:shadow-amber-500/20 hover:-translate-y-2 h-full flex flex-col">
+                        <Card key={product.id} className="group relative overflow-hidden bg-gradient-to-br from-slate-800/90 to-slate-900/90 border-2 border-slate-700/50 hover:border-slate-500 transition-all duration-300 hover:shadow-2xl hover:shadow-amber-500/20 hover:-translate-y-2 h-full flex flex-col min-w-[280px] md:min-w-0">
                             {/* Gradient overlay */}
                             <div className={`absolute inset-0 bg-gradient-to-br ${product.gradient} opacity-0 group-hover:opacity-15 transition-opacity duration-300 pointer-events-none`} />
                             
@@ -281,7 +281,7 @@ export default function SubscribePage() {
                     
                     // Regular product cards (sections 1-3)
                     return (
-                      <Card key={product.id} className="group relative overflow-hidden bg-gradient-to-br from-slate-800/90 to-slate-900/90 border border-slate-700/50 hover:border-slate-600 transition-all duration-300 hover:shadow-2xl hover:shadow-blue-500/20 hover:-translate-y-1 h-full flex flex-col">
+                      <Card key={product.id} className="group relative overflow-hidden bg-gradient-to-br from-slate-800/90 to-slate-900/90 border border-slate-700/50 hover:border-slate-600 transition-all duration-300 hover:shadow-2xl hover:shadow-blue-500/20 hover:-translate-y-1 h-full flex flex-col min-w-[280px] md:min-w-0">
                           {/* Gradient overlay */}
                           <div className={`absolute inset-0 bg-gradient-to-br ${product.gradient} opacity-0 group-hover:opacity-10 transition-opacity duration-300 pointer-events-none`} />
                           
