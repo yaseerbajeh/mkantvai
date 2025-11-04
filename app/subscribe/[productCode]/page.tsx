@@ -613,13 +613,13 @@ export default function ProductDetailPage() {
                   {/* Package products with logos */}
                   {'logos' in product && product.logos ? (
                     <div className={`h-full w-full ${product.code === 'SUB-PACKAGE-LEGENDARY' ? 'bg-gradient-to-br from-slate-700 to-slate-800' : `bg-gradient-to-br ${product.gradient}`} p-8 md:p-12 flex flex-col items-center justify-center`}>
-                      <div className="flex items-center justify-center gap-6 md:gap-8 flex-wrap mb-8">
-                        {product.logos.map((logo: string, idx: number) => (
-                          <div key={idx} className={`${product.code === 'SUB-PACKAGE-LEGENDARY' ? 'bg-slate-600/50' : 'bg-white/10'} backdrop-blur-sm rounded-2xl p-6 md:p-8 border ${product.code === 'SUB-PACKAGE-LEGENDARY' ? 'border-slate-500/30' : 'border-white/20'}`}>
+                      <div className="flex items-center justify-center gap-3 md:gap-4 flex-nowrap mb-8 w-full">
+                        {product.logos?.map((logo: string, idx: number) => (
+                          <div key={idx} className={`${product.code === 'SUB-PACKAGE-LEGENDARY' ? 'bg-slate-600/50' : 'bg-white/10'} backdrop-blur-sm rounded-xl p-3 md:p-4 border ${product.code === 'SUB-PACKAGE-LEGENDARY' ? 'border-slate-500/30' : 'border-white/20'}`}>
                             <img
                               src={logo}
                               alt={`${product.name} logo ${idx + 1}`}
-                              className={`h-16 w-16 md:h-24 md:w-24 object-contain ${logo.endsWith('.png') || logo.endsWith('.jpeg') || logo.endsWith('.jpg') ? '' : 'brightness-0 invert'}`}
+                              className={`h-10 w-10 md:h-16 md:w-16 object-contain ${logo.endsWith('.png') || logo.endsWith('.jpeg') || logo.endsWith('.jpg') ? '' : 'brightness-0 invert'}`}
                             />
                           </div>
                         ))}
