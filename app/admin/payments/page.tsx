@@ -22,6 +22,14 @@ import {
 } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
 
+interface OrderItem {
+  id: string;
+  product_code: string;
+  product_name: string;
+  price: number;
+  quantity: number;
+}
+
 interface PaymentOrder {
   id: string;
   order_number?: string;
@@ -31,10 +39,14 @@ interface PaymentOrder {
   product_name: string;
   product_code?: string;
   price: number;
+  total_amount?: number;
+  discount_amount?: number;
+  is_cart_order?: boolean;
   status: 'paid' | 'approved';
   payment_method: string;
   payment_id?: string;
   payment_status?: string;
+  order_items?: OrderItem[];
   assigned_subscription?: {
     code: string;
     meta?: any;
@@ -77,11 +89,14 @@ export default function AdminPaymentsPage() {
 
         setUser(session.user);
 
-        // Fetch PayPal payments (orders with payment_method = 'paypal' or status = 'paid'/'approved' with payment_method)
-        // Handle case where payment_method column might not exist yet
+        // Fetch PayPal payments (orders with payment_method = 'paypal', 'paypal_link', or 'paypal_cart')
+        // Include order_items for cart orders
         let query = supabase
           .from('orders')
-          .select('*')
+          .select(`
+            *,
+            order_items (*)
+          `)
           .in('status', ['paid', 'approved'])
           .order('created_at', { ascending: false });
 
@@ -104,9 +119,12 @@ export default function AdminPaymentsPage() {
             }
             
             // Filter client-side for PayPal payments (or show all if payment_method doesn't exist)
-            // Include both 'paypal' and 'paypal_link' payment methods
+            // Include 'paypal', 'paypal_link', and 'paypal_cart' payment methods
             const filteredData = (fallbackData || []).filter((order: any) => 
-              !order.payment_method || order.payment_method === 'paypal' || order.payment_method === 'paypal_link'
+              !order.payment_method || 
+              order.payment_method === 'paypal' || 
+              order.payment_method === 'paypal_link' ||
+              order.payment_method === 'paypal_cart'
             ) as PaymentOrder[];
             
             setPayments(filteredData);
@@ -117,9 +135,12 @@ export default function AdminPaymentsPage() {
         }
 
         // Filter for PayPal payments only (in case payment_method column exists)
-        // Include both 'paypal' and 'paypal_link' payment methods
+        // Include 'paypal', 'paypal_link', and 'paypal_cart' payment methods
         const filteredPayments = (data || []).filter((order: any) => 
-          !order.payment_method || order.payment_method === 'paypal' || order.payment_method === 'paypal_link'
+          !order.payment_method || 
+          order.payment_method === 'paypal' || 
+          order.payment_method === 'paypal_link' ||
+          order.payment_method === 'paypal_cart'
         ) as PaymentOrder[];
 
         setPayments(filteredPayments);
@@ -173,6 +194,9 @@ export default function AdminPaymentsPage() {
 
   const getPaymentMethodDisplay = (paymentMethod: string | undefined) => {
     if (!paymentMethod) return <span className="text-slate-500">-</span>;
+    if (paymentMethod === 'paypal_cart') {
+      return <Badge className="bg-indigo-900/20 text-indigo-400 border-indigo-700">PayPal Cart</Badge>;
+    }
     if (paymentMethod === 'paypal_link') {
       return <Badge className="bg-purple-900/20 text-purple-400 border-purple-700">PayPal Link</Badge>;
     }
@@ -319,9 +343,34 @@ export default function AdminPaymentsPage() {
                           </TableCell>
                           <TableCell className="text-white">{payment.name}</TableCell>
                           <TableCell className="text-slate-300">{payment.email}</TableCell>
-                          <TableCell className="text-white">{payment.product_name}</TableCell>
+                          <TableCell className="text-white">
+                            {payment.is_cart_order && payment.order_items && payment.order_items.length > 0 ? (
+                              <div className="space-y-1">
+                                <div className="font-semibold text-indigo-400 mb-1">
+                                  🛒 طلب سلة ({payment.order_items.length} منتج)
+                                </div>
+                                {payment.order_items.map((item: OrderItem) => (
+                                  <div key={item.id} className="text-xs text-slate-400 border-r-2 border-slate-600 pr-2 mr-2">
+                                    • {item.product_name} (x{item.quantity}) - {item.price * item.quantity} ريال
+                                  </div>
+                                ))}
+                                {payment.discount_amount && payment.discount_amount > 0 && (
+                                  <div className="text-xs text-green-400 mt-1">
+                                    خصم: -{payment.discount_amount} ريال
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              payment.product_name
+                            )}
+                          </TableCell>
                           <TableCell className="text-white font-semibold">
-                            {payment.price} ريال
+                            {payment.total_amount ? `${payment.total_amount} ريال` : `${payment.price} ريال`}
+                            {payment.discount_amount && payment.discount_amount > 0 && (
+                              <div className="text-xs text-green-400 font-normal">
+                                خصم: -{payment.discount_amount} ريال
+                              </div>
+                            )}
                           </TableCell>
                           <TableCell>{getStatusBadge(payment.status)}</TableCell>
                           <TableCell>{getPaymentMethodDisplay(payment.payment_method)}</TableCell>

@@ -6,13 +6,15 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
-import { Sparkles, Zap, Crown, Star, Check, ArrowRight, ImageIcon, CheckCircle2, Loader2 } from 'lucide-react';
+import { Sparkles, Zap, Crown, Star, Check, ArrowRight, ImageIcon, CheckCircle2, Loader2, ShoppingCart } from 'lucide-react';
 import DOMPurify from 'isomorphic-dompurify';
 import { formatPriceWithSar } from '@/lib/utils';
+import { useCart } from '@/lib/cart-context';
+import { supabase } from '@/lib/supabase';
+import type { User } from '@supabase/supabase-js';
+import AuthDialog from '@/components/AuthDialog';
 
 // Product data with descriptions (fallback data)
 const fallbackProductsData: { [key: string]: any } = {
@@ -433,26 +435,30 @@ const fallbackProductsData: { [key: string]: any } = {
 export default function ProductDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const { addItem } = useCart();
   const productCode = params.productCode as string;
   const [product, setProduct] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [paymentLink, setPaymentLink] = useState<string | null>(null);
   const [paymentLinkLoading, setPaymentLinkLoading] = useState(true);
-  const [customerInfo, setCustomerInfo] = useState({
-    name: '',
-    email: '',
-    whatsapp: '',
-  });
-  const [formValid, setFormValid] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+  const [authDialogOpen, setAuthDialogOpen] = useState(false);
   
-  // Validate form whenever customer info changes
+  // Check user authentication
   useEffect(() => {
-    const isValid = customerInfo.name.trim() !== '' && 
-                    customerInfo.email.trim() !== '' && 
-                    customerInfo.whatsapp.trim() !== '' &&
-                    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerInfo.email);
-    setFormValid(isValid);
-  }, [customerInfo]);
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      setUser(session?.user ?? null);
+    };
+
+    checkAuth();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
   
   // Fetch payment link for this product
   useEffect(() => {
@@ -738,55 +744,6 @@ export default function ProductDetailPage() {
                   </div>
                 )}
 
-                {/* Customer Information Form */}
-                <div className="mb-6 space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="customer-name" className="text-slate-200 text-sm font-semibold">
-                      الاسم الكامل <span className="text-red-500">*</span>
-                    </Label>
-                    <Input
-                      id="customer-name"
-                      type="text"
-                      value={customerInfo.name}
-                      onChange={(e) => setCustomerInfo({ ...customerInfo, name: e.target.value })}
-                      className="bg-slate-900/50 border-slate-700 text-white placeholder:text-slate-500 focus:border-blue-500"
-                      placeholder="أدخل اسمك الكامل"
-                      dir="rtl"
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="customer-email" className="text-slate-200 text-sm font-semibold">
-                      البريد الإلكتروني <span className="text-red-500">*</span>
-                    </Label>
-                    <Input
-                      id="customer-email"
-                      type="email"
-                      value={customerInfo.email}
-                      onChange={(e) => setCustomerInfo({ ...customerInfo, email: e.target.value })}
-                      className="bg-slate-900/50 border-slate-700 text-white placeholder:text-slate-500 focus:border-blue-500"
-                      placeholder="example@email.com"
-                      dir="ltr"
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="customer-whatsapp" className="text-slate-200 text-sm font-semibold">
-                      رقم الواتساب <span className="text-red-500">*</span>
-                    </Label>
-                    <Input
-                      id="customer-whatsapp"
-                      type="tel"
-                      value={customerInfo.whatsapp}
-                      onChange={(e) => setCustomerInfo({ ...customerInfo, whatsapp: e.target.value })}
-                      className="bg-slate-900/50 border-slate-700 text-white placeholder:text-slate-500 focus:border-blue-500"
-                      placeholder="966xxxxxxxxx"
-                      dir="ltr"
-                    />
-                    <p className="text-xs text-slate-400">مطلوب للتواصل معك بشأن الطلب</p>
-                  </div>
-                </div>
-
                 {/* CTA Button - Always show PayPal payment button */}
                 {paymentLinkLoading ? (
                   <Button 
@@ -803,30 +760,58 @@ export default function ProductDetailPage() {
                   </div>
                 ) : (
                   <Button 
-                    disabled={!formValid || product.available_stock === 0}
+                    disabled={!user || product.available_stock === 0}
                     onClick={() => {
-                      if (formValid && product.available_stock > 0 && paymentLink) {
-                        // Save customer info to sessionStorage before redirecting to PayPal
+                      if (!user) {
+                        setAuthDialogOpen(true);
+                        return;
+                      }
+                      if (product.available_stock > 0 && paymentLink) {
+                        // Save user info to sessionStorage before redirecting to PayPal
                         if (typeof window !== 'undefined') {
                           sessionStorage.setItem('pending_order', JSON.stringify({
                             product_code: productCode,
-                            name: customerInfo.name,
-                            email: customerInfo.email,
-                            whatsapp: customerInfo.whatsapp,
+                            name: user.user_metadata?.full_name || user.email || '',
+                            email: user.email || '',
+                            whatsapp: '', // Will be collected on return if needed
                           }));
                           // Redirect to PayPal payment link
                           window.location.href = paymentLink;
                         }
                       }
                     }}
-                    className={`w-full bg-gradient-to-r ${product.gradient} hover:opacity-90 text-white font-bold py-7 text-xl shadow-2xl hover:shadow-3xl transition-all duration-300 hover:scale-105 ${!formValid || product.available_stock === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    className={`w-full bg-gradient-to-r ${product.gradient} hover:opacity-90 text-white font-bold py-7 text-xl shadow-2xl hover:shadow-3xl transition-all duration-300 hover:scale-105 ${!user || product.available_stock === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
                   >
                     <span>
-                      {!formValid ? 'يرجى ملء جميع الحقول' : product.available_stock === 0 ? 'نفد المخزون' : 'ادفع الآن'}
+                      {!user ? 'يرجى تسجيل الدخول' : product.available_stock === 0 ? 'نفد المخزون' : 'ادفع الآن'}
                     </span>
-                    {formValid && product.available_stock > 0 && <ArrowRight className="mr-2 h-6 w-6" />}
+                    {user && product.available_stock > 0 && <ArrowRight className="mr-2 h-6 w-6" />}
                   </Button>
                 )}
+                
+                {/* Add to Cart Button */}
+                <Button
+                  onClick={() => {
+                    if (!user) {
+                      setAuthDialogOpen(true);
+                      return;
+                    }
+                    if (product && product.available_stock > 0) {
+                      addItem({
+                        product_code: product.code,
+                        product_name: product.name,
+                        price: product.price,
+                        quantity: 1,
+                        image: product.image,
+                      });
+                    }
+                  }}
+                  disabled={product.available_stock === 0}
+                  className={`w-full bg-red-600 hover:bg-red-700 text-white mt-3 py-6 text-lg ${product.available_stock === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  <ShoppingCart className="mr-2 h-5 w-5 text-white" />
+                  <span className="text-white">{product.available_stock === 0 ? 'نفد المخزون' : 'أضف إلى السلة'}</span>
+                </Button>
               </Card>
             </div>
           </div>
@@ -885,6 +870,13 @@ export default function ProductDetailPage() {
         </div>
       </main>
       <Footer />
+      
+      {/* Auth Dialog */}
+      <AuthDialog 
+        open={authDialogOpen} 
+        onOpenChange={setAuthDialogOpen}
+        onSuccess={() => router.refresh()}
+      />
     </div>
   );
 }

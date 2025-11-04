@@ -10,8 +10,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { name, email, whatsapp, product_code, payment_link_id } = body;
 
-    // Validate required fields
-    if (!name || !email || !whatsapp || !product_code) {
+    // Validate required fields (whatsapp is optional now since user is authenticated)
+    if (!name || !email || !product_code) {
       return NextResponse.json(
         { error: 'يرجى ملء جميع الحقول المطلوبة' },
         { status: 400 }
