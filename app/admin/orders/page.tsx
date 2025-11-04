@@ -21,7 +21,6 @@ import { supabase } from '@/lib/supabase';
 import { 
   CheckCircle2, 
   Loader2, 
-  XCircle, 
   Search, 
   Calendar as CalendarIcon,
   Download,
@@ -30,11 +29,18 @@ import {
   ArrowDown,
   TrendingUp,
   DollarSign,
-  ShoppingCart,
-  Clock
+  ShoppingCart
 } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Legend, ResponsiveContainer } from 'recharts';
+
+interface OrderItem {
+  id: string;
+  product_code: string;
+  product_name: string;
+  price: number;
+  quantity: number;
+}
 
 interface Order {
   id: string;
@@ -45,12 +51,17 @@ interface Order {
   product_name: string;
   product_code?: string;
   price: number;
+  total_amount?: number;
+  discount_amount?: number;
+  promo_code_id?: string;
+  is_cart_order?: boolean;
   status: 'pending' | 'approved' | 'rejected' | 'paid';
   payment_method?: string;
   assigned_subscription?: {
     code: string;
     meta?: any;
   };
+  order_items?: OrderItem[];
   created_at: string;
 }
 
@@ -63,8 +74,6 @@ export default function AdminOrdersPage() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [orders, setOrders] = useState<Order[]>([]);
-  const [approvingOrderId, setApprovingOrderId] = useState<string | null>(null);
-  const [rejectingOrderId, setRejectingOrderId] = useState<string | null>(null);
   
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
@@ -180,22 +189,37 @@ export default function AdminOrdersPage() {
 
   const fetchOrders = async () => {
     try {
+      // Fetch paid and approved orders with order_items for cart orders
       const { data, error } = await supabase
         .from('orders')
-        .select('*')
+        .select(`
+          *,
+          order_items (*)
+        `)
+        .in('status', ['paid', 'approved']) // Fetch paid and approved orders
         .order('created_at', { ascending: false });
 
       if (error) {
         console.error('Error fetching orders:', error);
         
-        if (error.message?.includes('relation') && error.message?.includes('does not exist')) {
+        if (error.message?.includes('permission denied') || error.message?.includes('denied')) {
+          toast({
+            title: 'خطأ في الصلاحيات',
+            description: 'لا يوجد لديك صلاحية لعرض الطلبات. يرجى التحقق من إعدادات قاعدة البيانات (RLS policies).',
+            variant: 'destructive',
+          });
+        } else if (error.message?.includes('relation') && error.message?.includes('does not exist')) {
           toast({
             title: 'خطأ في قاعدة البيانات',
             description: 'جدول الطلبات غير موجود. يرجى تشغيل SQL في Supabase أولاً.',
             variant: 'destructive',
           });
         } else {
-          throw error;
+          toast({
+            title: 'خطأ',
+            description: error.message || 'حدث خطأ أثناء جلب الطلبات',
+            variant: 'destructive',
+          });
         }
         return;
       }
@@ -297,11 +321,9 @@ export default function AdminOrdersPage() {
     const filtered = filteredAndSortedOrders;
     
     const totalOrders = filtered.length;
-    const pendingOrders = filtered.filter(o => o.status === 'pending').length;
-    const approvedOrders = filtered.filter(o => o.status === 'approved' || o.status === 'paid').length;
     const paidOrders = filtered.filter(o => o.status === 'paid').length;
-    const rejectedOrders = filtered.filter(o => o.status === 'rejected').length;
-    const totalRevenue = filtered.filter(o => o.status === 'approved' || o.status === 'paid').reduce((sum, o) => sum + Number(o.price), 0);
+    const approvedOrders = filtered.filter(o => o.status === 'approved').length;
+    const totalRevenue = filtered.reduce((sum, o) => sum + Number(o.total_amount || o.price), 0);
 
     // Orders over time (last 30 days)
     const ordersByDate: { [key: string]: number } = {};
@@ -322,16 +344,15 @@ export default function AdminOrdersPage() {
 
     // Orders by status
     const ordersByStatus = [
+      { name: 'مدفوع', value: paidOrders, color: '#3b82f6' },
       { name: 'مقبول', value: approvedOrders, color: '#22c55e' },
-      { name: 'قيد الانتظار', value: pendingOrders, color: '#eab308' },
-      { name: 'مرفوض', value: rejectedOrders, color: '#ef4444' },
     ];
 
     // Revenue by product
     const revenueByProduct: { [key: string]: number } = {};
-    filtered.filter(o => o.status === 'approved').forEach(order => {
+    filtered.forEach(order => {
       const productName = order.product_name || 'غير محدد';
-      revenueByProduct[productName] = (revenueByProduct[productName] || 0) + Number(order.price);
+      revenueByProduct[productName] = (revenueByProduct[productName] || 0) + Number(order.total_amount || order.price);
     });
 
     const revenueByProductData = Object.entries(revenueByProduct)
@@ -361,9 +382,8 @@ export default function AdminOrdersPage() {
 
     return {
       totalOrders,
-      pendingOrders,
+      paidOrders,
       approvedOrders,
-      rejectedOrders,
       totalRevenue,
       ordersOverTime,
       ordersByStatus,
@@ -390,87 +410,6 @@ export default function AdminOrdersPage() {
       <ArrowDown className="h-4 w-4 ml-1" />;
   };
 
-  const handleApproveOrder = async (orderId: string) => {
-    setApprovingOrderId(orderId);
-
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        throw new Error('غير مصرح');
-      }
-
-      const response = await fetch('/api/admin/approve-order', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({ order_id: orderId }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'حدث خطأ أثناء الموافقة على الطلب');
-      }
-
-      toast({
-        title: 'نجح',
-        description: 'تم تفعيل الاشتراك وإرسال التفاصيل للعميل',
-      });
-
-      fetchOrders();
-    } catch (error: any) {
-      toast({
-        title: 'خطأ',
-        description: error.message || 'حدث خطأ أثناء الموافقة على الطلب',
-        variant: 'destructive',
-      });
-    } finally {
-      setApprovingOrderId(null);
-    }
-  };
-
-  const handleRejectOrder = async (orderId: string) => {
-    setRejectingOrderId(orderId);
-
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        throw new Error('غير مصرح');
-      }
-
-      const response = await fetch('/api/admin/reject-order', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({ order_id: orderId }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'حدث خطأ أثناء رفض الطلب');
-      }
-
-      toast({
-        title: 'نجح',
-        description: 'تم رفض الطلب بنجاح',
-      });
-
-      fetchOrders();
-    } catch (error: any) {
-      toast({
-        title: 'خطأ',
-        description: error.message || 'حدث خطأ أثناء رفض الطلب',
-        variant: 'destructive',
-      });
-    } finally {
-      setRejectingOrderId(null);
-    }
-  };
 
   const exportToCSV = () => {
     const headers = ['رقم الطلب', 'الاسم', 'البريد الإلكتروني', 'واتساب', 'المنتج', 'السعر', 'الحالة', 'التاريخ'];
@@ -480,8 +419,8 @@ export default function AdminOrdersPage() {
       order.email,
       order.whatsapp || '',
       order.product_name,
-      order.price.toString(),
-      order.status === 'approved' ? 'مقبول' : order.status === 'rejected' ? 'مرفوض' : 'قيد الانتظار',
+      (order.total_amount || order.price).toString(),
+      order.status === 'paid' ? 'مدفوع' : order.status === 'approved' ? 'مقبول' : 'مدفوع',
       format(new Date(order.created_at), 'yyyy-MM-dd HH:mm', { locale: ar }),
     ]);
 
@@ -586,10 +525,8 @@ export default function AdminOrdersPage() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">جميع الحالات</SelectItem>
-                        <SelectItem value="pending">قيد الانتظار</SelectItem>
-                        <SelectItem value="approved">مقبول</SelectItem>
                         <SelectItem value="paid">مدفوع</SelectItem>
-                        <SelectItem value="rejected">مرفوض</SelectItem>
+                        <SelectItem value="approved">مقبول</SelectItem>
                       </SelectContent>
                     </Select>
 
@@ -658,15 +595,26 @@ export default function AdminOrdersPage() {
               </Card>
 
               {/* Summary Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                <Card className="bg-yellow-900/20 border-yellow-700">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                <Card className="bg-blue-900/20 border-blue-700">
                   <CardContent className="pt-6">
                     <div className="flex items-center justify-between">
                       <div>
-                        <div className="text-3xl font-bold text-yellow-500">{analytics.pendingOrders}</div>
-                        <div className="text-slate-300 mt-2 text-sm">طلبات قيد الانتظار</div>
+                        <div className="text-3xl font-bold text-blue-500">{analytics.totalOrders}</div>
+                        <div className="text-slate-300 mt-2 text-sm">إجمالي الطلبات</div>
                       </div>
-                      <Clock className="h-8 w-8 text-yellow-500 opacity-50" />
+                      <ShoppingCart className="h-8 w-8 text-blue-500 opacity-50" />
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card className="bg-indigo-900/20 border-indigo-700">
+                  <CardContent className="pt-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="text-3xl font-bold text-indigo-500">{analytics.paidOrders}</div>
+                        <div className="text-slate-300 mt-2 text-sm">طلبات مدفوعة</div>
+                      </div>
+                      <CheckCircle2 className="h-8 w-8 text-indigo-500 opacity-50" />
                     </div>
                   </CardContent>
                 </Card>
@@ -681,25 +629,14 @@ export default function AdminOrdersPage() {
                     </div>
                   </CardContent>
                 </Card>
-                <Card className="bg-red-900/20 border-red-700">
+                <Card className="bg-emerald-900/20 border-emerald-700">
                   <CardContent className="pt-6">
                     <div className="flex items-center justify-between">
                       <div>
-                        <div className="text-3xl font-bold text-red-500">{analytics.rejectedOrders}</div>
-                        <div className="text-slate-300 mt-2 text-sm">طلبات مرفوضة</div>
+                        <div className="text-3xl font-bold text-emerald-500">{analytics.totalRevenue.toLocaleString()}</div>
+                        <div className="text-slate-300 mt-2 text-sm">إجمالي الإيرادات (ريال)</div>
                       </div>
-                      <XCircle className="h-8 w-8 text-red-500 opacity-50" />
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card className="bg-blue-900/20 border-blue-700">
-                  <CardContent className="pt-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <div className="text-3xl font-bold text-blue-500">{analytics.totalOrders}</div>
-                        <div className="text-slate-300 mt-2 text-sm">إجمالي الطلبات</div>
-                      </div>
-                      <ShoppingCart className="h-8 w-8 text-blue-500 opacity-50" />
+                      <DollarSign className="h-8 w-8 text-emerald-500 opacity-50" />
                     </div>
                   </CardContent>
                 </Card>
@@ -766,8 +703,40 @@ export default function AdminOrdersPage() {
                                 <TableCell className="text-white">{order.name}</TableCell>
                                 <TableCell className="text-slate-300 text-sm">{order.email}</TableCell>
                                 <TableCell className="text-slate-300 text-sm">{order.whatsapp || '-'}</TableCell>
-                                <TableCell className="text-slate-300 text-sm">{order.product_name}</TableCell>
-                                <TableCell className="text-white">{order.price} ريال</TableCell>
+                                <TableCell className="text-slate-300 text-sm">
+                                  {order.is_cart_order && order.order_items && order.order_items.length > 0 ? (
+                                    <div className="space-y-1">
+                                      <div className="font-semibold text-blue-400 mb-1">
+                                        🛒 طلب سلة ({order.order_items.length} منتج)
+                                      </div>
+                                      {order.order_items.map((item: OrderItem) => (
+                                        <div key={item.id} className="text-xs text-slate-400 border-r-2 border-slate-600 pr-2 mr-2">
+                                          • {item.product_name} (x{item.quantity}) - {item.price * item.quantity} ريال
+                                        </div>
+                                      ))}
+                                      {order.discount_amount && order.discount_amount > 0 && (
+                                        <div className="text-xs text-green-400 mt-1">
+                                          خصم: -{order.discount_amount} ريال
+                                        </div>
+                                      )}
+                                      {order.total_amount && (
+                                        <div className="text-xs font-semibold text-white mt-1">
+                                          المجموع: {order.total_amount} ريال
+                                        </div>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    order.product_name
+                                  )}
+                                </TableCell>
+                                <TableCell className="text-white">
+                                  {order.total_amount ? `${order.total_amount} ريال` : `${order.price} ريال`}
+                                  {order.discount_amount && order.discount_amount > 0 && (
+                                    <div className="text-xs text-green-400">
+                                      خصم: -{order.discount_amount} ريال
+                                    </div>
+                                  )}
+                                </TableCell>
                                 <TableCell>
                                   <Badge
                                     className={
@@ -793,35 +762,7 @@ export default function AdminOrdersPage() {
                                   {format(new Date(order.created_at), 'yyyy-MM-dd HH:mm', { locale: ar })}
                                 </TableCell>
                                 <TableCell>
-                                  {(order.status === 'pending' || order.status === 'paid') && (
-                                    <div className="flex gap-2">
-                                      <Button
-                                        size="sm"
-                                        onClick={() => handleApproveOrder(order.id)}
-                                        disabled={approvingOrderId === order.id || rejectingOrderId === order.id}
-                                        className="bg-green-600 hover:bg-green-700 text-white h-8"
-                                      >
-                                        {approvingOrderId === order.id ? (
-                                          <Loader2 className="h-3 w-3 animate-spin" />
-                                        ) : (
-                                          <CheckCircle2 className="h-3 w-3" />
-                                        )}
-                                      </Button>
-                                      <Button
-                                        size="sm"
-                                        onClick={() => handleRejectOrder(order.id)}
-                                        disabled={approvingOrderId === order.id || rejectingOrderId === order.id}
-                                        variant="destructive"
-                                        className="bg-red-600 hover:bg-red-700 h-8"
-                                      >
-                                        {rejectingOrderId === order.id ? (
-                                          <Loader2 className="h-3 w-3 animate-spin" />
-                                        ) : (
-                                          <XCircle className="h-3 w-3" />
-                                        )}
-                                      </Button>
-                                    </div>
-                                  )}
+                                  {/* No actions needed for paid orders - they are already completed */}
                                 </TableCell>
                               </TableRow>
                             ))}
@@ -884,21 +825,10 @@ export default function AdminOrdersPage() {
                   <CardContent className="pt-6">
                     <div className="flex items-center justify-between">
                       <div>
-                        <div className="text-3xl font-bold text-yellow-500">{analytics.pendingOrders}</div>
-                        <div className="text-slate-300 mt-2 text-sm">قيد الانتظار</div>
+                        <div className="text-3xl font-bold text-blue-500">{analytics.paidOrders}</div>
+                        <div className="text-slate-300 mt-2 text-sm">طلبات مدفوعة</div>
                       </div>
-                      <Clock className="h-8 w-8 text-yellow-500" />
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card className="bg-slate-800/50 border-slate-700">
-                  <CardContent className="pt-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <div className="text-3xl font-bold text-green-500">{analytics.approvedOrders}</div>
-                        <div className="text-slate-300 mt-2 text-sm">مقبولة</div>
-                      </div>
-                      <CheckCircle2 className="h-8 w-8 text-green-500" />
+                      <CheckCircle2 className="h-8 w-8 text-blue-500" />
                     </div>
                   </CardContent>
                 </Card>

@@ -57,6 +57,17 @@ export interface TrialCodeEmailData {
   expiresAt: string;
 }
 
+export interface AbandonedCartReminderData {
+  email: string;
+  name: string;
+  orderId: string;
+  productName: string;
+  totalAmount: number;
+  cartLink?: string;
+  templateTitle: string;
+  templateBody: string;
+}
+
 /**
  * Send email notification to admin when a new order is created
  */
@@ -303,6 +314,44 @@ export async function sendTrialCodeEmail(trialData: TrialCodeEmailData): Promise
     console.log(`Trial code email sent to ${trialData.email}`);
   } catch (error) {
     console.error('Error sending trial code email:', error);
+    throw error;
+  }
+}
+
+/**
+ * Send abandoned cart reminder email to customer
+ * Replaces template variables in title and body
+ */
+export async function sendAbandonedCartReminderEmail(data: AbandonedCartReminderData): Promise<void> {
+  // Replace template variables in title and body
+  let emailTitle = data.templateTitle;
+  let emailBody = data.templateBody;
+
+  // Replace variables
+  emailTitle = emailTitle.replace(/{name}/g, escapeHtml(data.name));
+  emailTitle = emailTitle.replace(/{order_id}/g, escapeHtml(data.orderId));
+  emailTitle = emailTitle.replace(/{product_name}/g, escapeHtml(data.productName));
+  emailTitle = emailTitle.replace(/{total_amount}/g, escapeHtml(String(data.totalAmount)));
+  emailTitle = emailTitle.replace(/{cart_link}/g, data.cartLink || '#');
+
+  emailBody = emailBody.replace(/{name}/g, escapeHtml(data.name));
+  emailBody = emailBody.replace(/{order_id}/g, escapeHtml(data.orderId));
+  emailBody = emailBody.replace(/{product_name}/g, escapeHtml(data.productName));
+  emailBody = emailBody.replace(/{total_amount}/g, escapeHtml(String(data.totalAmount)));
+  emailBody = emailBody.replace(/{cart_link}/g, data.cartLink || '#');
+
+  const mailOptions = {
+    from: `"مكان TV" <${emailConfig.auth.user}>`,
+    to: data.email,
+    subject: emailTitle,
+    html: emailBody,
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+    console.log(`Abandoned cart reminder email sent to ${data.email} for order ${data.orderId}`);
+  } catch (error) {
+    console.error('Error sending abandoned cart reminder email:', error);
     throw error;
   }
 }

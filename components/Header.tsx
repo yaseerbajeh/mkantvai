@@ -2,15 +2,18 @@
 
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
-import { Menu, X, LogOut, User, Heart, Package, Store, Shield, Settings } from 'lucide-react';
+import { Menu, X, LogOut, User, Heart, Package, Store, Shield, Settings, ShoppingCart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/supabase';
 import { signOut } from '@/lib/auth';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
 import { useRouter } from 'next/navigation';
+import { useCart } from '@/lib/cart-context';
 
 export default function Header() {
   const router = useRouter();
+  const { getItemCount } = useCart();
+  const cartCount = getItemCount();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [user, setUser] = useState<SupabaseUser | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -98,6 +101,17 @@ export default function Header() {
             <span className="hidden sm:inline text-sm md:text-base">المتجر</span>
           </Link>
           
+          {/* Cart Icon */}
+          <Link href="/cart" className="relative text-slate-300 hover:text-white transition flex items-center gap-1.5 md:gap-2">
+            <ShoppingCart className="w-4 h-4 md:w-4 md:h-4" />
+            <span className="hidden sm:inline text-sm md:text-base">السلة</span>
+            {cartCount > 0 && (
+              <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
+                {cartCount}
+              </span>
+            )}
+          </Link>
+          
           {/* Admin Panel - Only visible to admins */}
           {isAdmin && (
             <Link href="/admin" className="text-slate-300 hover:text-white transition flex items-center gap-1.5 md:gap-2">
@@ -171,6 +185,19 @@ export default function Header() {
             >
               <Store className="w-4 h-4" />
               المتجر
+            </Link>
+            <Link
+              href="/cart"
+              className="relative text-slate-300 hover:text-white transition py-2 text-base font-medium flex items-center gap-2"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              <ShoppingCart className="w-4 h-4" />
+              السلة
+              {cartCount > 0 && (
+                <span className="mr-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
+                  {cartCount}
+                </span>
+              )}
             </Link>
             {user ? (
               <>
