@@ -29,7 +29,8 @@ import {
   ArrowDown,
   TrendingUp,
   DollarSign,
-  ShoppingCart
+  ShoppingCart,
+  CreditCard
 } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Legend, ResponsiveContainer } from 'recharts';
@@ -57,6 +58,7 @@ interface Order {
   is_cart_order?: boolean;
   status: 'pending' | 'approved' | 'rejected' | 'paid';
   payment_method?: string;
+  payment_id?: string;
   assigned_subscription?: {
     code: string;
     meta?: any;
@@ -89,6 +91,9 @@ export default function AdminOrdersPage() {
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
+  
+  // Capture payment state
+  const [capturingOrders, setCapturingOrders] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -189,14 +194,15 @@ export default function AdminOrdersPage() {
 
   const fetchOrders = async () => {
     try {
-      // Fetch paid and approved orders with order_items for cart orders
+      // Fetch paid, approved, and pending orders with order_items for cart orders
+      // Include pending to show capture payment button
       const { data, error } = await supabase
         .from('orders')
         .select(`
           *,
           order_items (*)
         `)
-        .in('status', ['paid', 'approved']) // Fetch paid and approved orders
+        .in('status', ['paid', 'approved', 'pending']) // Fetch paid, approved, and pending orders
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -410,6 +416,70 @@ export default function AdminOrdersPage() {
       <ArrowDown className="h-4 w-4 ml-1" />;
   };
 
+  const handleCapturePayment = async (orderId: string) => {
+    setCapturingOrders(prev => new Set(prev).add(orderId));
+    
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        toast({
+          title: 'خطأ',
+          description: 'يرجى تسجيل الدخول',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      const response = await fetch('/api/admin/capture-payment', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ order_id: orderId }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'فشل في معالجة الدفع');
+      }
+
+      toast({
+        title: 'نجح',
+        description: result.message || 'تم استلام الدفع بنجاح',
+      });
+
+      // Refresh orders to show updated status
+      router.refresh();
+      // Reload orders
+      const { data: { session: newSession } } = await supabase.auth.getSession();
+      if (newSession) {
+        const { data: ordersData, error: ordersError } = await supabase
+          .from('orders')
+          .select('*, order_items(*)')
+          .in('status', ['paid', 'approved', 'pending'])
+          .order('created_at', { ascending: false });
+        
+        if (!ordersError && ordersData) {
+          setOrders(ordersData as Order[]);
+        }
+      }
+    } catch (error: any) {
+      console.error('Error capturing payment:', error);
+      toast({
+        title: 'خطأ',
+        description: error.message || 'فشل في معالجة الدفع',
+        variant: 'destructive',
+      });
+    } finally {
+      setCapturingOrders(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(orderId);
+        return newSet;
+      });
+    }
+  };
 
   const exportToCSV = () => {
     const headers = ['رقم الطلب', 'الاسم', 'البريد الإلكتروني', 'واتساب', 'المنتج', 'السعر', 'الحالة', 'التاريخ'];
@@ -762,7 +832,29 @@ export default function AdminOrdersPage() {
                                   {format(new Date(order.created_at), 'yyyy-MM-dd HH:mm', { locale: ar })}
                                 </TableCell>
                                 <TableCell>
-                                  {/* No actions needed for paid orders - they are already completed */}
+                                  {/* Show capture button for pending orders with PayPal payment_id */}
+                                  {order.status === 'pending' && 
+                                   order.payment_id && 
+                                   (order.payment_method === 'paypal_cart' || order.payment_method?.includes('paypal')) && (
+                                    <Button
+                                      size="sm"
+                                      onClick={() => handleCapturePayment(order.id)}
+                                      disabled={capturingOrders.has(order.id)}
+                                      className="bg-green-600 hover:bg-green-700 text-white"
+                                    >
+                                      {capturingOrders.has(order.id) ? (
+                                        <>
+                                          <Loader2 className="h-4 w-4 ml-2 animate-spin" />
+                                          جاري المعالجة...
+                                        </>
+                                      ) : (
+                                        <>
+                                          <CreditCard className="h-4 w-4 ml-2" />
+                                          استلام الدفع
+                                        </>
+                                      )}
+                                    </Button>
+                                  )}
                                 </TableCell>
                               </TableRow>
                             ))}
