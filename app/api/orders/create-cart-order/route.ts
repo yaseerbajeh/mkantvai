@@ -238,17 +238,31 @@ export async function POST(request: NextRequest) {
         ? 'https://api-m.paypal.com' 
         : 'https://api-m.sandbox.paypal.com';
       
-      const paypalClientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID;
-      const paypalSecret = process.env.PAYPAL_CLIENT_SECRET;
+      const paypalClientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID?.trim();
+      const paypalSecret = process.env.PAYPAL_CLIENT_SECRET?.trim();
 
       if (!paypalClientId || !paypalSecret) {
-        console.error('PayPal credentials missing');
+        console.error('PayPal credentials missing:', {
+          hasClientId: !!paypalClientId,
+          hasSecret: !!paypalSecret,
+          mode: paypalMode,
+        });
         // Return database order ID as fallback
         return NextResponse.json({
           orderId: order.id,
           success: true,
           warning: 'PayPal credentials not configured',
         });
+      }
+
+      // Validate credentials format (basic check)
+      if (paypalClientId.length < 10 || paypalSecret.length < 10) {
+        console.error('PayPal credentials appear to be invalid format:', {
+          clientIdLength: paypalClientId.length,
+          secretLength: paypalSecret.length,
+          mode: paypalMode,
+        });
+        throw new Error(`PayPal credentials appear to be invalid. Please check your environment variables. Mode: ${paypalMode}`);
       }
 
       // Get access token from PayPal
@@ -268,28 +282,63 @@ export async function POST(request: NextRequest) {
 
       const tokenData = await tokenResponse.json();
       if (!tokenData.access_token) {
-        console.error('PayPal token response:', tokenData);
-        throw new Error(`Failed to get PayPal access token: ${JSON.stringify(tokenData)}`);
+        console.error('PayPal authentication failed:', {
+          error: tokenData.error,
+          errorDescription: tokenData.error_description,
+          mode: paypalMode,
+          baseUrl: paypalBaseUrl,
+          clientIdPrefix: paypalClientId.substring(0, 10) + '...',
+          hasSecret: !!paypalSecret,
+        });
+
+        // Provide helpful error message
+        if (tokenData.error === 'invalid_client') {
+          throw new Error(
+            `PayPal authentication failed: Client ID and Secret do not match or are incorrect. ` +
+            `Please verify:\n` +
+            `1. NEXT_PUBLIC_PAYPAL_CLIENT_ID and PAYPAL_CLIENT_SECRET are from the same PayPal app\n` +
+            `2. PAYPAL_MODE (${paypalMode}) matches your credentials (sandbox credentials need PAYPAL_MODE=sandbox, live credentials need PAYPAL_MODE=live)\n` +
+            `3. Credentials are correct and not expired\n` +
+            `4. No extra spaces or characters in environment variables`
+          );
+        }
+
+        throw new Error(`Failed to get PayPal access token: ${tokenData.error || 'Unknown error'} - ${tokenData.error_description || ''}`);
       }
 
       // Create PayPal order
       // Use USD amount for PayPal (convert from SAR)
       const paypalAmount = totalAmountUsd || (totalAmount / 3.75); // Fallback to conversion if not provided
-      const amountValue = parseFloat(paypalAmount.toFixed(2));
+      let amountValue = parseFloat(paypalAmount.toFixed(2));
+      
+      // Validate amount
       if (isNaN(amountValue) || amountValue <= 0) {
         throw new Error(`Invalid amount: ${paypalAmount}`);
       }
 
+      // PayPal requires minimum $0.01 USD
+      if (amountValue < 0.01) {
+        console.warn(`Amount ${amountValue} is too small, setting to minimum $0.01`);
+        amountValue = 0.01;
+      }
+
+      // PayPal has maximum limits - check if amount exceeds reasonable limit
+      if (amountValue > 100000) {
+        throw new Error(`Amount ${amountValue} USD exceeds PayPal maximum limit`);
+      }
+
+      // Ensure amount has exactly 2 decimal places
+      const formattedAmount = amountValue.toFixed(2);
+      
+      // Simplified payload - matching the old working version
+      // Keep it minimal to avoid business validation errors
       const paypalOrderPayload = {
         intent: 'CAPTURE',
         purchase_units: [{
           amount: {
             currency_code: 'USD',
-            value: amountValue.toFixed(2),
+            value: formattedAmount,
           },
-          // Use a shorter custom_id format - PayPal might not accept full UUIDs
-          custom_id: order.id.substring(0, 127), // PayPal custom_id max length is 127
-          description: (productName || 'Cart Order').substring(0, 127), // PayPal description max length is 127
         }],
       };
 
@@ -300,7 +349,6 @@ export async function POST(request: NextRequest) {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${tokenData.access_token}`,
-          'PayPal-Request-Id': order.id,
           'Prefer': 'return=representation',
         },
         body: JSON.stringify(paypalOrderPayload),
@@ -319,6 +367,7 @@ export async function POST(request: NextRequest) {
           message: paypalOrder.message,
           debug_id: paypalOrder.debug_id,
           details: errorDetails,
+          payload: paypalOrderPayload,
           fullResponse: paypalOrder,
         });
         
@@ -336,18 +385,42 @@ export async function POST(request: NextRequest) {
           }
         }
         
-        // Check if it's a currency issue
+        // Check for specific common issues
         const currencyIssue = errorDetails.find((d: any) => 
           d.field?.toLowerCase().includes('currency') || 
           d.issue?.toLowerCase().includes('currency') ||
           d.description?.toLowerCase().includes('currency')
         );
         
+        const amountIssue = errorDetails.find((d: any) => 
+          d.field?.toLowerCase().includes('amount') || 
+          d.field?.toLowerCase().includes('value') ||
+          d.issue?.toLowerCase().includes('amount') ||
+          d.issue?.toLowerCase().includes('minimum') ||
+          d.issue?.toLowerCase().includes('maximum')
+        );
+
+        const businessIssue = errorDetails.find((d: any) => 
+          d.issue?.toLowerCase().includes('business') ||
+          d.issue?.toLowerCase().includes('account') ||
+          d.issue?.toLowerCase().includes('restriction') ||
+          d.issue?.toLowerCase().includes('verification')
+        );
+        
+        // Provide helpful hints based on error type
+        let helpfulHint = '';
         if (currencyIssue) {
-          errorMessage += ' - Note: SAR currency might not be supported by your PayPal account. Try using USD for testing.';
+          helpfulHint = ' - Note: Make sure your PayPal account supports USD currency.';
+        } else if (amountIssue) {
+          helpfulHint = ' - Note: Amount might be too small (minimum $0.01) or too large, or your account has limits.';
+        } else if (businessIssue) {
+          helpfulHint = ' - Note: Your PayPal account might have restrictions. Check your PayPal account status, verification level, and ensure your business account is properly set up.';
+        } else if (paypalOrder.message?.toLowerCase().includes('semantically incorrect') || 
+                   paypalOrder.message?.toLowerCase().includes('business validation')) {
+          helpfulHint = ' - Note: This usually means your PayPal account has restrictions or the order structure is invalid. Check: 1) Account verification status, 2) Business account setup, 3) Currency support, 4) Account limits.';
         }
         
-        throw new Error(`PayPal API error: ${errorMessage}. Status: ${paypalOrderResponse.status}. Debug ID: ${paypalOrder.debug_id || 'N/A'}`);
+        throw new Error(`PayPal API error: ${errorMessage}${helpfulHint} Status: ${paypalOrderResponse.status}. Debug ID: ${paypalOrder.debug_id || 'N/A'}`);
       }
       
       if (paypalOrder.id) {
