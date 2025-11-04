@@ -400,20 +400,36 @@ export default function AbandonedCartsPage() {
     }
   };
 
-  const getWhatsAppLink = (order: Order) => {
-    const whatsappNumber = order.whatsapp?.replace(/[^0-9]/g, '') || '';
+  type AbandonedItem = {
+    id: string;
+    type: 'order' | 'cart_session';
+    name: string;
+    email: string;
+    whatsapp?: string;
+    items: OrderItem[];
+    total_amount: number;
+    discount_amount: number;
+    created_at: string;
+    contact_status?: 'not_contacted' | 'contacted';
+    reminder_hours?: number;
+    reminder_sent_at?: string;
+    order_number?: string;
+  };
+
+  const getWhatsAppLink = (item: AbandonedItem) => {
+    const whatsappNumber = item.whatsapp?.replace(/[^0-9]/g, '') || '';
     if (!whatsappNumber) return '#';
-    const orderDisplayId = order.order_number || order.id.slice(0, 8).toUpperCase();
+    const orderDisplayId = item.order_number || item.id.slice(0, 8).toUpperCase();
     const message = encodeURIComponent(
-      `مرحباً، لدي طلب رقم ${orderDisplayId} لم أتمكن من إكمال الدفع. يرجى المساعدة.`
+      `مرحباً، لدي ${item.type === 'cart_session' ? 'سلة' : 'طلب'} رقم ${orderDisplayId} لم أتمكن من إكمال الدفع. يرجى المساعدة.`
     );
     return `https://wa.me/${whatsappNumber}?text=${message}`;
   };
 
-  const getEmailLink = (order: Order) => {
-    const orderDisplayId = order.order_number || order.id.slice(0, 8).toUpperCase();
-    const subject = encodeURIComponent(`استفسار عن الطلب رقم ${orderDisplayId}`);
-    return `mailto:${order.email}?subject=${subject}`;
+  const getEmailLink = (item: AbandonedItem) => {
+    const orderDisplayId = item.order_number || item.id.slice(0, 8).toUpperCase();
+    const subject = encodeURIComponent(`استفسار عن ${item.type === 'cart_session' ? 'السلة' : 'الطلب'} رقم ${orderDisplayId}`);
+    return `mailto:${item.email}?subject=${subject}`;
   };
 
   const getTimeSinceAbandonment = (createdAt: string) => {
@@ -425,7 +441,7 @@ export default function AbandonedCartsPage() {
     }
   };
 
-  const getReminderStatus = (item: typeof allAbandonedItems[0]) => {
+  const getReminderStatus = (item: AbandonedItem) => {
     if (item.type === 'cart_session') return null; // Cart sessions don't have reminders
     if (item.reminder_sent_at) {
       return { text: 'تم إرسال التذكير', color: 'bg-green-900/50 text-green-500 border-green-700' };

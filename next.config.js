@@ -4,6 +4,17 @@ const nextConfig = {
     ignoreDuringBuilds: true,
   },
   images: { unoptimized: true },
+  webpack: (config, { isServer }) => {
+    if (isServer) {
+      // Ignore canvas module on server-side (jsdom dependency)
+      // This is used by isomorphic-dompurify which uses jsdom
+      config.resolve.alias = {
+        ...config.resolve.alias,
+        canvas: false,
+      };
+    }
+    return config;
+  },
   async headers() {
     return [
       {
