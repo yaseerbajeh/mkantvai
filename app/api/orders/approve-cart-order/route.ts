@@ -63,13 +63,30 @@ export async function POST(request: NextRequest) {
       ? 'https://api-m.paypal.com' 
       : 'https://api-m.sandbox.paypal.com';
 
-    const paypalClientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID;
-    const paypalSecret = process.env.PAYPAL_CLIENT_SECRET;
+    const paypalClientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID?.trim();
+    const paypalSecret = process.env.PAYPAL_CLIENT_SECRET?.trim();
 
     if (!paypalClientId || !paypalSecret) {
-      console.error('PayPal credentials missing - cannot capture payment');
+      console.error('PayPal credentials missing - cannot capture payment:', {
+        hasClientId: !!paypalClientId,
+        hasSecret: !!paypalSecret,
+        mode: paypalMode,
+      });
       return NextResponse.json(
         { error: 'إعدادات PayPal غير متوفرة - لا يمكن معالجة الدفع' },
+        { status: 500 }
+      );
+    }
+
+    // Validate credentials format
+    if (paypalClientId.length < 10 || paypalSecret.length < 10) {
+      console.error('PayPal credentials appear to be invalid format:', {
+        clientIdLength: paypalClientId.length,
+        secretLength: paypalSecret.length,
+        mode: paypalMode,
+      });
+      return NextResponse.json(
+        { error: 'إعدادات PayPal غير صحيحة - يرجى التحقق من متغيرات البيئة' },
         { status: 500 }
       );
     }
@@ -95,9 +112,34 @@ export async function POST(request: NextRequest) {
       const tokenData = await tokenResponse.json();
       
       if (!tokenData.access_token) {
-        console.error('Failed to get PayPal access token:', tokenData);
+        console.error('PayPal authentication failed:', {
+          error: tokenData.error,
+          errorDescription: tokenData.error_description,
+          mode: paypalMode,
+          baseUrl: paypalBaseUrl,
+        });
+
+        // Provide helpful error message
+        if (tokenData.error === 'invalid_client') {
+          return NextResponse.json(
+            { 
+              error: 'فشل في المصادقة مع PayPal: معرف العميل والمفتاح السري غير متطابقين أو غير صحيحين. يرجى التحقق من متغيرات البيئة.',
+              details: process.env.NODE_ENV === 'development' ? {
+                error: tokenData.error,
+                description: tokenData.error_description,
+                mode: paypalMode,
+                hint: 'تأكد أن NEXT_PUBLIC_PAYPAL_CLIENT_ID و PAYPAL_CLIENT_SECRET من نفس تطبيق PayPal وأن PAYPAL_MODE يتطابق مع نوع الاعتماديات'
+              } : undefined,
+            },
+            { status: 500 }
+          );
+        }
+
         return NextResponse.json(
-          { error: 'فشل في الاتصال بـ PayPal' },
+          { 
+            error: `فشل في الاتصال بـ PayPal: ${tokenData.error || 'خطأ غير معروف'} - ${tokenData.error_description || ''}`,
+            details: process.env.NODE_ENV === 'development' ? tokenData : undefined,
+          },
           { status: 500 }
         );
       }
