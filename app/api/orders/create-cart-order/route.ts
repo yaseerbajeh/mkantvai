@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { rateLimit, orderLimiter } from '@/lib/rateLimiter';
+import { sendApprovalEmail, sendNewOrderEmail } from '@/utils/sendEmail';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -116,6 +117,115 @@ export async function POST(request: NextRequest) {
     } catch (error) {
       // Silently fail - cart session conversion is optional
       console.error('Error marking cart session as converted:', error);
+    }
+
+    // Check if this is a 100% discount order (totalAmount = 0)
+    // If so, skip PayPal and auto-complete the order
+    if (totalAmount === 0 || totalAmount <= 0.01) {
+      // Auto-complete order for 100% discount
+      const { data: updatedOrder, error: updateError } = await supabaseAdmin
+        .from('orders')
+        .update({
+          status: 'paid',
+          payment_status: 'COMPLETED',
+          payment_method: 'promo_code_100',
+        })
+        .eq('id', order.id)
+        .select()
+        .single();
+
+      if (updateError) {
+        console.error('Error updating order status:', updateError);
+        return NextResponse.json(
+          { error: 'فشل تحديث حالة الطلب' },
+          { status: 500 }
+        );
+      }
+
+      // Assign subscriptions for each item
+      const assignedSubscriptions: any[] = [];
+      for (const item of orderItems) {
+        for (let i = 0; i < item.quantity; i++) {
+          try {
+            const { data: assigned, error: assignError } = await supabaseAdmin.rpc(
+              'assign_subscription_to_order',
+              {
+                p_order_id: order.id,
+                p_admin_id: null,
+              }
+            );
+
+            if (!assignError && assigned) {
+              assignedSubscriptions.push({
+                product_code: item.product_code,
+                product_name: item.product_name,
+                subscription: assigned,
+              });
+            } else if (assignError) {
+              console.error(`Error assigning subscription for ${item.product_code}:`, assignError);
+            }
+          } catch (err) {
+            console.error(`Error assigning subscription for ${item.product_code}:`, err);
+          }
+        }
+      }
+
+      // Update promo code usage
+      if (promoCodeId) {
+        try {
+          await supabaseAdmin.rpc('increment_promo_code_usage', {
+            promo_code_id: promoCodeId,
+          });
+        } catch (promoError) {
+          console.error('Error incrementing promo code usage:', promoError);
+        }
+      }
+
+      // Fetch final order with subscription
+      const { data: finalOrder } = await supabaseAdmin
+        .from('orders')
+        .select('*')
+        .eq('id', order.id)
+        .single();
+
+      // Send emails
+      try {
+        const orderDisplayId = (finalOrder as any)?.order_number || order.id.slice(0, 8).toUpperCase();
+        
+        // Send admin notification
+        try {
+          await sendNewOrderEmail({
+            orderId: orderDisplayId,
+            name: order.name,
+            email: order.email,
+            whatsapp: order.whatsapp || undefined,
+            productName: order.product_name,
+            price: 0,
+            createdAt: order.created_at,
+          });
+        } catch (adminEmailError) {
+          console.error('Error sending admin notification email:', adminEmailError);
+        }
+
+        // Send customer approval email
+        await sendApprovalEmail({
+          orderId: orderDisplayId,
+          name: order.name,
+          email: order.email,
+          subscriptionCode: assignedSubscriptions.length > 0 ? assignedSubscriptions[0].subscription.code : undefined,
+          subscriptionMeta: assignedSubscriptions.length > 0 ? assignedSubscriptions[0].subscription.meta : undefined,
+        });
+      } catch (emailError) {
+        console.error('Error sending emails:', emailError);
+      }
+
+      return NextResponse.json({
+        orderId: order.id,
+        dbOrderId: order.id,
+        success: true,
+        isFreeOrder: true,
+        subscriptions: assignedSubscriptions,
+      });
     }
 
     // Note: Email will be sent after payment approval in approve-cart-order route

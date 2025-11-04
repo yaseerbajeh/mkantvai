@@ -168,7 +168,19 @@ export default function CartPage() {
         throw new Error(errorMessage);
       }
 
-      // Verify we have a PayPal order ID
+      // Check if this is a free order (100% discount)
+      if (data.isFreeOrder || total === 0 || total <= 0.01) {
+        // Free order - already completed by backend
+        clearCart();
+        toast({
+          title: 'تم الطلب بنجاح',
+          description: 'تم إتمام الطلب بنجاح! سيتم إرسال تفاصيل الاشتراك إلى بريدك الإلكتروني',
+        });
+        router.push(`/my-orders`);
+        return null; // No PayPal order ID for free orders
+      }
+
+      // Verify we have a PayPal order ID for paid orders
       if (!data.orderId) {
         console.error('No orderId returned from API:', data);
         throw new Error('فشل في الحصول على معرف الطلب من PayPal. يرجى التحقق من إعدادات PayPal.');
@@ -186,7 +198,7 @@ export default function CartPage() {
 
       return data.orderId; // This should be the PayPal order ID
     } catch (error: any) {
-      console.error('Error creating PayPal order:', error);
+      console.error('Error creating order:', error);
       toast({
         title: 'خطأ',
         description: error.message || 'حدث خطأ أثناء إنشاء الطلب',
@@ -436,17 +448,56 @@ export default function CartPage() {
                   <div className="border-t border-slate-700 pt-3 flex justify-between text-white font-bold text-lg">
                     <span>المجموع</span>
                     <div className="text-right">
-                      <div>{total.toFixed(2)} ريال</div>
-                      <div className="text-sm text-slate-400 font-normal mt-1">
-                        ما يساوي ${convertSarToUsd(total).toFixed(2)} دولار أمريكي
-                      </div>
+                      {total === 0 || total <= 0.01 ? (
+                        <div className="text-green-400">
+                          <div>مجاناً</div>
+                          <div className="text-sm text-green-300 font-normal mt-1">
+                            رمز خصم 100% مطبق
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <div>{total.toFixed(2)} ريال</div>
+                          <div className="text-sm text-slate-400 font-normal mt-1">
+                            ما يساوي ${convertSarToUsd(total).toFixed(2)} دولار أمريكي
+                          </div>
+                        </>
+                      )}
                     </div>
                   </div>
                 </CardContent>
               </Card>
 
-              {/* PayPal Checkout */}
-              {user && validateForm() && PAYPAL_CLIENT_ID && (
+              {/* Free Order Button (100% discount) */}
+              {user && validateForm() && (total === 0 || total <= 0.01) && (
+                <Button
+                  onClick={async () => {
+                    try {
+                      await createOrder();
+                      // createOrder already handles navigation and toast for free orders
+                    } catch (error) {
+                      // Error already handled in createOrder
+                    }
+                  }}
+                  disabled={creatingOrder}
+                  className="w-full bg-green-600 hover:bg-green-700 text-white py-6 text-lg font-semibold"
+                >
+                  {creatingOrder ? (
+                    <>
+                      <Loader2 className="h-5 w-5 animate-spin ml-2" />
+                      جاري المعالجة...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="h-5 w-5 ml-2" />
+                      إتمام الطلب مجاناً
+                    </>
+                  )}
+                </Button>
+              )}
+
+              {/* PayPal Checkout (for paid orders) */}
+              {user && validateForm() && PAYPAL_CLIENT_ID && total > 0.01 && (
                 <PayPalScriptProvider
                   options={{
                     clientId: PAYPAL_CLIENT_ID,
@@ -499,6 +550,12 @@ export default function CartPage() {
               {!user && (
                 <div className="p-4 bg-yellow-900/20 border border-yellow-700 rounded-lg text-center">
                   <p className="text-yellow-400 text-sm">يرجى تسجيل الدخول لإتمام الطلب</p>
+                </div>
+              )}
+              
+              {user && validateForm() && !PAYPAL_CLIENT_ID && total > 0.01 && (
+                <div className="p-4 bg-red-900/20 border border-red-700 rounded-lg text-center">
+                  <p className="text-red-400 text-sm">خطأ في إعدادات PayPal. يرجى الاتصال بالدعم</p>
                 </div>
               )}
             </div>

@@ -65,7 +65,26 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    return NextResponse.json({ promoCode });
+    // Calculate discount amount to include in response
+    let discountAmount = 0;
+    if (promoCode.discount_type === 'percentage') {
+      discountAmount = (amount * parseFloat(promoCode.discount_value as any)) / 100;
+      // Apply max discount limit if specified
+      if (promoCode.max_discount_amount && discountAmount > parseFloat(promoCode.max_discount_amount as any)) {
+        discountAmount = parseFloat(promoCode.max_discount_amount as any);
+      }
+    } else {
+      discountAmount = parseFloat(promoCode.discount_value as any);
+    }
+
+    const finalAmount = Math.max(0, amount - discountAmount);
+
+    return NextResponse.json({ 
+      promoCode,
+      discountAmount,
+      finalAmount,
+      isFree: finalAmount === 0 || finalAmount <= 0.01, // 100% discount
+    });
   } catch (error: any) {
     console.error('Error validating promo code:', error);
     return NextResponse.json(
