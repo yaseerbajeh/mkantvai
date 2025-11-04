@@ -59,6 +59,7 @@ interface Order {
   status: 'pending' | 'approved' | 'rejected' | 'paid';
   payment_method?: string;
   payment_id?: string;
+  payment_status?: string;
   assigned_subscription?: {
     code: string;
     meta?: any;
@@ -196,10 +197,28 @@ export default function AdminOrdersPage() {
     try {
       // Fetch paid, approved, and pending orders with order_items for cart orders
       // Include pending to show capture payment button
+      // Explicitly select status field to ensure we get the correct value from database
       const { data, error } = await supabase
         .from('orders')
         .select(`
-          *,
+          id,
+          order_number,
+          name,
+          email,
+          whatsapp,
+          product_name,
+          product_code,
+          price,
+          total_amount,
+          discount_amount,
+          promo_code_id,
+          is_cart_order,
+          status,
+          payment_method,
+          payment_id,
+          payment_status,
+          assigned_subscription,
+          created_at,
           order_items (*)
         `)
         .in('status', ['paid', 'approved', 'pending']) // Fetch paid, approved, and pending orders
@@ -230,7 +249,25 @@ export default function AdminOrdersPage() {
         return;
       }
 
-      // Filter out incomplete orders and abandoned carts
+      // Debug: Log order YAFBBUEG if found in raw data
+      if (data) {
+        const yafOrder = (data as Order[]).find(o => 
+          o.order_number === 'YAFBBUEG' || 
+          o.id.slice(0, 8).toUpperCase() === 'YAFBBUEG'
+        );
+        if (yafOrder) {
+          console.log('🔍 FOUND YAFBBUEG in raw database response:', {
+            order_number: yafOrder.order_number,
+            id: yafOrder.id,
+            status_from_db: yafOrder.status,
+            status_type: typeof yafOrder.status,
+            payment_status: yafOrder.payment_status,
+            raw_data: yafOrder
+          });
+        }
+      }
+
+      // Filter out incomplete orders, abandoned carts, and abandoned payment attempts
       // Only show orders with proper customer info and valid data
       const validOrders = (data as Order[] || []).filter(order => {
         // Must have name and email
@@ -252,6 +289,17 @@ export default function AdminOrdersPage() {
         // (orders without proper payment flow or customer data)
         // If it's a cart order, ensure it has order_items
         if (order.is_cart_order && (!order.order_items || order.order_items.length === 0)) {
+          return false;
+        }
+        
+        // Filter out abandoned payment attempts - orders where user clicked pay but abandoned
+        // These are: pending status + payment_method set + payment_status not COMPLETED
+        // These will appear in abandoned carts page, so don't show in orders
+        if (order.status === 'pending' && 
+            order.payment_method && 
+            order.payment_method.includes('paypal') &&
+            order.payment_status !== 'COMPLETED') {
+          // This is an abandoned payment - exclude it
           return false;
         }
         
@@ -836,25 +884,51 @@ export default function AdminOrdersPage() {
                                   )}
                                 </TableCell>
                                 <TableCell>
-                                  <Badge
-                                    className={
-                                      order.status === 'approved'
-                                        ? 'bg-green-900/50 text-green-500 border-green-700'
-                                        : order.status === 'paid'
-                                        ? 'bg-blue-900/50 text-blue-500 border-blue-700'
-                                        : order.status === 'rejected'
-                                        ? 'bg-red-900/50 text-red-500 border-red-700'
-                                        : 'bg-yellow-900/50 text-yellow-500 border-yellow-700'
+                                  {(() => {
+                                    // Force read status directly from order object - ensure no transformation
+                                    const dbStatus = String(order.status || '').toLowerCase().trim();
+                                    
+                                    // Debug log for specific order
+                                    if (order.order_number === 'YAFBBUEG' || order.id.slice(0, 8).toUpperCase() === 'YAFBBUEG') {
+                                      console.log('🔍 Order YAFBBUEG status debug:', {
+                                        order_number: order.order_number,
+                                        id: order.id,
+                                        status_raw: order.status,
+                                        status_type: typeof order.status,
+                                        status_normalized: dbStatus,
+                                        payment_status: order.payment_status,
+                                        full_order: JSON.stringify(order, null, 2)
+                                      });
                                     }
-                                  >
-                                    {order.status === 'approved'
-                                      ? 'مقبول'
-                                      : order.status === 'paid'
-                                      ? 'مدفوع'
-                                      : order.status === 'rejected'
-                                      ? 'مرفوض'
-                                      : 'قيد الانتظار'}
-                                  </Badge>
+                                    
+                                    // Determine badge color and text based on normalized status
+                                    let badgeText = 'قيد الانتظار';
+                                    let badgeClass = 'bg-yellow-900/50 text-yellow-500 border-yellow-700';
+                                    
+                                    if (dbStatus === 'approved') {
+                                      badgeText = 'مقبول';
+                                      badgeClass = 'bg-green-900/50 text-green-500 border-green-700';
+                                    } else if (dbStatus === 'paid') {
+                                      badgeText = 'مدفوع';
+                                      badgeClass = 'bg-blue-900/50 text-blue-500 border-blue-700';
+                                    } else if (dbStatus === 'rejected') {
+                                      badgeText = 'مرفوض';
+                                      badgeClass = 'bg-red-900/50 text-red-500 border-red-700';
+                                    } else if (dbStatus === 'pending') {
+                                      badgeText = 'قيد الانتظار';
+                                      badgeClass = 'bg-yellow-900/50 text-yellow-500 border-yellow-700';
+                                    } else {
+                                      // Unknown status - show it for debugging
+                                      badgeText = `غير معروف (${order.status})`;
+                                      badgeClass = 'bg-gray-900/50 text-gray-500 border-gray-700';
+                                    }
+                                    
+                                    return (
+                                      <Badge className={badgeClass}>
+                                        {badgeText}
+                                      </Badge>
+                                    );
+                                  })()}
                                 </TableCell>
                                 <TableCell className="text-slate-400 text-xs">
                                   {format(new Date(order.created_at), 'yyyy-MM-dd HH:mm', { locale: ar })}
