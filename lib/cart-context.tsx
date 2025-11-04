@@ -114,6 +114,40 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
   }, [items, isInitialized, currentUserId]);
 
+  // Save cart session to database for authenticated users (debounced)
+  useEffect(() => {
+    if (!isInitialized || !currentUserId || items.length === 0) return;
+
+    // Debounce: wait 2 seconds after last change before saving to database
+    const timeoutId = setTimeout(async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return;
+
+        const total = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+        
+        await fetch('/api/cart/session', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            items,
+            totalAmount: total,
+            discountAmount: 0,
+            promoCodeId: null,
+          }),
+        });
+      } catch (error) {
+        // Silently fail - cart session saving is optional
+        console.error('Failed to save cart session:', error);
+      }
+    }, 2000);
+
+    return () => clearTimeout(timeoutId);
+  }, [items, isInitialized, currentUserId]);
+
   const addItem = (item: CartItem) => {
     setItems(prev => {
       const existing = prev.find(i => i.product_code === item.product_code);
@@ -162,12 +196,28 @@ export function CartProvider({ children }: { children: ReactNode }) {
     );
   };
 
-  const clearCart = () => {
+  const clearCart = async () => {
     setItems([]);
     // Also clear from localStorage
     if (typeof window !== 'undefined' && currentUserId !== null) {
       const cartKey = getCartKey(currentUserId);
       localStorage.removeItem(cartKey);
+      
+      // Delete cart session from database
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          await fetch('/api/cart/session', {
+            method: 'DELETE',
+            headers: {
+              'Authorization': `Bearer ${session.access_token}`,
+            },
+          });
+        }
+      } catch (error) {
+        // Silently fail
+        console.error('Failed to delete cart session:', error);
+      }
     } else if (typeof window !== 'undefined') {
       localStorage.removeItem('cart_guest');
     }

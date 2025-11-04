@@ -1,9 +1,0 @@
-{
-  "crons": [
-    {
-      "path": "/api/cron/send-abandoned-cart-reminders",
-      "schedule": "0 * * * *"
-    }
-  ]
-}
-
