@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
         payment_status: 'COMPLETED',
         payment_id: payerID || `paypal_${Date.now()}`,
       })
-      .eq('id', orderId);
+      .eq('id', order.id);
 
     if (updateError) {
       console.error('Error updating order:', updateError);
@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
           const { data: assigned, error: assignError } = await supabaseAdmin.rpc(
             'assign_subscription_to_order',
             {
-              p_order_id: orderId,
+              p_order_id: order.id,
               p_admin_id: null, // System assignment
             }
           );
