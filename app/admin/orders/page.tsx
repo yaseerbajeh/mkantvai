@@ -230,7 +230,35 @@ export default function AdminOrdersPage() {
         return;
       }
 
-      setOrders((data as Order[]) || []);
+      // Filter out incomplete orders and abandoned carts
+      // Only show orders with proper customer info and valid data
+      const validOrders = (data as Order[] || []).filter(order => {
+        // Must have name and email
+        if (!order.name || !order.email || order.name.trim() === '' || order.email.trim() === '') {
+          return false;
+        }
+        
+        // Must have a valid product name
+        if (!order.product_name || order.product_name.trim() === '') {
+          return false;
+        }
+        
+        // Must have a valid price
+        if (!order.price || order.price <= 0) {
+          return false;
+        }
+        
+        // Exclude orders that look like abandoned cart placeholders
+        // (orders without proper payment flow or customer data)
+        // If it's a cart order, ensure it has order_items
+        if (order.is_cart_order && (!order.order_items || order.order_items.length === 0)) {
+          return false;
+        }
+        
+        return true;
+      });
+
+      setOrders(validOrders);
     } catch (error: any) {
       console.error('Fetch orders error:', error);
       toast({
@@ -490,7 +518,7 @@ export default function AdminOrdersPage() {
       order.whatsapp || '',
       order.product_name,
       (order.total_amount || order.price).toString(),
-      order.status === 'paid' ? 'مدفوع' : order.status === 'approved' ? 'مقبول' : 'مدفوع',
+      order.status === 'paid' ? 'مدفوع' : order.status === 'approved' ? 'مقبول' : order.status === 'rejected' ? 'مرفوض' : 'قيد الانتظار',
       format(new Date(order.created_at), 'yyyy-MM-dd HH:mm', { locale: ar }),
     ]);
 
