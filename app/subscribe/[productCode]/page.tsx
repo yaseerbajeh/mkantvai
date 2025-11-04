@@ -537,6 +537,7 @@ export default function ProductDetailPage() {
             icon: foundProduct.icon_name === 'crown' ? Crown : foundProduct.icon_name === 'star' ? Star : foundProduct.icon_name === 'zap' ? Zap : Sparkles,
             fullDescription: foundProduct.full_description || foundProduct.description,
             available_stock: foundProduct.available_stock || 0,
+            purchase_count: foundProduct.purchase_count || 0,
           });
         } else {
           // Fallback to hardcoded data if not found in database
@@ -739,6 +740,17 @@ export default function ProductDetailPage() {
                       <span className="text-slate-300 text-sm">المخزون المتاح:</span>
                       <span className={`font-bold ${product.available_stock > 0 ? 'text-green-400' : 'text-red-400'}`}>
                         {product.available_stock > 0 ? `${product.available_stock} متاح` : 'نفد المخزون'}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Purchase Count Display */}
+                {product.purchase_count !== undefined && product.purchase_count > 0 && (
+                  <div className="mb-4 p-3 bg-blue-900/20 rounded-lg border border-blue-700/50">
+                    <div className="flex items-center justify-center">
+                      <span className="text-blue-300 text-sm font-semibold">
+                        تم شراؤه من قبل {product.purchase_count} شخص
                       </span>
                     </div>
                   </div>

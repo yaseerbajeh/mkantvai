@@ -49,7 +49,25 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Add available_stock to each product
+    // Count purchases per product_code from orders table
+    const purchaseCounts: { [key: string]: number } = {};
+    if (productCodes.length > 0) {
+      const { data: orders, error: ordersError } = await supabase
+        .from('orders')
+        .select('product_code')
+        .in('product_code', productCodes)
+        .not('product_code', 'is', null);
+      
+      if (!ordersError && orders) {
+        orders.forEach((order: any) => {
+          if (order.product_code) {
+            purchaseCounts[order.product_code] = (purchaseCounts[order.product_code] || 0) + 1;
+          }
+        });
+      }
+    }
+
+    // Add available_stock and purchase_count to each product
     const productsWithStock = data.map((product: any) => {
       let availableStock = 0;
       
@@ -64,6 +82,7 @@ export async function GET(request: NextRequest) {
       return {
         ...product,
         available_stock: availableStock,
+        purchase_count: purchaseCounts[product.product_code] || 0,
       };
     });
 

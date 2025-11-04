@@ -196,38 +196,41 @@ function BrowsePageContent() {
                 </DropdownMenu>
               </div>
 
-              {/* Year Min Dropdown */}
-              <div className="flex flex-col gap-2">
-                <label className="text-sm text-slate-400 text-center">من سنة</label>
-                <Select value={yearMin} onValueChange={setYearMin}>
-                  <SelectTrigger className="w-[120px] bg-slate-700 border-slate-600">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-[300px]">
-                    {YEARS.map(year => (
-                      <SelectItem key={year} value={year.toString()}>
-                        {year}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              {/* Year Filters - Grouped together for mobile */}
+              <div className="flex flex-row gap-2 sm:gap-4">
+                {/* Year Min Dropdown */}
+                <div className="flex flex-col gap-2">
+                  <label className="text-sm text-slate-400 text-center">من سنة</label>
+                  <Select value={yearMin} onValueChange={setYearMin}>
+                    <SelectTrigger className="w-[120px] bg-slate-700 border-slate-600">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-[300px]">
+                      {YEARS.map(year => (
+                        <SelectItem key={year} value={year.toString()}>
+                          {year}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-              {/* Year Max Dropdown */}
-              <div className="flex flex-col gap-2">
-                <label className="text-sm text-slate-400 text-center">إلى سنة</label>
-                <Select value={yearMax} onValueChange={setYearMax}>
-                  <SelectTrigger className="w-[120px] bg-slate-700 border-slate-600">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-[300px]">
-                    {YEARS.map(year => (
-                      <SelectItem key={year} value={year.toString()}>
-                        {year}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {/* Year Max Dropdown */}
+                <div className="flex flex-col gap-2">
+                  <label className="text-sm text-slate-400 text-center">إلى سنة</label>
+                  <Select value={yearMax} onValueChange={setYearMax}>
+                    <SelectTrigger className="w-[120px] bg-slate-700 border-slate-600">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-[300px]">
+                      {YEARS.map(year => (
+                        <SelectItem key={year} value={year.toString()}>
+                          {year}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
               {/* Platform Dropdown */}
