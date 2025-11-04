@@ -59,6 +59,21 @@ interface Order {
   created_at: string;
 }
 
+interface CartSession {
+  id: string;
+  user_id: string;
+  email: string;
+  name?: string;
+  whatsapp?: string;
+  cart_items: OrderItem[];
+  total_amount: number;
+  discount_amount: number;
+  promo_code_id?: string;
+  created_at: string;
+  updated_at: string;
+  converted_to_order_id?: string;
+}
+
 interface EmailTemplate {
   id?: string;
   title: string;
@@ -71,6 +86,7 @@ export default function AbandonedCartsPage() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [cartSessions, setCartSessions] = useState<CartSession[]>([]);
   const [emailTemplate, setEmailTemplate] = useState<EmailTemplate>({ title: '', body: '' });
   const [savingTemplate, setSavingTemplate] = useState(false);
   const [updatingContact, setUpdatingContact] = useState<string | null>(null);
@@ -131,7 +147,7 @@ export default function AbandonedCartsPage() {
         }
 
         setUser(session.user);
-        await Promise.all([fetchOrders(), fetchEmailTemplate()]);
+        await Promise.all([fetchOrders(), fetchCartSessions(), fetchEmailTemplate()]);
       } catch (error: any) {
         console.error('Auth check error:', error);
         toast({
@@ -176,6 +192,29 @@ export default function AbandonedCartsPage() {
         description: error.message || 'حدث خطأ أثناء جلب الطلبات',
         variant: 'destructive',
       });
+    }
+  };
+
+  const fetchCartSessions = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const response = await fetch('/api/admin/cart-sessions', {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('فشل جلب السلات');
+      }
+
+      const { cartSessions } = await response.json();
+      setCartSessions(cartSessions || []);
+    } catch (error: any) {
+      console.error('Fetch cart sessions error:', error);
+      // Don't show error toast for cart sessions - they're optional
     }
   };
 
@@ -386,44 +425,95 @@ export default function AbandonedCartsPage() {
     }
   };
 
-  const getReminderStatus = (order: Order) => {
-    if (order.reminder_sent_at) {
+  const getReminderStatus = (item: typeof allAbandonedItems[0]) => {
+    if (item.type === 'cart_session') return null; // Cart sessions don't have reminders
+    if (item.reminder_sent_at) {
       return { text: 'تم إرسال التذكير', color: 'bg-green-900/50 text-green-500 border-green-700' };
     }
-    if (order.reminder_hours) {
-      const createdAt = new Date(order.created_at);
-      const reminderTime = new Date(createdAt.getTime() + order.reminder_hours * 60 * 60 * 1000);
+    if (item.reminder_hours) {
+      const createdAt = new Date(item.created_at);
+      const reminderTime = new Date(createdAt.getTime() + item.reminder_hours * 60 * 60 * 1000);
       const now = new Date();
       if (now >= reminderTime) {
         return { text: 'جاهز للإرسال', color: 'bg-blue-900/50 text-blue-500 border-blue-700' };
       }
-      return { text: `مجدول بعد ${order.reminder_hours} ساعة`, color: 'bg-yellow-900/50 text-yellow-500 border-yellow-700' };
+      return { text: `مجدول بعد ${item.reminder_hours} ساعة`, color: 'bg-yellow-900/50 text-yellow-500 border-yellow-700' };
     }
     return null;
   };
 
-  // Filter and sort orders
+  // Combine orders and cart sessions into a unified display structure
+  const allAbandonedItems = useMemo(() => {
+    // Convert orders to display format
+    const orderItems = orders.map(order => ({
+      id: order.id,
+      type: 'order' as const,
+      name: order.name,
+      email: order.email,
+      whatsapp: order.whatsapp,
+      items: order.is_cart_order && order.order_items 
+        ? order.order_items 
+        : [{
+            id: order.id,
+            product_code: order.product_code || '',
+            product_name: order.product_name,
+            price: order.price,
+            quantity: 1,
+          }],
+      total_amount: order.total_amount || order.price,
+      discount_amount: order.discount_amount || 0,
+      created_at: order.created_at,
+      contact_status: order.contact_status,
+      reminder_hours: order.reminder_hours,
+      reminder_sent_at: order.reminder_sent_at,
+      order_number: order.order_number,
+    }));
+
+    // Convert cart sessions to display format
+    const cartItems = cartSessions.map(session => ({
+      id: session.id,
+      type: 'cart_session' as const,
+      name: session.name || session.email,
+      email: session.email,
+      whatsapp: session.whatsapp,
+      items: session.cart_items,
+      total_amount: session.total_amount,
+      discount_amount: session.discount_amount,
+      created_at: session.created_at,
+      contact_status: undefined,
+      reminder_hours: undefined,
+      reminder_sent_at: undefined,
+      order_number: undefined,
+    }));
+
+    return [...orderItems, ...cartItems];
+  }, [orders, cartSessions]);
+
+  // Filter and sort abandoned items
   const filteredOrders = useMemo(() => {
-    let filtered = [...orders];
+    let filtered = [...allAbandonedItems];
 
     // Search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(order => 
-        order.order_number?.toLowerCase().includes(query) ||
-        order.name.toLowerCase().includes(query) ||
-        order.email.toLowerCase().includes(query) ||
-        order.id.toLowerCase().includes(query)
+      filtered = filtered.filter(item => 
+        item.order_number?.toLowerCase().includes(query) ||
+        item.name.toLowerCase().includes(query) ||
+        item.email.toLowerCase().includes(query) ||
+        item.id.toLowerCase().includes(query)
       );
     }
 
-    // Contact status filter
+    // Contact status filter (only applies to orders, not cart sessions)
     if (contactStatusFilter !== 'all') {
-      filtered = filtered.filter(order => order.contact_status === contactStatusFilter);
+      filtered = filtered.filter(item => {
+        if (item.type === 'cart_session') return true; // Always show cart sessions
+        return item.contact_status === contactStatusFilter;
+      });
     }
 
     return filtered;
-  }, [orders, searchQuery, contactStatusFilter]);
+  }, [allAbandonedItems, searchQuery, contactStatusFilter]);
 
   // Pagination
   const totalPages = Math.ceil(filteredOrders.length / itemsPerPage);
@@ -435,11 +525,13 @@ export default function AbandonedCartsPage() {
   // Statistics
   const statistics = useMemo(() => {
     const total = filteredOrders.length;
-    const notContacted = filteredOrders.filter(o => o.contact_status === 'not_contacted' || !o.contact_status).length;
-    const contacted = filteredOrders.filter(o => o.contact_status === 'contacted').length;
-    const totalRevenue = filteredOrders.reduce((sum, o) => sum + Number(o.total_amount || o.price), 0);
-    const remindersScheduled = filteredOrders.filter(o => o.reminder_hours && !o.reminder_sent_at).length;
-    const remindersSent = filteredOrders.filter(o => o.reminder_sent_at).length;
+    const ordersOnly = filteredOrders.filter(o => o.type === 'order');
+    const cartSessionsOnly = filteredOrders.filter(o => o.type === 'cart_session');
+    const notContacted = ordersOnly.filter(o => o.contact_status === 'not_contacted' || !o.contact_status).length + cartSessionsOnly.length;
+    const contacted = ordersOnly.filter(o => o.contact_status === 'contacted').length;
+    const totalRevenue = filteredOrders.reduce((sum, o) => sum + Number(o.total_amount), 0);
+    const remindersScheduled = ordersOnly.filter(o => o.reminder_hours && !o.reminder_sent_at).length;
+    const remindersSent = ordersOnly.filter(o => o.reminder_sent_at).length;
 
     return {
       total,
@@ -672,59 +764,71 @@ export default function AbandonedCartsPage() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {paginatedOrders.map((order) => {
-                          const reminderStatus = getReminderStatus(order);
+                        {paginatedOrders.map((item) => {
+                          const reminderStatus = getReminderStatus(item);
+                          const isCart = item.items.length > 1 || (item.items.length === 1 && item.items[0].quantity > 1);
                           return (
-                            <TableRow key={order.id} className="border-slate-700 hover:bg-slate-700/50">
+                            <TableRow key={item.id} className="border-slate-700 hover:bg-slate-700/50">
                               <TableCell className="font-mono text-sm text-white">
-                                {order.order_number || order.id.slice(0, 8).toUpperCase()}
+                                <div className="flex items-center gap-2">
+                                  {item.type === 'cart_session' && (
+                                    <Badge className="bg-purple-600 text-xs">سلة</Badge>
+                                  )}
+                                  {item.order_number || item.id.slice(0, 8).toUpperCase()}
+                                </div>
                               </TableCell>
                               <TableCell className="text-white">
                                 <div className="space-y-1">
-                                  <div className="font-semibold">{order.name}</div>
-                                  <div className="text-xs text-slate-400">{order.email}</div>
-                                  {order.whatsapp && (
-                                    <div className="text-xs text-slate-400">{order.whatsapp}</div>
+                                  <div className="font-semibold">{item.name}</div>
+                                  <div className="text-xs text-slate-400">{item.email}</div>
+                                  {item.whatsapp && (
+                                    <div className="text-xs text-slate-400">{item.whatsapp}</div>
                                   )}
                                 </div>
                               </TableCell>
                               <TableCell className="text-slate-300 text-sm">
-                                {order.is_cart_order && order.order_items && order.order_items.length > 0 ? (
+                                {isCart ? (
                                   <div className="space-y-1">
                                     <div className="font-semibold text-blue-400 mb-1">
-                                      🛒 سلة ({order.order_items.length} منتج)
+                                      🛒 سلة ({item.items.length} منتج)
                                     </div>
-                                    {order.order_items.map((item: OrderItem) => (
-                                      <div key={item.id} className="text-xs text-slate-400">
-                                        • {item.product_name} (x{item.quantity})
+                                    {item.items.map((cartItem: OrderItem) => (
+                                      <div key={cartItem.id || cartItem.product_code} className="text-xs text-slate-400">
+                                        • {cartItem.product_name} (x{cartItem.quantity})
                                       </div>
                                     ))}
                                   </div>
                                 ) : (
-                                  order.product_name
+                                  item.items[0]?.product_name || 'غير محدد'
                                 )}
                               </TableCell>
                               <TableCell className="text-white">
-                                {order.total_amount ? `${order.total_amount} ريال` : `${order.price} ريال`}
-                                {order.discount_amount && order.discount_amount > 0 && (
+                                {item.total_amount ? `${item.total_amount.toLocaleString()} ريال` : '0 ريال'}
+                                {item.discount_amount && item.discount_amount > 0 && (
                                   <div className="text-xs text-green-400">
-                                    خصم: -{order.discount_amount} ريال
+                                    خصم: -{item.discount_amount} ريال
                                   </div>
                                 )}
                               </TableCell>
                               <TableCell className="text-slate-400 text-xs">
-                                منذ {getTimeSinceAbandonment(order.created_at)}
+                                منذ {getTimeSinceAbandonment(item.created_at)}
                               </TableCell>
                               <TableCell>
-                                <Badge
-                                  className={
-                                    order.contact_status === 'contacted'
-                                      ? 'bg-blue-900/50 text-blue-500 border-blue-700'
-                                      : 'bg-yellow-900/50 text-yellow-500 border-yellow-700'
-                                  }
-                                >
-                                  {order.contact_status === 'contacted' ? 'تم الاتصال' : 'لم يتم الاتصال'}
-                                </Badge>
+                                {item.type === 'order' ? (
+                                  <Badge
+                                    className={
+                                      item.contact_status === 'contacted'
+                                        ? 'bg-blue-900/50 text-blue-500 border-blue-700'
+                                        : 'bg-yellow-900/50 text-yellow-500 border-yellow-700'
+                                    }
+                                  >
+                                    {item.contact_status === 'contacted' ? 'تم الاتصال' : 'لم يتم الاتصال'}
+                                  </Badge>
+                                ) : (
+                                  <Badge className="bg-purple-900/50 text-purple-500 border-purple-700">
+                                    سلة نشطة
+                                  </Badge>
+                                )}
                               </TableCell>
                               <TableCell>
                                 {reminderStatus ? (
@@ -738,12 +842,12 @@ export default function AbandonedCartsPage() {
                               <TableCell>
                                 <div className="flex flex-col gap-2">
                                   <div className="flex gap-1">
-                                    {order.whatsapp && (
+                                    {item.whatsapp && (
                                       <Button
                                         size="sm"
                                         variant="outline"
                                         className="bg-green-600 hover:bg-green-700 text-white border-green-700 h-7 text-xs"
-                                        onClick={() => window.open(getWhatsAppLink(order), '_blank')}
+                                        onClick={() => window.open(getWhatsAppLink(item), '_blank')}
                                       >
                                         <MessageCircle className="h-3 w-3 mr-1" />
                                         واتساب
@@ -754,7 +858,7 @@ export default function AbandonedCartsPage() {
                                       variant="outline"
                                       className="bg-blue-600 hover:bg-blue-700 text-white border-blue-700 h-7 text-xs"
                                       onClick={() => {
-                                        const emailLink = getEmailLink(order);
+                                        const emailLink = getEmailLink(item);
                                         if (emailLink && emailLink !== '#') {
                                           window.location.href = emailLink;
                                         } else {
@@ -770,15 +874,15 @@ export default function AbandonedCartsPage() {
                                       بريد
                                     </Button>
                                   </div>
-                                  {order.contact_status !== 'contacted' && (
+                                  {item.type === 'order' && item.contact_status !== 'contacted' && (
                                     <Button
                                       size="sm"
                                       variant="outline"
                                       className="bg-blue-600 hover:bg-blue-700 text-white border-blue-700 h-7 text-xs"
-                                      onClick={() => handleMarkAsContacted(order.id)}
-                                      disabled={updatingContact === order.id}
+                                      onClick={() => handleMarkAsContacted(item.id)}
+                                      disabled={updatingContact === item.id}
                                     >
-                                      {updatingContact === order.id ? (
+                                      {updatingContact === item.id ? (
                                         <Loader2 className="h-3 w-3 animate-spin mr-1" />
                                       ) : (
                                         <CheckCircle2 className="h-3 w-3 mr-1" />
@@ -786,26 +890,28 @@ export default function AbandonedCartsPage() {
                                       تم الاتصال
                                     </Button>
                                   )}
-                                  <Select
-                                    value={order.reminder_hours?.toString() || 'none'}
-                                    onValueChange={(value) => {
-                                      if (value !== 'none') {
-                                        handleSetReminderTimer(order.id, parseInt(value));
-                                      }
-                                    }}
-                                    disabled={settingTimer === order.id}
-                                  >
-                                    <SelectTrigger className="bg-slate-900 border-slate-700 text-white h-7 text-xs">
-                                      <SelectValue placeholder="تعيين تذكير" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      <SelectItem value="none">لا يوجد تذكير</SelectItem>
-                                      <SelectItem value="6">6 ساعات</SelectItem>
-                                      <SelectItem value="12">12 ساعة</SelectItem>
-                                      <SelectItem value="24">24 ساعة</SelectItem>
-                                      <SelectItem value="48">48 ساعة</SelectItem>
-                                    </SelectContent>
-                                  </Select>
+                                  {item.type === 'order' && (
+                                    <Select
+                                      value={item.reminder_hours?.toString() || 'none'}
+                                      onValueChange={(value) => {
+                                        if (value !== 'none') {
+                                          handleSetReminderTimer(item.id, parseInt(value));
+                                        }
+                                      }}
+                                      disabled={settingTimer === item.id}
+                                    >
+                                      <SelectTrigger className="bg-slate-900 border-slate-700 text-white h-7 text-xs">
+                                        <SelectValue placeholder="تعيين تذكير" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="none">لا يوجد تذكير</SelectItem>
+                                        <SelectItem value="6">6 ساعات</SelectItem>
+                                        <SelectItem value="12">12 ساعة</SelectItem>
+                                        <SelectItem value="24">24 ساعة</SelectItem>
+                                        <SelectItem value="48">48 ساعة</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                  )}
                                 </div>
                               </TableCell>
                             </TableRow>

@@ -46,6 +46,9 @@ export async function POST(request: NextRequest) {
       ? items[0].product_name 
       : `${items.length} منتجات`;
 
+    // Find cart session for this user (if exists) to mark it as converted
+    // Note: We'll update it after order is created successfully
+
     const { data: order, error: orderError } = await supabaseAdmin
       .from('orders')
       .insert({
@@ -95,6 +98,24 @@ export async function POST(request: NextRequest) {
         { error: 'فشل إنشاء عناصر الطلب' },
         { status: 500 }
       );
+    }
+
+    // Mark cart session as converted (if exists)
+    try {
+      // Try to find user by email in auth.users
+      const { data: authUsers } = await supabaseAdmin.auth.admin.listUsers();
+      const matchingUser = authUsers?.users?.find(u => u.email === customerInfo.email);
+      
+      if (matchingUser) {
+        await supabaseAdmin
+          .from('cart_sessions')
+          .update({ converted_to_order_id: order.id })
+          .eq('user_id', matchingUser.id)
+          .is('converted_to_order_id', null);
+      }
+    } catch (error) {
+      // Silently fail - cart session conversion is optional
+      console.error('Error marking cart session as converted:', error);
     }
 
     // Note: Email will be sent after payment approval in approve-cart-order route
