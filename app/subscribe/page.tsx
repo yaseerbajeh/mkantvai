@@ -173,13 +173,13 @@ export default function SubscribePage() {
                             <Link href={`/subscribe/${product.code}`} className="block cursor-pointer">
                               <div className={`relative h-48 md:h-64 w-full overflow-hidden ${product.code === 'SUB-PACKAGE-LEGENDARY' ? 'bg-gradient-to-br from-slate-700 to-slate-800' : `bg-gradient-to-br ${product.gradient}`} p-6 md:p-8`}>
                                 <div className="h-full flex flex-col justify-between">
-                                  <div className="flex items-center justify-center gap-4 md:gap-6 flex-wrap">
+                                  <div className="flex items-center justify-center gap-2 md:gap-3 flex-nowrap w-full">
                                     {product.logos?.map((logo: string, idx: number) => (
-                                      <div key={idx} className={`${product.code === 'SUB-PACKAGE-LEGENDARY' ? 'bg-slate-600/50' : 'bg-white/10'} backdrop-blur-sm rounded-xl p-4 md:p-6 border ${product.code === 'SUB-PACKAGE-LEGENDARY' ? 'border-slate-500/30' : 'border-white/20'} group-hover:scale-110 transition-transform duration-300`}>
+                                      <div key={idx} className={`${product.code === 'SUB-PACKAGE-LEGENDARY' ? 'bg-slate-600/50' : 'bg-white/10'} backdrop-blur-sm rounded-lg p-2 md:p-3 border ${product.code === 'SUB-PACKAGE-LEGENDARY' ? 'border-slate-500/30' : 'border-white/20'} group-hover:scale-110 transition-transform duration-300`}>
                                         <img
                                           src={logo}
                                           alt={`${product.name} logo ${idx + 1}`}
-                                          className={`h-12 w-12 md:h-16 md:w-16 object-contain ${logo.endsWith('.png') || logo.endsWith('.jpeg') || logo.endsWith('.jpg') ? '' : 'brightness-0 invert'}`}
+                                          className={`h-8 w-8 md:h-12 md:w-12 object-contain ${logo.endsWith('.png') || logo.endsWith('.jpeg') || logo.endsWith('.jpg') ? '' : 'brightness-0 invert'}`}
                                         />
                                       </div>
                                     ))}
