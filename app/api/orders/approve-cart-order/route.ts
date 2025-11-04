@@ -102,58 +102,231 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Capture the PayPal order - THIS IS CRITICAL FOR PAYMENT TO ARRIVE
-      const captureResponse = await fetch(`${paypalBaseUrl}/v2/checkout/orders/${paypalOrderId}/capture`, {
-        method: 'POST',
+      // FIRST: Check the current status of the PayPal order before attempting capture
+      console.log(`Checking PayPal order status before capture: ${paypalOrderId}`);
+      const checkOrderResponse = await fetch(`${paypalBaseUrl}/v2/checkout/orders/${paypalOrderId}`, {
+        method: 'GET',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${tokenData.access_token}`,
-          'Prefer': 'return=representation',
         },
       });
 
-      captureResult = await captureResponse.json();
+      const orderStatus = await checkOrderResponse.json();
       
-      // Check if capture was successful
-      if (!captureResponse.ok || captureResult.status !== 'COMPLETED') {
-        console.error('PayPal capture failed:', {
-          status: captureResponse.status,
-          statusText: captureResponse.statusText,
-          response: captureResult,
-          paypalOrderId,
-        });
-        
-        // Log detailed error for debugging
-        const errorDetails = captureResult.details || [];
-        const errorMessage = captureResult.message || 'Unknown PayPal error';
-        
+      if (!checkOrderResponse.ok) {
+        console.error('Failed to check PayPal order status:', orderStatus);
         return NextResponse.json(
           { 
-            error: `فشل في معالجة الدفع من PayPal: ${errorMessage}`,
-            details: process.env.NODE_ENV === 'development' ? JSON.stringify(captureResult) : undefined,
+            error: `فشل في التحقق من حالة الطلب: ${orderStatus.message || 'خطأ غير معروف'}`,
+            details: process.env.NODE_ENV === 'development' ? orderStatus : undefined,
           },
           { status: 500 }
         );
       }
 
-      // Verify payment was actually captured
-      const purchaseUnit = captureResult.purchase_units?.[0];
-      const capture = purchaseUnit?.payments?.captures?.[0];
-      
-      if (!capture || capture.status !== 'COMPLETED') {
-        console.error('Payment capture not completed:', captureResult);
+      // Check if order is already completed/captured
+      if (orderStatus.status === 'COMPLETED') {
+        const purchaseUnit = orderStatus.purchase_units?.[0];
+        const capture = purchaseUnit?.payments?.captures?.[0];
+        
+        if (capture && capture.status === 'COMPLETED') {
+          // Payment was already captured - update database and continue
+          console.log('PayPal order already captured:', {
+            captureId: capture.id,
+            amount: capture.amount,
+            captureStatus: capture.status,
+          });
+
+          // Use the capture result from the order status check
+          captureResult = orderStatus;
+          
+          // Update database to reflect that payment was already captured
+          const { error: updateError } = await supabaseAdmin
+            .from('orders')
+            .update({
+              status: 'paid',
+              payment_status: 'COMPLETED',
+              payment_id: paypalOrderId,
+            })
+            .eq('id', order.id);
+
+          if (updateError) {
+            console.error('Error updating order status:', updateError);
+            // Continue anyway since payment was captured
+          }
+
+          // Skip to subscription assignment since payment is already captured
+          console.log('Payment was already captured, proceeding with subscription assignment');
+        } else {
+          // Order marked as COMPLETED but no capture found - this shouldn't happen
+          console.error('Order status is COMPLETED but no capture found:', orderStatus);
+          return NextResponse.json(
+            { 
+              error: 'حالة الطلب غير صحيحة في PayPal. يرجى المحاولة مرة أخرى أو الاتصال بالدعم.',
+              details: process.env.NODE_ENV === 'development' ? orderStatus : undefined,
+            },
+            { status: 500 }
+          );
+        }
+      } else if (orderStatus.status === 'APPROVED' || orderStatus.status === 'CREATED') {
+        // Order is in a capturable state - proceed with capture
+        console.log(`PayPal order status: ${orderStatus.status}, attempting capture...`);
+        
+        // Capture the PayPal order - THIS IS CRITICAL FOR PAYMENT TO ARRIVE
+        const captureResponse = await fetch(`${paypalBaseUrl}/v2/checkout/orders/${paypalOrderId}/capture`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${tokenData.access_token}`,
+            'Prefer': 'return=representation',
+          },
+        });
+
+        captureResult = await captureResponse.json();
+        
+        // Check if capture was successful
+        if (!captureResponse.ok || captureResult.status !== 'COMPLETED') {
+          console.error('PayPal capture failed:', {
+            status: captureResponse.status,
+            statusText: captureResponse.statusText,
+            response: captureResult,
+            paypalOrderId,
+          });
+          
+          // Handle specific PayPal errors
+          if (captureResult.name === 'UNPROCESSABLE_ENTITY') {
+            const errorMessage = captureResult.message || 'لا يمكن معالجة الطلب';
+            const errorDetails = captureResult.details || [];
+            
+            // Check if order was already captured (sometimes PayPal returns this error even if captured)
+            // Try to get order status again to check
+            const recheckResponse = await fetch(`${paypalBaseUrl}/v2/checkout/orders/${paypalOrderId}`, {
+              method: 'GET',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${tokenData.access_token}`,
+              },
+            });
+            
+            const recheckStatus = await recheckResponse.json();
+            if (recheckStatus.status === 'COMPLETED') {
+              const purchaseUnit = recheckStatus.purchase_units?.[0];
+              const capture = purchaseUnit?.payments?.captures?.[0];
+              
+              if (capture && capture.status === 'COMPLETED') {
+                // Order was actually captured - update database
+                captureResult = recheckStatus;
+                
+                const { error: updateError } = await supabaseAdmin
+                  .from('orders')
+                  .update({
+                    status: 'paid',
+                    payment_status: 'COMPLETED',
+                    payment_id: paypalOrderId,
+                  })
+                  .eq('id', order.id);
+
+                if (!updateError) {
+                  // Continue with subscription assignment
+                  console.log('Payment was captured (verified after error), proceeding with subscription assignment');
+                } else {
+                  return NextResponse.json(
+                    { 
+                      error: 'تم استلام الدفع ولكن فشل تحديث حالة الطلب. يرجى تحديثها يدوياً.',
+                      captureId: capture.id,
+                    },
+                    { status: 500 }
+                  );
+                }
+              } else {
+                return NextResponse.json(
+                  { 
+                    error: `فشل في معالجة الدفع: ${errorMessage}`,
+                    details: process.env.NODE_ENV === 'development' ? {
+                      errorName: captureResult.name,
+                      message: captureResult.message,
+                      details: errorDetails,
+                      debug_id: captureResult.debug_id,
+                    } : undefined,
+                  },
+                  { status: 400 }
+                );
+              }
+            } else {
+              // Order is not completed - return error
+              return NextResponse.json(
+                { 
+                  error: `فشل في معالجة الدفع: ${errorMessage}`,
+                  details: process.env.NODE_ENV === 'development' ? {
+                    errorName: captureResult.name,
+                    message: captureResult.message,
+                    details: errorDetails,
+                    debug_id: captureResult.debug_id,
+                    paypalStatus: recheckStatus.status,
+                  } : undefined,
+                },
+                { status: 400 }
+              );
+            }
+          } else if (orderStatus.status === 'EXPIRED' || captureResult.status === 'EXPIRED') {
+            return NextResponse.json(
+              { 
+                error: 'انتهت صلاحية التفويض. لا يمكن استلام الدفع الآن. المبلغ سيعود للعميل تلقائياً.',
+                details: captureResult.message || 'Authorization expired',
+              },
+              { status: 400 }
+            );
+          } else {
+            // Other error
+            const errorDetails = captureResult.details || [];
+            const errorMessage = captureResult.message || 'خطأ غير معروف من PayPal';
+            
+            return NextResponse.json(
+              { 
+                error: `فشل في معالجة الدفع: ${errorMessage}`,
+                details: process.env.NODE_ENV === 'development' ? JSON.stringify(captureResult) : undefined,
+              },
+              { status: 500 }
+            );
+          }
+        }
+
+        // Verify payment was actually captured
+        const purchaseUnit = captureResult.purchase_units?.[0];
+        const capture = purchaseUnit?.payments?.captures?.[0];
+        
+        if (!capture || capture.status !== 'COMPLETED') {
+          console.error('Payment capture not completed:', captureResult);
+          return NextResponse.json(
+            { error: 'فشل في معالجة الدفع - لم يتم استلام الأموال' },
+            { status: 500 }
+          );
+        }
+
+        console.log('PayPal payment successfully captured:', {
+          captureId: capture.id,
+          amount: capture.amount,
+          status: capture.status,
+          paypalOrderId,
+        });
+      } else {
+        // Order is in an invalid state (CANCELLED, etc.)
         return NextResponse.json(
-          { error: 'فشل في معالجة الدفع - لم يتم استلام الأموال' },
-          { status: 500 }
+          { 
+            error: `لا يمكن استلام الدفع. حالة الطلب في PayPal: ${orderStatus.status}`,
+            details: {
+              paypalStatus: orderStatus.status,
+              message: orderStatus.status === 'EXPIRED' 
+                ? 'انتهت صلاحية التفويض. المبلغ سيعود للعميل تلقائياً.'
+                : orderStatus.status === 'CANCELLED'
+                ? 'تم إلغاء الطلب.'
+                : 'حالة الطلب لا تسمح بالاستلام.',
+            },
+          },
+          { status: 400 }
         );
       }
-
-      console.log('PayPal payment successfully captured:', {
-        captureId: capture.id,
-        amount: capture.amount,
-        status: capture.status,
-        paypalOrderId,
-      });
 
     } catch (captureError: any) {
       console.error('Error capturing PayPal payment:', {
@@ -171,30 +344,35 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ONLY update database AFTER successful PayPal capture
-    const captureId = captureResult?.purchase_units?.[0]?.payments?.captures?.[0]?.id;
-    
-    // Log capture ID for reference (can be stored in database if needed)
-    console.log('Payment captured successfully:', {
-      captureId,
-      amount: captureResult?.purchase_units?.[0]?.payments?.captures?.[0]?.amount,
-    });
-    
-    const { error: updateError } = await supabaseAdmin
-      .from('orders')
-      .update({
-        status: 'paid',
-        payment_status: 'COMPLETED',
-        payment_id: paypalOrderId, // Keep PayPal order ID
-      })
-      .eq('id', order.id);
+    // ONLY update database AFTER successful PayPal capture (if not already updated)
+    // Check if order is already paid to avoid duplicate updates
+    if (order.status !== 'paid') {
+      const captureId = captureResult?.purchase_units?.[0]?.payments?.captures?.[0]?.id;
+      
+      // Log capture ID for reference (can be stored in database if needed)
+      console.log('Payment captured successfully, updating database:', {
+        captureId,
+        amount: captureResult?.purchase_units?.[0]?.payments?.captures?.[0]?.amount,
+      });
+      
+      const { error: updateError } = await supabaseAdmin
+        .from('orders')
+        .update({
+          status: 'paid',
+          payment_status: 'COMPLETED',
+          payment_id: paypalOrderId, // Keep PayPal order ID
+        })
+        .eq('id', order.id);
 
-    if (updateError) {
-      console.error('Error updating order:', updateError);
-      return NextResponse.json(
-        { error: 'فشل تحديث حالة الطلب' },
-        { status: 500 }
-      );
+      if (updateError) {
+        console.error('Error updating order:', updateError);
+        return NextResponse.json(
+          { error: 'فشل تحديث حالة الطلب' },
+          { status: 500 }
+        );
+      }
+    } else {
+      console.log('Order already marked as paid, skipping database update');
     }
 
     // Assign subscriptions for each item
