@@ -330,8 +330,9 @@ export async function POST(request: NextRequest) {
       // Ensure amount has exactly 2 decimal places
       const formattedAmount = amountValue.toFixed(2);
       
-      // Simplified payload - matching the old working version
-      // Keep it minimal to avoid business validation errors
+      // Minimal payload with ABSOLUTELY NO database references
+      // PayPal order creation should be completely independent of our database
+      // No custom_id, no reference_id, no description, no application_context
       const paypalOrderPayload = {
         intent: 'CAPTURE',
         purchase_units: [{
@@ -342,8 +343,9 @@ export async function POST(request: NextRequest) {
         }],
       };
 
-      console.log('PayPal order payload:', JSON.stringify(paypalOrderPayload, null, 2));
+      console.log('PayPal order payload (no DB references):', JSON.stringify(paypalOrderPayload, null, 2));
 
+      // Create PayPal order with minimal headers - no PayPal-Request-Id or any DB references
       const paypalOrderResponse = await fetch(`${paypalBaseUrl}/v2/checkout/orders`, {
         method: 'POST',
         headers: {
