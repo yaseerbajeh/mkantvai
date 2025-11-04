@@ -298,15 +298,37 @@ export async function POST(request: NextRequest) {
     const expiresAt = codeData.expires_at;
 
     // Send email to user with trial code
+    if (!user.email) {
+      console.error('User email is missing, cannot send trial code email');
+      // Still return the code, but log the issue
+      return NextResponse.json({
+        trial_code: trialCode,
+        expires_at: expiresAt,
+        warning: 'Trial code assigned but email notification failed (no email address)',
+      });
+    }
+
     try {
       await sendTrialCodeEmail({
-        email: user.email!,
+        email: user.email,
         trialCode: trialCode,
         expiresAt: expiresAt,
       });
-    } catch (emailError) {
-      console.error('Error sending trial code email:', emailError);
+      console.log(`Trial code email sent successfully to ${user.email}`);
+    } catch (emailError: any) {
+      console.error('Error sending trial code email:', {
+        error: emailError,
+        message: emailError?.message,
+        stack: emailError?.stack,
+        email: user.email,
+      });
       // Continue anyway, code was already assigned
+      // Return the code with a warning
+      return NextResponse.json({
+        trial_code: trialCode,
+        expires_at: expiresAt,
+        warning: 'Trial code assigned but email notification may have failed',
+      });
     }
 
     return NextResponse.json({

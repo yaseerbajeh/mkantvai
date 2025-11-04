@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { sendNewOrderEmail } from '@/utils/sendEmail';
+import { sendNewOrderEmail, sendApprovalEmail } from '@/utils/sendEmail';
 import { rateLimit, orderLimiter } from '@/lib/rateLimiter';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -105,6 +105,59 @@ export async function POST(request: NextRequest) {
     } catch (emailError) {
       console.error('Error sending new order email:', emailError);
       // Don't fail the request if email fails
+    }
+
+    // If order is paid/completed, also send approval email to customer
+    if (orderStatus === 'paid' || payment_status === 'paid' || payment_status === 'COMPLETED') {
+      try {
+        const supabaseAdmin = createClient(supabaseUrl, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+        
+        // Try to assign subscription automatically for paid orders
+        let subscriptionCode = '';
+        let subscriptionMeta = null;
+        try {
+          const { data: assignedSubscription } = await supabaseAdmin.rpc(
+            'assign_subscription_to_order',
+            {
+              p_order_id: order.id,
+              p_admin_id: null,
+            }
+          );
+          
+          if (assignedSubscription) {
+            subscriptionCode = assignedSubscription.code || '';
+            subscriptionMeta = assignedSubscription.meta || null;
+          }
+        } catch (assignError) {
+          console.error('Error assigning subscription for paid order:', assignError);
+          // Continue without subscription - will need manual assignment
+        }
+
+        // Fetch updated order to get subscription if assigned
+        const { data: updatedOrder } = await supabaseAdmin
+          .from('orders')
+          .select('*')
+          .eq('id', order.id)
+          .single();
+
+        const subscriptionData = (updatedOrder as any)?.assigned_subscription as any;
+        if (subscriptionData) {
+          subscriptionCode = subscriptionData.code || '';
+          subscriptionMeta = subscriptionData.meta || null;
+        }
+
+        const orderDisplayId = (order as any).order_number || order.id.slice(0, 8).toUpperCase();
+        await sendApprovalEmail({
+          orderId: orderDisplayId,
+          name: order.name,
+          email: order.email,
+          subscriptionCode: subscriptionCode,
+          subscriptionMeta: subscriptionMeta,
+        });
+      } catch (emailError) {
+        console.error('Error sending approval email for paid order:', emailError);
+        // Don't fail the request if email fails
+      }
     }
 
     return NextResponse.json(
