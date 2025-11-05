@@ -443,6 +443,10 @@ export default function ProductDetailPage() {
   const [paymentLinkLoading, setPaymentLinkLoading] = useState(true);
   const [user, setUser] = useState<User | null>(null);
   const [authDialogOpen, setAuthDialogOpen] = useState(false);
+  const [reviews, setReviews] = useState<any[]>([]);
+  const [averageRating, setAverageRating] = useState<number>(0);
+  const [totalReviews, setTotalReviews] = useState<number>(0);
+  const [reviewsLoading, setReviewsLoading] = useState(true);
   
   // Check user authentication
   useEffect(() => {
@@ -553,6 +557,31 @@ export default function ProductDetailPage() {
     };
 
     fetchProduct();
+  }, [productCode]);
+
+  // Fetch reviews for this product
+  useEffect(() => {
+    const fetchReviews = async () => {
+      if (!productCode) return;
+      
+      setReviewsLoading(true);
+      try {
+        const response = await fetch(`/api/reviews?product_code=${productCode}`);
+        const result = await response.json();
+        
+        if (response.ok) {
+          setReviews(result.reviews || []);
+          setAverageRating(result.averageRating || 0);
+          setTotalReviews(result.totalReviews || 0);
+        }
+      } catch (error) {
+        console.error('Error fetching reviews:', error);
+      } finally {
+        setReviewsLoading(false);
+      }
+    };
+
+    fetchReviews();
   }, [productCode]);
 
   if (loading) {
@@ -852,7 +881,7 @@ export default function ProductDetailPage() {
           </Card>
 
           {/* Features Highlight */}
-          <Card className="bg-gradient-to-br from-slate-800/90 to-slate-900/90 border border-slate-700/50">
+          <Card className="bg-gradient-to-br from-slate-800/90 to-slate-900/90 border border-slate-700/50 mb-8">
             <CardContent className="pt-6">
               <div className="grid md:grid-cols-3 gap-6">
                 <div className="text-center p-4">
@@ -877,6 +906,94 @@ export default function ProductDetailPage() {
                   <p className="text-slate-400 text-sm">وصول فوري للمحتوى</p>
                 </div>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Reviews Section */}
+          <Card className="bg-gradient-to-br from-slate-800/90 to-slate-900/90 border border-slate-700/50">
+            <CardHeader className="pb-4">
+              <div className="flex items-center gap-3">
+                <div className={`w-1 h-8 bg-gradient-to-b ${product.gradient} rounded-full`} />
+                <CardTitle className="text-3xl text-white">التقييمات والمراجعات</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {reviewsLoading ? (
+                <div className="text-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-white mx-auto mb-2" />
+                  <p className="text-slate-400">جاري تحميل التقييمات...</p>
+                </div>
+              ) : totalReviews === 0 ? (
+                <div className="text-center py-8">
+                  <Star className="w-12 h-12 text-slate-600 mx-auto mb-4" />
+                  <p className="text-slate-400">لا توجد تقييمات بعد</p>
+                  <p className="text-slate-500 text-sm mt-2">كن أول من يقيّم هذا المنتج</p>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {/* Average Rating */}
+                  <div className="flex items-center gap-4 p-6 bg-slate-800/50 rounded-lg border border-slate-700">
+                    <div className="text-center">
+                      <div className="flex items-center gap-1 mb-2">
+                        <span className="text-4xl font-bold text-white">{averageRating.toFixed(1)}</span>
+                        <Star className="w-6 h-6 fill-yellow-400 text-yellow-400" />
+                      </div>
+                      <p className="text-slate-400 text-sm">{totalReviews} {totalReviews === 1 ? 'تقييم' : 'تقييم'}</p>
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-1 mb-2">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <Star
+                            key={star}
+                            className={`w-5 h-5 ${
+                              star <= Math.round(averageRating)
+                                ? 'fill-yellow-400 text-yellow-400'
+                                : 'text-slate-600'
+                            }`}
+                          />
+                        ))}
+                      </div>
+                      <p className="text-slate-300 text-sm">متوسط التقييم بناءً على {totalReviews} {totalReviews === 1 ? 'تقييم' : 'تقييم'}</p>
+                    </div>
+                  </div>
+
+                  {/* Reviews List */}
+                  <div className="space-y-4">
+                    <h3 className="text-xl font-bold text-white mb-4">جميع التقييمات ({totalReviews})</h3>
+                    {reviews.map((review) => (
+                      <div key={review.id} className="p-4 bg-slate-800/50 rounded-lg border border-slate-700">
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-1">
+                              {[1, 2, 3, 4, 5].map((star) => (
+                                <Star
+                                  key={star}
+                                  className={`w-4 h-4 ${
+                                    star <= review.rating
+                                      ? 'fill-yellow-400 text-yellow-400'
+                                      : 'text-slate-600'
+                                  }`}
+                                />
+                              ))}
+                            </div>
+                            <span className="text-slate-400 text-sm">{review.user_email}</span>
+                          </div>
+                          <span className="text-slate-500 text-xs">
+                            {new Date(review.created_at).toLocaleDateString('ar-SA', {
+                              year: 'numeric',
+                              month: 'long',
+                              day: 'numeric',
+                            })}
+                          </span>
+                        </div>
+                        {review.comment && (
+                          <p className="text-slate-300 mt-2 text-sm leading-relaxed">{review.comment}</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
