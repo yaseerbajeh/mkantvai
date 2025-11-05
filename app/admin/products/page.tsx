@@ -668,6 +668,7 @@ export default function AdminProductsPage() {
                             <TableHead className="text-white">الاسم</TableHead>
                             <TableHead className="text-white">السعر</TableHead>
                             <TableHead className="text-white">القسم</TableHead>
+                            <TableHead className="text-white">المخزون</TableHead>
                             <TableHead className="text-white">الحالة</TableHead>
                             <TableHead className="text-white">الإجراءات</TableHead>
                           </TableRow>
@@ -684,6 +685,17 @@ export default function AdminProductsPage() {
                               <TableCell>
                                 <Badge
                                   className={
+                                    (subscriptionCounts[product.product_code] || 0) > 0
+                                      ? 'bg-blue-900/50 text-blue-400 border-blue-700'
+                                      : 'bg-red-900/50 text-red-400 border-red-700'
+                                  }
+                                >
+                                  {subscriptionCounts[product.product_code] || 0} متاح
+                                </Badge>
+                              </TableCell>
+                              <TableCell>
+                                <Badge
+                                  className={
                                     product.is_active
                                       ? 'bg-green-900/50 text-green-500 border-green-700'
                                       : 'bg-red-900/50 text-red-500 border-red-700'
@@ -694,6 +706,19 @@ export default function AdminProductsPage() {
                               </TableCell>
                               <TableCell>
                                 <div className="flex gap-2">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => {
+                                      setSelectedProductCode(product.product_code);
+                                      setBulkCodes('');
+                                      setSubscriptionCodesDialogOpen(true);
+                                    }}
+                                    className="bg-blue-800 border-blue-700 text-blue-300 hover:bg-blue-700 hover:text-white"
+                                    title="إضافة اشتراكات"
+                                  >
+                                    <Key className="h-4 w-4" />
+                                  </Button>
                                   <Button
                                     size="sm"
                                     variant="outline"
@@ -918,13 +943,25 @@ export default function AdminProductsPage() {
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label>رمز المنتج</Label>
-              <Input
+              <Label>رمز المنتج *</Label>
+              <Select
                 value={selectedProductCode}
-                onChange={(e) => setSelectedProductCode(e.target.value)}
-                placeholder="SUB-BASIC-1M"
-                className="bg-slate-900 border-slate-700 text-white mt-2"
-              />
+                onValueChange={setSelectedProductCode}
+              >
+                <SelectTrigger className="bg-slate-900 border-slate-700 text-white mt-2">
+                  <SelectValue placeholder="اختر رمز المنتج" />
+                </SelectTrigger>
+                <SelectContent>
+                  {products.map((p) => (
+                    <SelectItem key={p.id} value={p.product_code}>
+                      {p.product_code} - {p.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-slate-400 mt-1">
+                {selectedProductCode ? 'تم اختيار المنتج' : 'اختر منتج من القائمة أو من جدول المنتجات'}
+              </p>
             </div>
             <div>
               <Label>رموز الاشتراكات</Label>

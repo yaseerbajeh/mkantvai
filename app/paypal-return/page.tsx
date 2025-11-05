@@ -21,6 +21,7 @@ export default function PayPalReturnPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
+  const { removeItem } = useCart();
   const [loading, setLoading] = useState(true);
   const [submitted, setSubmitted] = useState(false);
   const [subscriptionDetails, setSubscriptionDetails] = useState<SubscriptionDetails | null>(null);
@@ -109,6 +110,11 @@ export default function PayPalReturnPage() {
       setSubscriptionDetails(subscription);
       setOrderNumber(orderNum);
       setSubmitted(true);
+      
+      // Remove the purchased product from cart if it exists
+      if (productCode) {
+        removeItem(productCode);
+      }
       
       toast({
         title: 'نجح',

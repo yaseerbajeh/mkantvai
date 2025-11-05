@@ -8,8 +8,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { supabase } from '@/lib/supabase';
-import { CheckCircle2, Clock, XCircle, Package, ExternalLink, MessageCircle, AlertCircle, Filter } from 'lucide-react';
+import { CheckCircle2, Clock, XCircle, Package, ExternalLink, MessageCircle, AlertCircle, Filter, Star } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { useToast } from '@/hooks/use-toast';
 import type { User } from '@supabase/supabase-js';
 
 interface Order {
@@ -19,6 +23,7 @@ interface Order {
   email: string;
   whatsapp?: string;
   product_name: string;
+  product_code?: string;
   price: number;
   status: 'pending' | 'approved' | 'rejected' | 'paid';
   payment_method?: string;
@@ -30,15 +35,22 @@ interface Order {
     };
   };
   created_at: string;
+  has_review?: boolean;
 }
 
 export default function MyOrdersPage() {
   const router = useRouter();
+  const { toast } = useToast();
   const [user, setUser] = useState<User | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [timeRemaining, setTimeRemaining] = useState<{ [key: string]: number }>({});
   const [filterStatus, setFilterStatus] = useState<'all' | 'completed' | 'pending' | 'rejected'>('all');
+  const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
+  const [selectedOrderForReview, setSelectedOrderForReview] = useState<Order | null>(null);
+  const [reviewRating, setReviewRating] = useState<number>(0);
+  const [reviewComment, setReviewComment] = useState<string>('');
+  const [submittingReview, setSubmittingReview] = useState(false);
 
   useEffect(() => {
     const checkAuthAndFetchOrders = async () => {
@@ -65,7 +77,23 @@ export default function MyOrdersPage() {
           throw error;
         }
 
-        setOrders((data as Order[]) || []);
+        const ordersData = (data as Order[]) || [];
+        
+        // Check which orders already have reviews
+        const orderIds = ordersData.map(o => o.id);
+        if (orderIds.length > 0) {
+          const { data: reviews } = await supabase
+            .from('reviews')
+            .select('order_id')
+            .in('order_id', orderIds);
+          
+          const reviewedOrderIds = new Set(reviews?.map(r => r.order_id) || []);
+          ordersData.forEach(order => {
+            order.has_review = reviewedOrderIds.has(order.id);
+          });
+        }
+
+        setOrders(ordersData);
       } catch (error: any) {
         console.error('Error:', error);
       } finally {
@@ -179,6 +207,83 @@ export default function MyOrdersPage() {
     completed: orders.filter(o => o.status === 'approved' || o.status === 'paid').length,
     pending: orders.filter(o => o.status === 'pending').length,
     rejected: orders.filter(o => o.status === 'rejected').length,
+  };
+
+  // Handle opening review dialog
+  const handleOpenReviewDialog = (order: Order) => {
+    setSelectedOrderForReview(order);
+    setReviewRating(0);
+    setReviewComment('');
+    setReviewDialogOpen(true);
+  };
+
+  // Handle submitting review
+  const handleSubmitReview = async () => {
+    if (!selectedOrderForReview || reviewRating === 0) {
+      toast({
+        title: 'خطأ',
+        description: 'يرجى اختيار تقييم (1-5 نجوم)',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setSubmittingReview(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast({
+          title: 'خطأ',
+          description: 'يرجى تسجيل الدخول',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      const response = await fetch('/api/reviews', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          order_id: selectedOrderForReview.id,
+          rating: reviewRating,
+          comment: reviewComment.trim() || null,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'فشل في إرسال التقييم');
+      }
+
+      toast({
+        title: 'نجح',
+        description: 'تم إرسال التقييم بنجاح',
+      });
+
+      // Update order to mark as reviewed
+      setOrders(prevOrders =>
+        prevOrders.map(o =>
+          o.id === selectedOrderForReview.id ? { ...o, has_review: true } : o
+        )
+      );
+
+      setReviewDialogOpen(false);
+      setSelectedOrderForReview(null);
+      setReviewRating(0);
+      setReviewComment('');
+    } catch (error: any) {
+      toast({
+        title: 'خطأ',
+        description: error.message || 'حدث خطأ أثناء إرسال التقييم',
+        variant: 'destructive',
+      });
+    } finally {
+      setSubmittingReview(false);
+    }
   };
 
   if (loading) {
@@ -439,6 +544,26 @@ export default function MyOrdersPage() {
                         </p>
                       </div>
                     )}
+
+                    {/* Review Button for Approved/Paid Orders */}
+                    {(order.status === 'approved' || order.status === 'paid') && (
+                      <div className="mt-4 pt-4 border-t border-slate-700">
+                        {order.has_review ? (
+                          <div className="flex items-center gap-2 text-green-400">
+                            <CheckCircle2 className="w-4 h-4" />
+                            <span className="text-sm">تم تقييم هذا الطلب</span>
+                          </div>
+                        ) : (
+                          <Button
+                            onClick={() => handleOpenReviewDialog(order)}
+                            className="w-full bg-yellow-600 hover:bg-yellow-700 text-white"
+                          >
+                            <Star className="w-4 h-4 ml-2" />
+                            قيّم هذا الطلب
+                          </Button>
+                        )}
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               ))}
@@ -447,6 +572,83 @@ export default function MyOrdersPage() {
         </div>
       </main>
       <Footer />
+
+      {/* Review Dialog */}
+      <Dialog open={reviewDialogOpen} onOpenChange={setReviewDialogOpen}>
+        <DialogContent className="bg-slate-800 border-slate-700 text-white">
+          <DialogHeader>
+            <DialogTitle>تقييم الطلب</DialogTitle>
+            <DialogDescription className="text-slate-400">
+              شاركنا رأيك في المنتج والخدمة
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <Label className="text-white mb-2 block">التقييم *</Label>
+              <div className="flex gap-2">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <button
+                    key={star}
+                    type="button"
+                    onClick={() => setReviewRating(star)}
+                    className="focus:outline-none"
+                  >
+                    <Star
+                      className={`w-8 h-8 ${
+                        star <= reviewRating
+                          ? 'fill-yellow-400 text-yellow-400'
+                          : 'text-slate-500'
+                      } transition-colors`}
+                    />
+                  </button>
+                ))}
+              </div>
+              {reviewRating > 0 && (
+                <p className="text-slate-400 text-sm mt-2">
+                  {reviewRating === 1 && 'سيء جداً'}
+                  {reviewRating === 2 && 'سيء'}
+                  {reviewRating === 3 && 'متوسط'}
+                  {reviewRating === 4 && 'جيد'}
+                  {reviewRating === 5 && 'ممتاز'}
+                </p>
+              )}
+            </div>
+            <div>
+              <Label htmlFor="comment" className="text-white mb-2 block">
+                التعليق (اختياري)
+              </Label>
+              <Textarea
+                id="comment"
+                value={reviewComment}
+                onChange={(e) => setReviewComment(e.target.value)}
+                placeholder="اكتب تعليقك هنا..."
+                className="bg-slate-900 border-slate-700 text-white min-h-[100px]"
+                maxLength={500}
+              />
+              <p className="text-slate-400 text-xs mt-1">
+                {reviewComment.length}/500
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setReviewDialogOpen(false)}
+              className="bg-slate-700 border-slate-600 text-white"
+              disabled={submittingReview}
+            >
+              إلغاء
+            </Button>
+            <Button
+              onClick={handleSubmitReview}
+              className="bg-yellow-600 hover:bg-yellow-700 text-white"
+              disabled={submittingReview || reviewRating === 0}
+            >
+              {submittingReview ? 'جاري الإرسال...' : 'إرسال التقييم'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
