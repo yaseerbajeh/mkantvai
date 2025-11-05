@@ -216,6 +216,7 @@ export async function POST(request: NextRequest) {
         console.log(`PayPal order status: ${orderStatus.status}, attempting capture...`);
         
         // Capture the PayPal order - THIS IS CRITICAL FOR PAYMENT TO ARRIVE
+        // Use minimal capture request - empty body to avoid validation issues
         const captureResponse = await fetch(`${paypalBaseUrl}/v2/checkout/orders/${paypalOrderId}/capture`, {
           method: 'POST',
           headers: {
@@ -223,6 +224,7 @@ export async function POST(request: NextRequest) {
             'Authorization': `Bearer ${tokenData.access_token}`,
             'Prefer': 'return=representation',
           },
+          body: JSON.stringify({}), // Empty body - some accounts require explicit empty body
         });
 
         captureResult = await captureResponse.json();
@@ -234,15 +236,36 @@ export async function POST(request: NextRequest) {
             statusText: captureResponse.statusText,
             response: captureResult,
             paypalOrderId,
+            orderStatus: orderStatus.status,
+          });
+          
+          // Log full error details for debugging
+          const errorDetails = captureResult.details || [];
+          console.error('Full PayPal capture error details:', {
+            name: captureResult.name,
+            message: captureResult.message,
+            debug_id: captureResult.debug_id,
+            details: errorDetails,
+            links: captureResult.links,
           });
           
           // Handle specific PayPal errors
           if (captureResult.name === 'UNPROCESSABLE_ENTITY') {
             const errorMessage = captureResult.message || 'لا يمكن معالجة الطلب';
-            const errorDetails = captureResult.details || [];
+            
+            // Extract specific error details
+            const specificIssues = errorDetails.map((d: any) => ({
+              field: d.field,
+              location: d.location,
+              issue: d.issue,
+              description: d.description,
+            }));
+            
+            console.error('PayPal capture error details:', specificIssues);
             
             // Check if order was already captured (sometimes PayPal returns this error even if captured)
             // Try to get order status again to check
+            console.log('Rechecking PayPal order status after capture error...');
             const recheckResponse = await fetch(`${paypalBaseUrl}/v2/checkout/orders/${paypalOrderId}`, {
               method: 'GET',
               headers: {
@@ -252,12 +275,21 @@ export async function POST(request: NextRequest) {
             });
             
             const recheckStatus = await recheckResponse.json();
+            console.log('Rechecked PayPal order status:', {
+              status: recheckStatus.status,
+              hasCapture: !!recheckStatus.purchase_units?.[0]?.payments?.captures?.[0],
+            });
+            
             if (recheckStatus.status === 'COMPLETED') {
               const purchaseUnit = recheckStatus.purchase_units?.[0];
               const capture = purchaseUnit?.payments?.captures?.[0];
               
               if (capture && capture.status === 'COMPLETED') {
                 // Order was actually captured - update database
+                console.log('Order was already captured, updating database:', {
+                  captureId: capture.id,
+                  amount: capture.amount,
+                });
                 captureResult = recheckStatus;
                 
                 const { error: updateError } = await supabaseAdmin
@@ -282,30 +314,90 @@ export async function POST(request: NextRequest) {
                   );
                 }
               } else {
+                // Order says COMPLETED but no capture found - this is unusual
+                console.error('Order status is COMPLETED but no capture found:', recheckStatus);
                 return NextResponse.json(
                   { 
                     error: `فشل في معالجة الدفع: ${errorMessage}`,
                     details: process.env.NODE_ENV === 'development' ? {
                       errorName: captureResult.name,
                       message: captureResult.message,
-                      details: errorDetails,
+                      details: specificIssues,
                       debug_id: captureResult.debug_id,
+                      paypalOrderStatus: recheckStatus.status,
                     } : undefined,
                   },
                   { status: 400 }
                 );
               }
             } else {
-              // Order is not completed - return error
+              // Order is not completed - check the specific error type
+              console.error('PayPal order not completed after capture attempt:', {
+                status: recheckStatus.status,
+                originalStatus: orderStatus.status,
+                errorDetails: specificIssues,
+              });
+              
+              // Check for specific error types
+              const instrumentDeclined = specificIssues.some((issue: any) => 
+                issue.issue === 'INSTRUMENT_DECLINED' || 
+                issue.description?.toLowerCase().includes('declined') ||
+                issue.description?.toLowerCase().includes('instrument')
+              );
+              
+              const expired = recheckStatus.status === 'EXPIRED' || orderStatus.status === 'EXPIRED';
+              const cancelled = recheckStatus.status === 'CANCELLED';
+              
+              if (instrumentDeclined) {
+                // Payment method was declined - this is a user payment issue, not our code issue
+                // Keep order as pending so user can try again
+                console.error('Payment instrument declined:', {
+                  paypalOrderId,
+                  orderId: order.id,
+                  errorDetails: specificIssues,
+                });
+                
+                return NextResponse.json(
+                  { 
+                    error: 'تم رفض طريقة الدفع. يرجى المحاولة بطريقة دفع أخرى أو التحقق من صحة البطاقة/الحساب.',
+                    details: {
+                      paypalError: 'INSTRUMENT_DECLINED',
+                      message: 'The payment method was declined by the bank or processor. Please try a different payment method.',
+                      orderId: order.id,
+                      canRetry: true,
+                    },
+                  },
+                  { status: 400 }
+                );
+              } else if (expired) {
+                return NextResponse.json(
+                  { 
+                    error: 'انتهت صلاحية التفويض. لا يمكن استلام الدفع الآن. المبلغ سيعود للعميل تلقائياً.',
+                    details: captureResult.message || 'Authorization expired',
+                  },
+                  { status: 400 }
+                );
+              } else if (cancelled) {
+                return NextResponse.json(
+                  { 
+                    error: 'تم إلغاء الطلب. يرجى إنشاء طلب جديد.',
+                    details: 'Order was cancelled',
+                  },
+                  { status: 400 }
+                );
+              }
+              
+              // Return detailed error for other cases
               return NextResponse.json(
                 { 
                   error: `فشل في معالجة الدفع: ${errorMessage}`,
                   details: process.env.NODE_ENV === 'development' ? {
                     errorName: captureResult.name,
                     message: captureResult.message,
-                    details: errorDetails,
+                    details: specificIssues,
                     debug_id: captureResult.debug_id,
                     paypalStatus: recheckStatus.status,
+                    originalStatus: orderStatus.status,
                   } : undefined,
                 },
                 { status: 400 }
