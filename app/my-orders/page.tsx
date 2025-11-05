@@ -1090,10 +1090,10 @@ export default function MyOrdersPage() {
 
       {/* Ticket Dialog */}
       <Dialog open={ticketDialogOpen} onOpenChange={setTicketDialogOpen}>
-        <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-4xl max-h-[90vh] flex flex-col p-0">
-          <DialogHeader className="px-6 pt-6 pb-4 border-b border-slate-700">
-            <DialogTitle className="text-xl">تذكرة الدعم</DialogTitle>
-            <DialogDescription className="text-slate-400">
+        <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-4xl max-h-[85vh] sm:max-h-[90vh] flex flex-col p-0 overflow-hidden">
+          <DialogHeader className="px-4 sm:px-6 pt-4 pb-3 border-b border-slate-700 flex-shrink-0">
+            <DialogTitle className="text-lg sm:text-xl">تذكرة الدعم</DialogTitle>
+            <DialogDescription className="text-slate-400 text-sm">
               {selectedOrderForTicket 
                 ? `طلب: ${selectedOrderForTicket.product_name}`
                 : currentTicket 
@@ -1109,9 +1109,9 @@ export default function MyOrdersPage() {
             </div>
           ) : currentTicket ? (
             // Existing ticket - show messages
-            <div className="flex-1 flex flex-col min-h-0">
+            <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
               {/* Ticket Header */}
-              <div className="px-6 py-4 bg-slate-900/50 border-b border-slate-700">
+              <div className="px-4 sm:px-6 py-2.5 sm:py-3 bg-slate-900/50 border-b border-slate-700 flex-shrink-0">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-blue-500/20 rounded-lg">
@@ -1137,7 +1137,7 @@ export default function MyOrdersPage() {
               </div>
               
               {/* Messages Area */}
-              <div className="flex-1 overflow-y-auto px-3 sm:px-6 py-4 bg-gradient-to-b from-slate-900/50 to-slate-800/50">
+              <div className="flex-1 overflow-y-auto px-3 sm:px-6 py-3 bg-gradient-to-b from-slate-900/50 to-slate-800/50 min-h-0">
                 {ticketMessages.length === 0 ? (
                   <div className="text-center py-12">
                     <MessageCircle className="w-12 h-12 text-slate-600 mx-auto mb-3" />
@@ -1266,7 +1266,7 @@ export default function MyOrdersPage() {
               
               {/* Input Area */}
               {currentTicket.status === 'open' && (
-                <div className="px-6 py-4 bg-slate-900/50 border-t border-slate-700">
+                <div className="px-4 sm:px-6 py-3 bg-slate-900/50 border-t border-slate-700 flex-shrink-0">
                   {/* Image File Name Display */}
                   {selectedImage && (
                     <div className="mb-3 flex items-center gap-2 p-2 bg-slate-800 border border-slate-600 rounded-lg">
@@ -1347,22 +1347,22 @@ export default function MyOrdersPage() {
             </div>
           ) : (
             // New ticket form
-            <div className="px-6 py-6 space-y-6">
-              <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
-                <div className="flex items-start gap-3">
-                  <AlertCircle className="w-5 h-5 text-blue-400 mt-0.5 flex-shrink-0" />
+            <div className="px-4 sm:px-6 py-3 space-y-3 overflow-y-auto flex-1 min-h-0">
+              <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-2.5">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 text-blue-400 mt-0.5 flex-shrink-0" />
                   <div>
-                    <p className="text-blue-300 font-semibold mb-1">
+                    <p className="text-blue-300 font-semibold mb-0.5 text-xs sm:text-sm">
                       {selectedOrderForTicket ? 'إنشاء تذكرة دعم جديدة' : 'إنشاء تذكرة دعم عامة'}
                     </p>
-                    <p className="text-blue-200/80 text-sm">
+                    <p className="text-blue-200/80 text-xs leading-relaxed">
                       {selectedOrderForTicket 
-                        ? `إنشاء تذكرة دعم متعلقة بالطلب: ${selectedOrderForTicket.product_name}. اشرح مشكلتك بالتفصيل وسنقوم بالرد عليك في أقرب وقت ممكن.`
-                        : 'يمكنك إنشاء تذكرة دعم عامة. اشرح مشكلتك بالتفصيل وسنقوم بالرد عليك في أقرب وقت ممكن.'}
+                        ? `إنشاء تذكرة دعم متعلقة بالطلب: ${selectedOrderForTicket.product_name}.`
+                        : 'يمكنك إنشاء تذكرة دعم عامة.'}
                     </p>
                     {selectedOrderForTicket && (
-                      <p className="text-blue-200/60 text-xs mt-2">
-                        ملاحظة: يمكنك إنشاء أكثر من تذكرة لنفس الطلب إذا كانت المشاكل مختلفة.
+                      <p className="text-blue-200/60 text-xs mt-1">
+                        يمكنك إنشاء أكثر من تذكرة لنفس الطلب.
                       </p>
                     )}
                   </div>
@@ -1371,7 +1371,7 @@ export default function MyOrdersPage() {
               
               {/* Image File Name Display for New Ticket */}
               {selectedImage && (
-                <div className="mb-4 flex items-center gap-2 p-2 bg-slate-800 border border-slate-600 rounded-lg">
+                <div className="flex items-center gap-2 p-2 bg-slate-800 border border-slate-600 rounded-lg">
                   <ImageIcon className="w-4 h-4 text-slate-400 flex-shrink-0" />
                   <span className="text-sm text-slate-300 flex-1 truncate">{selectedImage.name}</span>
                   <button
@@ -1386,19 +1386,19 @@ export default function MyOrdersPage() {
               )}
               
               <div>
-                <Label htmlFor="ticket-subject" className="text-white mb-2 block font-semibold">
+                <Label htmlFor="ticket-subject" className="text-white mb-1 block font-semibold text-sm">
                   الموضوع *
                 </Label>
                 <Input
                   id="ticket-subject"
                   value={ticketSubject}
                   onChange={(e) => setTicketSubject(e.target.value)}
-                  placeholder="مثال: مشكلة في الاشتراك أو رمز غير صالح"
-                  className="bg-slate-900 border-slate-600 text-white h-12 focus:ring-2 focus:ring-blue-500"
+                  placeholder="مثال: مشكلة في الاشتراك"
+                  className="bg-slate-900 border-slate-600 text-white h-9 sm:h-10 focus:ring-2 focus:ring-blue-500 text-sm"
                 />
               </div>
               <div>
-                <Label htmlFor="ticket-message" className="text-white mb-2 block font-semibold">
+                <Label htmlFor="ticket-message" className="text-white mb-1 block font-semibold text-sm">
                   الرسالة {selectedImage ? '' : '*'}
                 </Label>
                 <div className="relative">
@@ -1406,8 +1406,8 @@ export default function MyOrdersPage() {
                     id="ticket-message"
                     value={ticketMessage}
                     onChange={(e) => setTicketMessage(e.target.value)}
-                    placeholder="اشرح مشكلتك بالتفصيل... كلما كانت المعلومات أكثر تفصيلاً، كان بإمكاننا مساعدتك بشكل أفضل."
-                    className="bg-slate-900 border-slate-600 text-white min-h-[200px] focus:ring-2 focus:ring-blue-500 pr-12"
+                    placeholder="اشرح مشكلتك بالتفصيل..."
+                    className="bg-slate-900 border-slate-600 text-white min-h-[80px] sm:min-h-[100px] max-h-[100px] sm:max-h-[120px] focus:ring-2 focus:ring-blue-500 pr-12 text-sm resize-none"
                   />
                   <div className="absolute bottom-2 left-2 flex gap-2">
                     <input
@@ -1436,14 +1436,14 @@ export default function MyOrdersPage() {
                     </Button>
                   </div>
                 </div>
-                <p className="text-slate-400 text-xs mt-2">
+                <p className="text-slate-400 text-xs mt-1">
                   {ticketMessage.length} حرف
                 </p>
               </div>
             </div>
           )}
           
-          <DialogFooter className="px-6 pb-6 border-t border-slate-700 pt-4">
+          <DialogFooter className="px-4 sm:px-6 pb-3 sm:pb-4 pt-3 border-t border-slate-700 flex-shrink-0 gap-2">
             <Button
               variant="outline"
               onClick={async () => {
