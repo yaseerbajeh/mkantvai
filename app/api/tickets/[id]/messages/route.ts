@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { rateLimit, authenticatedLimiter } from '@/lib/rateLimiter';
-import { sendTicketResponseEmail } from '@/utils/sendEmail';
+import { sendTicketResponseEmail, sendNewTicketEmail } from '@/utils/sendEmail';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
