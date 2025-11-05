@@ -19,7 +19,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import Header from '@/components/Header';
@@ -42,6 +41,7 @@ import {
   Trash2,
   Download,
   FileText,
+  X,
 } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
 import { getSubscriptionTypeLabel, calculateExpirationDate, parseDurationToDays } from '@/lib/subscription-utils';
@@ -102,7 +102,7 @@ export default function AdminSubscriptionsPage() {
   });
   
   // CSV import
-  const [csvText, setCsvText] = useState('');
+  const [csvFile, setCsvFile] = useState<File | null>(null);
   const [importing, setImporting] = useState(false);
   
   // Actions
@@ -289,11 +289,69 @@ export default function AdminSubscriptionsPage() {
     }
   };
 
+  const downloadCSVTemplate = () => {
+    // CSV template with headers and example row
+    const headers = [
+      'customer_name',
+      'customer_email',
+      'customer_phone',
+      'subscription_code',
+      'subscription_type',
+      'subscription_duration',
+      'expiration_date',
+      'start_date',
+      'product_code'
+    ];
+    
+    // Example data row
+    const exampleRow = [
+      'محمد أحمد',
+      'email@example.com',
+      '966501234567',
+      'SUB-001',
+      'iptv',
+      '3 أشهر',
+      '2025-04-15',
+      '2025-01-15',
+      'SUB-BASIC-3M'
+    ];
+    
+    // Create CSV content with BOM for UTF-8 support
+    const csvContent = [
+      headers.join(','),
+      exampleRow.join(','),
+      '', // Empty row for clarity
+      '# ملاحظات:',
+      '# - customer_phone و product_code حقول اختيارية',
+      '# - subscription_type يجب أن يكون: iptv, shahid, netflix, أو package',
+      '# - subscription_duration مثال: "1 شهر", "3 أشهر", "6 أشهر", "12 شهر"',
+      '# - التواريخ بصيغة: YYYY-MM-DD (مثال: 2025-04-15)'
+    ].join('\n');
+    
+    // Create blob with UTF-8 BOM for Excel compatibility
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = 'subscriptions-template.csv';
+    link.click();
+    URL.revokeObjectURL(link.href);
+  };
+
   const handleCSVImport = async () => {
-    if (!csvText.trim()) {
+    if (!csvFile) {
       toast({
         title: 'خطأ',
-        description: 'يرجى إدخال بيانات CSV',
+        description: 'يرجى اختيار ملف CSV',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Validate file type
+    if (!csvFile.name.toLowerCase().endsWith('.csv')) {
+      toast({
+        title: 'خطأ',
+        description: 'يرجى اختيار ملف CSV صحيح',
         variant: 'destructive',
       });
       return;
@@ -301,6 +359,18 @@ export default function AdminSubscriptionsPage() {
 
     setImporting(true);
     try {
+      // Read file content
+      const csvText = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          resolve(e.target?.result as string);
+        };
+        reader.onerror = (e) => {
+          reject(new Error('فشل في قراءة الملف'));
+        };
+        reader.readAsText(csvFile, 'UTF-8');
+      });
+
       const response = await fetch('/api/admin/subscriptions/import-csv', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -319,7 +389,7 @@ export default function AdminSubscriptionsPage() {
       });
 
       setCsvImportDialogOpen(false);
-      setCsvText('');
+      setCsvFile(null);
       fetchSubscriptions();
     } catch (error: any) {
       console.error('Error importing CSV:', error);
@@ -1111,33 +1181,86 @@ export default function AdminSubscriptionsPage() {
           <DialogHeader>
             <DialogTitle>استيراد CSV</DialogTitle>
             <DialogDescription className="text-slate-400">
-              الصق محتوى ملف CSV هنا. يجب أن يحتوي على الرؤوس التالية:
+              اختر ملف CSV لاستيراد الاشتراكات
               <br />
-              <code className="text-xs bg-slate-900 p-2 rounded mt-2 block">
-                customer_name,customer_email,customer_phone,subscription_code,subscription_type,subscription_duration,expiration_date,start_date,product_code
-              </code>
+              <Button
+                type="button"
+                variant="link"
+                onClick={downloadCSVTemplate}
+                className="text-blue-400 hover:text-blue-300 p-0 h-auto mt-2 text-sm underline"
+              >
+                <Download className="w-4 h-4 ml-1" />
+                تحميل قالب CSV
+              </Button>
             </DialogDescription>
           </DialogHeader>
-          <div>
-            <Label>محتوى CSV</Label>
-            <Textarea
-              value={csvText}
-              onChange={(e) => setCsvText(e.target.value)}
-              className="bg-slate-700 border-slate-600 text-white font-mono text-sm min-h-[300px]"
-              placeholder="customer_name,customer_email,customer_phone,subscription_code,subscription_type,subscription_duration,expiration_date,start_date,product_code&#10;محمد أحمد,email@example.com,966501234567,SUB-001,iptv,3 أشهر,2025-04-15,2025-01-15,SUB-BASIC-3M"
-            />
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="csv-file-input">اختر ملف CSV</Label>
+              <div className="mt-2">
+                <input
+                  id="csv-file-input"
+                  type="file"
+                  accept=".csv"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0] || null;
+                    setCsvFile(file);
+                  }}
+                  className="hidden"
+                />
+                <label
+                  htmlFor="csv-file-input"
+                  className="flex flex-col items-center justify-center w-full h-32 border-2 border-slate-600 border-dashed rounded-lg cursor-pointer bg-slate-700 hover:bg-slate-600 transition-colors"
+                >
+                  <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                    <Upload className="w-10 h-10 mb-3 text-slate-400" />
+                    <p className="mb-2 text-sm text-slate-300">
+                      <span className="font-semibold">انقر لاختيار ملف</span> أو اسحب الملف هنا
+                    </p>
+                    <p className="text-xs text-slate-400">CSV فقط</p>
+                  </div>
+                </label>
+                {csvFile && (
+                  <div className="mt-2 p-3 bg-slate-700 rounded-lg border border-slate-600">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2 space-x-reverse">
+                        <FileText className="w-5 h-5 text-slate-400" />
+                        <div>
+                          <p className="text-sm font-medium text-white">{csvFile.name}</p>
+                          <p className="text-xs text-slate-400">
+                            {(csvFile.size / 1024).toFixed(2)} KB
+                          </p>
+                        </div>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setCsvFile(null)}
+                        className="text-slate-400 hover:text-white"
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
           <DialogFooter>
             <Button
               variant="outline"
-              onClick={() => setCsvImportDialogOpen(false)}
+              onClick={() => {
+                setCsvImportDialogOpen(false);
+                setCsvFile(null);
+              }}
               className="border-slate-600 text-slate-300"
             >
               إلغاء
             </Button>
             <Button
               onClick={handleCSVImport}
-              disabled={importing || !csvText.trim()}
+              disabled={importing || !csvFile}
               className="bg-blue-600 hover:bg-blue-700"
             >
               {importing ? (
