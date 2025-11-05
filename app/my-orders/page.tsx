@@ -8,11 +8,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { supabase } from '@/lib/supabase';
-import { CheckCircle2, Clock, XCircle, Package, ExternalLink, MessageCircle, AlertCircle, Filter, Star } from 'lucide-react';
+import { CheckCircle2, Clock, XCircle, Package, ExternalLink, MessageCircle, AlertCircle, Filter, Star, HelpCircle, Send, Loader2 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import type { User } from '@supabase/supabase-js';
 
@@ -51,6 +53,23 @@ export default function MyOrdersPage() {
   const [reviewRating, setReviewRating] = useState<number>(0);
   const [reviewComment, setReviewComment] = useState<string>('');
   const [submittingReview, setSubmittingReview] = useState(false);
+  
+  // Ticket states
+  const [ticketDialogOpen, setTicketDialogOpen] = useState(false);
+  const [selectedOrderForTicket, setSelectedOrderForTicket] = useState<Order | null>(null);
+  const [ticketSubject, setTicketSubject] = useState<string>('');
+  const [ticketMessage, setTicketMessage] = useState<string>('');
+  const [creatingTicket, setCreatingTicket] = useState(false);
+  const [currentTicket, setCurrentTicket] = useState<any>(null);
+  const [ticketMessages, setTicketMessages] = useState<any[]>([]);
+  const [newMessage, setNewMessage] = useState<string>('');
+  const [sendingMessage, setSendingMessage] = useState(false);
+  const [loadingTicket, setLoadingTicket] = useState(false);
+  
+  // My Tickets section
+  const [userTickets, setUserTickets] = useState<any[]>([]);
+  const [loadingTickets, setLoadingTickets] = useState(false);
+  const [activeTab, setActiveTab] = useState<'orders' | 'tickets'>('orders');
 
   useEffect(() => {
     const checkAuthAndFetchOrders = async () => {
@@ -102,7 +121,32 @@ export default function MyOrdersPage() {
     };
 
     checkAuthAndFetchOrders();
+    fetchUserTickets();
   }, [router]);
+
+  // Fetch user tickets
+  const fetchUserTickets = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) return;
+
+      setLoadingTickets(true);
+      const response = await fetch('/api/tickets', {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      });
+
+      const result = await response.json();
+      if (response.ok && result.tickets) {
+        setUserTickets(result.tickets);
+      }
+    } catch (error) {
+      console.error('Error fetching tickets:', error);
+    } finally {
+      setLoadingTickets(false);
+    }
+  };
 
   // Timer effect for pending orders
   useEffect(() => {
@@ -217,6 +261,187 @@ export default function MyOrdersPage() {
     setReviewDialogOpen(true);
   };
 
+  // Handle opening ticket dialog - for creating new ticket from order
+  const handleOpenTicketDialog = async (order: Order) => {
+    setSelectedOrderForTicket(order);
+    setTicketSubject('');
+    setTicketMessage('');
+    setCurrentTicket(null);
+    setTicketMessages([]);
+    setNewMessage('');
+    setTicketDialogOpen(true);
+  };
+
+  // Handle opening existing ticket
+  const handleOpenExistingTicket = async (ticket: any) => {
+    setSelectedOrderForTicket(null);
+    setCurrentTicket(null);
+    setTicketMessages([]);
+    setNewMessage('');
+    
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      
+      setLoadingTicket(true);
+      const response = await fetch(`/api/tickets/${ticket.id}`, {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      });
+      
+      const ticketData = await response.json();
+      if (response.ok && ticketData.ticket) {
+        setCurrentTicket(ticketData.ticket);
+        setTicketMessages(ticketData.ticket.messages || []);
+        
+        // Fetch order if order_id exists
+        if (ticketData.ticket.order_id) {
+          const orderResponse = await supabase
+            .from('orders')
+            .select('*')
+            .eq('id', ticketData.ticket.order_id)
+            .single();
+          
+          if (orderResponse.data) {
+            setSelectedOrderForTicket(orderResponse.data as Order);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error loading ticket:', error);
+      toast({
+        title: 'خطأ',
+        description: 'فشل في تحميل التذكرة',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoadingTicket(false);
+      setTicketDialogOpen(true);
+    }
+  };
+
+  // Handle creating new ticket
+  const handleCreateTicket = async () => {
+    if (!ticketSubject.trim() || !ticketMessage.trim()) {
+      toast({
+        title: 'خطأ',
+        description: 'يرجى إدخال الموضوع والرسالة',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setCreatingTicket(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast({
+          title: 'خطأ',
+          description: 'يرجى تسجيل الدخول',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      const response = await fetch('/api/tickets', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          order_id: selectedOrderForTicket?.id || null, // Allow null for general tickets
+          subject: ticketSubject.trim(),
+          message: ticketMessage.trim(),
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'فشل في إنشاء التذكرة');
+      }
+
+      toast({
+        title: 'نجح',
+        description: 'تم إنشاء التذكرة بنجاح',
+      });
+
+      setCurrentTicket(result.ticket);
+      setTicketMessages(result.ticket.messages || []);
+      setTicketSubject('');
+      setTicketMessage('');
+      
+      // Refresh tickets list
+      await fetchUserTickets();
+    } catch (error: any) {
+      toast({
+        title: 'خطأ',
+        description: error.message || 'حدث خطأ أثناء إنشاء التذكرة',
+        variant: 'destructive',
+      });
+    } finally {
+      setCreatingTicket(false);
+    }
+  };
+
+  // Handle sending message to ticket
+  const handleSendMessage = async () => {
+    if (!currentTicket || !newMessage.trim()) {
+      toast({
+        title: 'خطأ',
+        description: 'يرجى إدخال رسالة',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setSendingMessage(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast({
+          title: 'خطأ',
+          description: 'يرجى تسجيل الدخول',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      const response = await fetch(`/api/tickets/${currentTicket.id}/messages`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          message: newMessage.trim(),
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'فشل في إرسال الرسالة');
+      }
+
+      setTicketMessages([...ticketMessages, result.message]);
+      setNewMessage('');
+      
+      // Refresh tickets list to update updated_at
+      await fetchUserTickets();
+    } catch (error: any) {
+      toast({
+        title: 'خطأ',
+        description: error.message || 'حدث خطأ أثناء إرسال الرسالة',
+        variant: 'destructive',
+      });
+    } finally {
+      setSendingMessage(false);
+    }
+  };
+
   // Handle submitting review
   const handleSubmitReview = async () => {
     if (!selectedOrderForReview || reviewRating === 0) {
@@ -311,9 +536,22 @@ export default function MyOrdersPage() {
         <div className="max-w-4xl mx-auto">
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-white mb-2">طلباتي</h1>
-            <p className="text-slate-300">عرض جميع طلباتك الاشتراك</p>
+            <p className="text-slate-300">عرض جميع طلباتك وتذاكر الدعم</p>
           </div>
 
+          {/* Main Tabs - Orders and Tickets */}
+          <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'orders' | 'tickets')} className="mb-6">
+            <TabsList className="grid w-full grid-cols-2 bg-slate-800/50 mb-6">
+              <TabsTrigger value="orders" className="data-[state=active]:bg-blue-600">
+                طلباتي ({orderStats.all})
+              </TabsTrigger>
+              <TabsTrigger value="tickets" className="data-[state=active]:bg-blue-600">
+                تذاكري ({userTickets.length})
+              </TabsTrigger>
+            </TabsList>
+
+            {/* Orders Tab */}
+            <TabsContent value="orders">
           {/* Filter Tabs */}
           <Tabs value={filterStatus} onValueChange={(value) => setFilterStatus(value as typeof filterStatus)} className="mb-6">
             <TabsList className="grid w-full grid-cols-4 bg-slate-800/50">
@@ -545,9 +783,16 @@ export default function MyOrdersPage() {
                       </div>
                     )}
 
-                    {/* Review Button for Approved/Paid Orders */}
+                    {/* Actions for Approved/Paid Orders */}
                     {(order.status === 'approved' || order.status === 'paid') && (
-                      <div className="mt-4 pt-4 border-t border-slate-700">
+                      <div className="mt-4 pt-4 border-t border-slate-700 space-y-2">
+                        <Button
+                          onClick={() => handleOpenTicketDialog(order)}
+                          className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                        >
+                          <HelpCircle className="w-4 h-4 ml-2" />
+                          فتح تذكرة دعم
+                        </Button>
                         {order.has_review ? (
                           <div className="flex items-center gap-2 text-green-400">
                             <CheckCircle2 className="w-4 h-4" />
@@ -569,6 +814,117 @@ export default function MyOrdersPage() {
               ))}
             </div>
           )}
+          </TabsContent>
+
+            {/* Tickets Tab */}
+            <TabsContent value="tickets">
+              {loadingTickets ? (
+                <Card className="bg-slate-800/50 border-slate-700">
+                  <CardContent className="pt-6">
+                    <div className="text-center py-12">
+                      <Loader2 className="w-8 h-8 animate-spin text-blue-400 mx-auto mb-4" />
+                      <p className="text-slate-300">جاري تحميل التذاكر...</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : userTickets.length === 0 ? (
+                <Card className="bg-slate-800/50 border-slate-700">
+                  <CardContent className="pt-6">
+                    <div className="text-center py-12">
+                      <MessageCircle className="w-16 h-16 text-slate-500 mx-auto mb-4" />
+                      <h3 className="text-xl font-bold text-white mb-2">لا توجد تذاكر</h3>
+                      <p className="text-slate-300 mb-6">
+                        لم تقم بإنشاء أي تذاكر دعم بعد
+                      </p>
+                      <p className="text-slate-400 text-sm">
+                        يمكنك فتح تذكرة دعم من أي طلب معتمد أو مدفوع
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="space-y-4">
+                  {/* Add button to create general ticket */}
+                  <div className="flex justify-end mb-4">
+                    <Button
+                      onClick={() => {
+                        setSelectedOrderForTicket(null);
+                        setTicketSubject('');
+                        setTicketMessage('');
+                        setCurrentTicket(null);
+                        setTicketMessages([]);
+                        setNewMessage('');
+                        setTicketDialogOpen(true);
+                      }}
+                      className="bg-blue-600 hover:bg-blue-700"
+                    >
+                      <HelpCircle className="w-4 h-4 ml-2" />
+                      إنشاء تذكرة دعم جديدة
+                    </Button>
+                  </div>
+                  
+                  {userTickets.map((ticket) => (
+                    <Card key={ticket.id} className="bg-slate-800/50 border-slate-700 hover:border-slate-600 transition">
+                      <CardHeader>
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-3 mb-2">
+                              <MessageCircle className="w-5 h-5 text-blue-400" />
+                              <CardTitle className="text-xl text-white">
+                                {ticket.subject}
+                              </CardTitle>
+                              <Badge
+                                className={
+                                  ticket.status === 'open'
+                                    ? 'bg-green-500/20 text-green-400 border-green-500/50'
+                                    : 'bg-slate-700 text-slate-400 border-slate-600'
+                                }
+                              >
+                                {ticket.status === 'open' ? 'مفتوحة' : 'مغلقة'}
+                              </Badge>
+                            </div>
+                            <p className="text-slate-400 text-sm font-mono">
+                              رقم التذكرة: {ticket.id.slice(0, 8).toUpperCase()}
+                            </p>
+                            {ticket.order_id && (
+                              <p className="text-slate-400 text-sm">
+                                مرتبطة بطلب: {ticket.order_id.slice(0, 8).toUpperCase()}
+                              </p>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              onClick={() => handleOpenExistingTicket(ticket)}
+                              className="bg-blue-600 hover:bg-blue-700"
+                            >
+                              <MessageCircle className="w-4 h-4 ml-2" />
+                              فتح التذكرة
+                            </Button>
+                          </div>
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <p className="text-slate-400 text-sm mb-1">تاريخ الإنشاء</p>
+                            <p className="text-white">
+                              {new Date(ticket.created_at).toLocaleString('ar-SA')}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-slate-400 text-sm mb-1">آخر تحديث</p>
+                            <p className="text-white">
+                              {new Date(ticket.updated_at).toLocaleString('ar-SA')}
+                            </p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
         </div>
       </main>
       <Footer />
@@ -646,6 +1002,231 @@ export default function MyOrdersPage() {
             >
               {submittingReview ? 'جاري الإرسال...' : 'إرسال التقييم'}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Ticket Dialog */}
+      <Dialog open={ticketDialogOpen} onOpenChange={setTicketDialogOpen}>
+        <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-4xl max-h-[90vh] flex flex-col p-0">
+          <DialogHeader className="px-6 pt-6 pb-4 border-b border-slate-700">
+            <DialogTitle className="text-xl">تذكرة الدعم</DialogTitle>
+            <DialogDescription className="text-slate-400">
+              {selectedOrderForTicket 
+                ? `طلب: ${selectedOrderForTicket.product_name}`
+                : currentTicket 
+                  ? 'تذكرة دعم عامة'
+                  : 'إنشاء تذكرة دعم جديدة'}
+            </DialogDescription>
+          </DialogHeader>
+          
+          {loadingTicket ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-6 h-6 animate-spin text-blue-400 mr-2" />
+              <p className="text-slate-300">جاري التحميل...</p>
+            </div>
+          ) : currentTicket ? (
+            // Existing ticket - show messages
+            <div className="flex-1 flex flex-col min-h-0">
+              {/* Ticket Header */}
+              <div className="px-6 py-4 bg-slate-900/50 border-b border-slate-700">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-blue-500/20 rounded-lg">
+                      <MessageCircle className="w-5 h-5 text-blue-400" />
+                    </div>
+                    <div>
+                      <p className="text-white font-semibold text-lg">{currentTicket.subject}</p>
+                      <p className="text-slate-400 text-sm">
+                        {currentTicket.user_email}
+                      </p>
+                    </div>
+                  </div>
+                  <Badge
+                    className={
+                      currentTicket.status === 'open'
+                        ? 'bg-green-500/20 text-green-400 border-green-500/50'
+                        : 'bg-slate-700 text-slate-400 border-slate-600'
+                    }
+                  >
+                    {currentTicket.status === 'open' ? 'مفتوحة' : 'مغلقة'}
+                  </Badge>
+                </div>
+              </div>
+              
+              {/* Messages Area */}
+              <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4 bg-gradient-to-b from-slate-900/50 to-slate-800/50">
+                {ticketMessages.length === 0 ? (
+                  <div className="text-center py-12">
+                    <MessageCircle className="w-12 h-12 text-slate-600 mx-auto mb-3" />
+                    <p className="text-slate-400">لا توجد رسائل بعد</p>
+                  </div>
+                ) : (
+                  ticketMessages.map((msg) => (
+                    <div
+                      key={msg.id}
+                      className={`flex ${msg.sender_type === 'user' ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2`}
+                    >
+                      <div className="flex flex-col max-w-[75%]">
+                        <div className="flex items-center gap-2 mb-1 px-2">
+                          {msg.sender_type === 'admin' && (
+                            <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center">
+                              <span className="text-xs text-white font-bold">م</span>
+                            </div>
+                          )}
+                          <span className="text-xs text-slate-400">
+                            {msg.sender_type === 'user' ? 'أنت' : 'المدير'}
+                          </span>
+                          {msg.sender_type === 'user' && (
+                            <div className="w-6 h-6 rounded-full bg-green-500 flex items-center justify-center">
+                              <span className="text-xs text-white font-bold">أ</span>
+                            </div>
+                          )}
+                        </div>
+                        <div
+                          className={`rounded-2xl px-4 py-3 shadow-lg ${
+                            msg.sender_type === 'user'
+                              ? 'bg-blue-600 text-white rounded-br-sm'
+                              : 'bg-slate-700 text-white rounded-bl-sm border border-slate-600'
+                          }`}
+                        >
+                          <p className="whitespace-pre-wrap text-sm leading-relaxed">{msg.message}</p>
+                        </div>
+                        <span className="text-xs text-slate-500 mt-1 px-2">
+                          {new Date(msg.created_at).toLocaleString('ar-SA', {
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </span>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+              
+              {/* Input Area */}
+              {currentTicket.status === 'open' && (
+                <div className="px-6 py-4 bg-slate-900/50 border-t border-slate-700">
+                  <div className="flex gap-3 items-end">
+                    <div className="flex-1 relative">
+                      <Textarea
+                        value={newMessage}
+                        onChange={(e) => setNewMessage(e.target.value)}
+                        placeholder="اكتب رسالتك هنا... (Ctrl+Enter للإرسال)"
+                        className="bg-slate-800 border-slate-600 text-white min-h-[100px] resize-none pr-12 focus:ring-2 focus:ring-blue-500"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && e.ctrlKey) {
+                            e.preventDefault();
+                            handleSendMessage();
+                          }
+                        }}
+                      />
+                      <div className="absolute bottom-2 left-2 text-xs text-slate-500">
+                        Ctrl + Enter
+                      </div>
+                    </div>
+                    <Button
+                      onClick={handleSendMessage}
+                      disabled={sendingMessage || !newMessage.trim()}
+                      className="bg-blue-600 hover:bg-blue-700 h-[100px] px-6"
+                      size="lg"
+                    >
+                      {sendingMessage ? (
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                      ) : (
+                        <>
+                          <Send className="w-5 h-5 ml-2" />
+                          إرسال
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            // New ticket form
+            <div className="px-6 py-6 space-y-6">
+              <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
+                <div className="flex items-start gap-3">
+                  <AlertCircle className="w-5 h-5 text-blue-400 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="text-blue-300 font-semibold mb-1">
+                      {selectedOrderForTicket ? 'إنشاء تذكرة دعم جديدة' : 'إنشاء تذكرة دعم عامة'}
+                    </p>
+                    <p className="text-blue-200/80 text-sm">
+                      {selectedOrderForTicket 
+                        ? `إنشاء تذكرة دعم متعلقة بالطلب: ${selectedOrderForTicket.product_name}. اشرح مشكلتك بالتفصيل وسنقوم بالرد عليك في أقرب وقت ممكن.`
+                        : 'يمكنك إنشاء تذكرة دعم عامة. اشرح مشكلتك بالتفصيل وسنقوم بالرد عليك في أقرب وقت ممكن.'}
+                    </p>
+                    {selectedOrderForTicket && (
+                      <p className="text-blue-200/60 text-xs mt-2">
+                        ملاحظة: يمكنك إنشاء أكثر من تذكرة لنفس الطلب إذا كانت المشاكل مختلفة.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+              
+              <div>
+                <Label htmlFor="ticket-subject" className="text-white mb-2 block font-semibold">
+                  الموضوع *
+                </Label>
+                <Input
+                  id="ticket-subject"
+                  value={ticketSubject}
+                  onChange={(e) => setTicketSubject(e.target.value)}
+                  placeholder="مثال: مشكلة في الاشتراك أو رمز غير صالح"
+                  className="bg-slate-900 border-slate-600 text-white h-12 focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <Label htmlFor="ticket-message" className="text-white mb-2 block font-semibold">
+                  الرسالة *
+                </Label>
+                <Textarea
+                  id="ticket-message"
+                  value={ticketMessage}
+                  onChange={(e) => setTicketMessage(e.target.value)}
+                  placeholder="اشرح مشكلتك بالتفصيل... كلما كانت المعلومات أكثر تفصيلاً، كان بإمكاننا مساعدتك بشكل أفضل."
+                  className="bg-slate-900 border-slate-600 text-white min-h-[200px] focus:ring-2 focus:ring-blue-500"
+                />
+                <p className="text-slate-400 text-xs mt-2">
+                  {ticketMessage.length} حرف
+                </p>
+              </div>
+            </div>
+          )}
+          
+          <DialogFooter className="px-6 pb-6 border-t border-slate-700 pt-4">
+            <Button
+              variant="outline"
+              onClick={async () => {
+                setTicketDialogOpen(false);
+                setCurrentTicket(null);
+                setTicketMessages([]);
+                setNewMessage('');
+                setTicketSubject('');
+                setTicketMessage('');
+                // Refresh tickets list when closing dialog
+                await fetchUserTickets();
+              }}
+              className="border-slate-600 text-slate-300"
+            >
+              إغلاق
+            </Button>
+            {!currentTicket && (
+              <Button
+                onClick={handleCreateTicket}
+                disabled={creatingTicket || !ticketSubject.trim() || !ticketMessage.trim()}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                {creatingTicket ? 'جاري الإنشاء...' : 'إنشاء التذكرة'}
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

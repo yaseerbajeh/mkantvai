@@ -42,6 +42,7 @@ import {
   Download,
   FileText,
   X,
+  Sparkles,
 } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
 import { getSubscriptionTypeLabel, calculateExpirationDate, parseDurationToDays } from '@/lib/subscription-utils';
@@ -87,6 +88,10 @@ export default function AdminSubscriptionsPage() {
   const [renewDialogOpen, setRenewDialogOpen] = useState(false);
   const [selectedSubscription, setSelectedSubscription] = useState<ActiveSubscription | null>(null);
   const [renewalDuration, setRenewalDuration] = useState<string>('');
+  
+  // Refresh subscription dialog
+  const [refreshDialogOpen, setRefreshDialogOpen] = useState(false);
+  const [refreshingSubscription, setRefreshingSubscription] = useState(false);
   
   // Manual entry form
   const [manualForm, setManualForm] = useState({
@@ -567,6 +572,71 @@ export default function AdminSubscriptionsPage() {
     }
   };
 
+  const handleRefreshSubscription = async (subscription: ActiveSubscription) => {
+    setSelectedSubscription(subscription);
+    setRefreshDialogOpen(true);
+  };
+
+  const confirmRefreshSubscription = async () => {
+    if (!selectedSubscription) return;
+
+    setRefreshingSubscription(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        toast({
+          title: 'خطأ',
+          description: 'يرجى تسجيل الدخول',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      // Use order_id if available, otherwise use active_subscription_id
+      const requestBody: any = {};
+      if (selectedSubscription.order_id) {
+        requestBody.order_id = selectedSubscription.order_id;
+      } else {
+        requestBody.active_subscription_id = selectedSubscription.id;
+      }
+
+      const response = await fetch('/api/admin/subscriptions/refresh', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'فشل في تحديث الاشتراك');
+      }
+
+      toast({
+        title: 'نجح',
+        description: 'تم تحديث الاشتراك بنجاح وإرسال التفاصيل للعميل',
+      });
+
+      setRefreshDialogOpen(false);
+      setSelectedSubscription(null);
+      
+      // Refresh subscriptions list
+      await fetchSubscriptions();
+    } catch (error: any) {
+      console.error('Error refreshing subscription:', error);
+      toast({
+        title: 'خطأ',
+        description: error.message || 'حدث خطأ أثناء تحديث الاشتراك',
+        variant: 'destructive',
+      });
+    } finally {
+      setRefreshingSubscription(false);
+    }
+  };
+
   const handleDeleteSubscription = async (subscription: ActiveSubscription) => {
     if (!confirm(`هل أنت متأكد من حذف اشتراك ${subscription.customer_name}؟ سيتم نقله إلى الاشتراكات المنتهية.`)) {
       return;
@@ -958,11 +1028,26 @@ export default function AdminSubscriptionsPage() {
                                 onClick={() => handleRenew(sub)}
                                 disabled={actionLoading.has(sub.id)}
                                 className="text-purple-400 hover:text-purple-300"
+                                title="تجديد الاشتراك"
                               >
                                 {actionLoading.has(sub.id) ? (
                                   <Loader2 className="h-4 w-4 animate-spin" />
                                 ) : (
                                   <RotateCcw className="h-4 w-4" />
+                                )}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleRefreshSubscription(sub)}
+                                disabled={actionLoading.has(sub.id)}
+                                className="text-blue-400 hover:text-blue-300"
+                                title="إرسال اشتراك محدث"
+                              >
+                                {actionLoading.has(sub.id) ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Sparkles className="h-4 w-4" />
                                 )}
                               </Button>
                               <Button
@@ -1368,6 +1453,80 @@ export default function AdminSubscriptionsPage() {
                 </>
               ) : (
                 'تجديد'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Refresh Subscription Dialog */}
+      <Dialog open={refreshDialogOpen} onOpenChange={setRefreshDialogOpen}>
+        <DialogContent className="bg-slate-800 border-slate-700 text-white">
+          <DialogHeader>
+            <DialogTitle>إرسال اشتراك محدث</DialogTitle>
+            <DialogDescription className="text-slate-400">
+              سيتم جلب اشتراك جديد من المخزون وإرساله للعميل. سيتم تحديث الاشتراك في جميع الصفحات.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedSubscription && (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <div>
+                  <span className="text-slate-400">العميل:</span>{' '}
+                  <span className="text-white">{selectedSubscription.customer_name}</span>
+                </div>
+                <div>
+                  <span className="text-slate-400">البريد الإلكتروني:</span>{' '}
+                  <span className="text-white">{selectedSubscription.customer_email}</span>
+                </div>
+                <div>
+                  <span className="text-slate-400">الاشتراك الحالي:</span>{' '}
+                  <span className="text-white font-mono">{selectedSubscription.subscription_code}</span>
+                </div>
+                <div>
+                  <span className="text-slate-400">رمز المنتج:</span>{' '}
+                  <span className="text-white">{selectedSubscription.product_code || 'غير محدد'}</span>
+                </div>
+              </div>
+              <div className="bg-yellow-900/20 border border-yellow-700 rounded-lg p-3">
+                <p className="text-yellow-300 text-sm">
+                  سيتم جلب اشتراك جديد من المخزون يطابق رمز المنتج. سيتم تحديث الاشتراك في:
+                </p>
+                <ul className="list-disc list-inside text-yellow-200 text-sm mt-2 space-y-1">
+                  <li>صفحة طلباتي</li>
+                  <li>صفحة إدارة الاشتراكات</li>
+                  <li>جميع الصفحات ذات الصلة</li>
+                </ul>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setRefreshDialogOpen(false);
+                setSelectedSubscription(null);
+              }}
+              className="border-slate-600 text-slate-300"
+              disabled={refreshingSubscription}
+            >
+              إلغاء
+            </Button>
+            <Button
+              onClick={confirmRefreshSubscription}
+              disabled={refreshingSubscription}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              {refreshingSubscription ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  جاري التحديث...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  إرسال اشتراك محدث
+                </>
               )}
             </Button>
           </DialogFooter>

@@ -68,6 +68,38 @@ export interface AbandonedCartReminderData {
   templateBody: string;
 }
 
+export interface NewTicketEmailData {
+  ticketId: string;
+  orderId: string;
+  userName: string;
+  userEmail: string;
+  subject: string;
+  message: string;
+}
+
+export interface TicketResponseEmailData {
+  ticketId: string;
+  userName: string;
+  userEmail: string;
+  subject: string;
+  adminMessage: string;
+}
+
+export interface SubscriptionRefreshEmailData {
+  userName: string;
+  userEmail: string;
+  subscriptionCode: string;
+  subscriptionMeta?: any;
+  orderId?: string;
+}
+
+export interface TicketClosedEmailData {
+  ticketId: string;
+  userName: string;
+  userEmail: string;
+  subject: string;
+}
+
 /**
  * Send email notification to admin when a new order is created
  */
@@ -352,6 +384,231 @@ export async function sendAbandonedCartReminderEmail(data: AbandonedCartReminder
     console.log(`Abandoned cart reminder email sent to ${data.email} for order ${data.orderId}`);
   } catch (error) {
     console.error('Error sending abandoned cart reminder email:', error);
+    throw error;
+  }
+}
+
+/**
+ * Send email notification to admin when a new ticket is created
+ */
+export async function sendNewTicketEmail(data: NewTicketEmailData): Promise<void> {
+  const adminEmail = process.env.ADMIN_EMAIL || 'maakantv@gmail.com';
+
+  const mailOptions = {
+    from: `"مكان TV" <${emailConfig.auth.user}>`,
+    to: adminEmail,
+    subject: `تذكرة دعم جديدة - ${escapeHtml(data.subject)}`,
+    html: `
+      <div dir="rtl" style="font-family: Arial, sans-serif; padding: 20px; background-color: #f5f5f5;">
+        <div style="max-width: 600px; margin: 0 auto; background-color: white; padding: 30px; border-radius: 10px;">
+          <h2 style="color: #333; margin-bottom: 20px;">تذكرة دعم جديدة</h2>
+          
+          <div style="margin-bottom: 15px;">
+            <strong>رقم التذكرة:</strong> ${escapeHtml(data.ticketId.slice(0, 8).toUpperCase())}
+          </div>
+          
+          <div style="margin-bottom: 15px;">
+            <strong>رقم الطلب:</strong> ${escapeHtml(data.orderId.slice(0, 8).toUpperCase())}
+          </div>
+          
+          <div style="margin-bottom: 15px;">
+            <strong>اسم العميل:</strong> ${escapeHtml(data.userName)}
+          </div>
+          
+          <div style="margin-bottom: 15px;">
+            <strong>البريد الإلكتروني:</strong> ${escapeHtml(data.userEmail)}
+          </div>
+          
+          <div style="margin-bottom: 15px;">
+            <strong>الموضوع:</strong> ${escapeHtml(data.subject)}
+          </div>
+          
+          <div style="margin-bottom: 20px; padding: 15px; background-color: #f8f9fa; border-radius: 8px; border-right: 4px solid #007bff;">
+            <strong>الرسالة:</strong>
+            <p style="margin-top: 10px; color: #333; white-space: pre-wrap;">${escapeHtml(data.message)}</p>
+          </div>
+          
+          <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; color: #666; font-size: 14px;">
+            يرجى الرد على التذكرة من خلال لوحة الإدارة.
+          </div>
+        </div>
+      </div>
+    `,
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+    console.log(`New ticket email sent to admin for ticket ${data.ticketId}`);
+  } catch (error) {
+    console.error('Error sending new ticket email:', error);
+    throw error;
+  }
+}
+
+/**
+ * Send email notification to user when admin responds to their ticket
+ */
+export async function sendTicketResponseEmail(data: TicketResponseEmailData): Promise<void> {
+  const mailOptions = {
+    from: `"مكان TV" <${emailConfig.auth.user}>`,
+    to: data.userEmail,
+    subject: `رد على تذكرة الدعم - ${escapeHtml(data.subject)}`,
+    html: `
+      <div dir="rtl" style="font-family: Arial, sans-serif; padding: 20px; background-color: #f5f5f5;">
+        <div style="max-width: 600px; margin: 0 auto; background-color: white; padding: 30px; border-radius: 10px;">
+          <h2 style="color: #28a745; margin-bottom: 20px;">تم الرد على تذكرة الدعم</h2>
+          
+          <p style="font-size: 16px; color: #333; margin-bottom: 20px;">
+            مرحباً ${escapeHtml(data.userName)}،
+          </p>
+          
+          <p style="font-size: 16px; color: #333; margin-bottom: 20px;">
+            تم الرد على تذكرة الدعم الخاصة بك بخصوص: <strong>${escapeHtml(data.subject)}</strong>
+          </p>
+          
+          <div style="margin-bottom: 20px; padding: 15px; background-color: #f8f9fa; border-radius: 8px; border-right: 4px solid #28a745;">
+            <strong>الرد:</strong>
+            <p style="margin-top: 10px; color: #333; white-space: pre-wrap;">${escapeHtml(data.adminMessage)}</p>
+          </div>
+          
+          <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; color: #666; font-size: 14px;">
+            يمكنك متابعة المحادثة من خلال صفحة طلباتي.
+          </div>
+          
+          <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; color: #666; font-size: 14px;">
+            مع تحيات فريق مكان TV
+          </div>
+        </div>
+      </div>
+    `,
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+    console.log(`Ticket response email sent to ${data.userEmail} for ticket ${data.ticketId}`);
+  } catch (error) {
+    console.error('Error sending ticket response email:', error);
+    throw error;
+  }
+}
+
+/**
+ * Send email notification to user when their subscription is refreshed
+ */
+export async function sendSubscriptionRefreshEmail(data: SubscriptionRefreshEmailData): Promise<void> {
+  const mailOptions = {
+    from: `"مكان TV" <${emailConfig.auth.user}>`,
+    to: data.userEmail,
+    subject: 'تم تحديث اشتراكك',
+    html: `
+      <div dir="rtl" style="font-family: Arial, sans-serif; padding: 20px; background-color: #f5f5f5;">
+        <div style="max-width: 600px; margin: 0 auto; background-color: white; padding: 30px; border-radius: 10px;">
+          <h2 style="color: #28a745; margin-bottom: 20px;">✅ تم تحديث اشتراكك</h2>
+          
+          <p style="font-size: 16px; color: #333; margin-bottom: 20px;">
+            مرحباً ${escapeHtml(data.userName)}،
+          </p>
+          
+          <p style="font-size: 16px; color: #333; margin-bottom: 20px;">
+            تم تحديث اشتراكك بنجاح. إليك رمز الاشتراك الجديد:
+          </p>
+          
+          <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: center;">
+            <div style="margin-bottom: 15px;">
+              <strong style="display: block; margin-bottom: 10px; color: #333;">رمز الاشتراك الجديد:</strong>
+              <span style="font-family: monospace; font-size: 24px; font-weight: bold; background-color: #e9ecef; padding: 15px 20px; border-radius: 8px; display: inline-block; color: #28a745; letter-spacing: 2px;">
+                ${escapeHtml(data.subscriptionCode)}
+              </span>
+            </div>
+          </div>
+          
+          ${data.subscriptionMeta && data.subscriptionMeta.duration ? `
+          <div style="margin-bottom: 15px; padding: 15px; background-color: #f8f9fa; border-radius: 8px;">
+            <strong>مدة الاشتراك:</strong> ${escapeHtml(String(data.subscriptionMeta.duration))}
+          </div>
+          ` : ''}
+          
+          ${data.subscriptionMeta && data.subscriptionMeta.type ? `
+          <div style="margin-bottom: 15px; padding: 15px; background-color: #f8f9fa; border-radius: 8px;">
+            <strong>نوع الاشتراك:</strong> ${escapeHtml(String(data.subscriptionMeta.type))}
+          </div>
+          ` : ''}
+          
+          <div style="background-color: #fff3cd; padding: 15px; border-radius: 8px; margin: 20px 0; border-right: 4px solid #ffc107;">
+            <p style="color: #856404; margin: 0; font-size: 14px;">
+              <strong>ملاحظة مهمة:</strong> يرجى استخدام رمز الاشتراك الجديد. الرمز القديم لم يعد صالحاً.
+            </p>
+          </div>
+          
+          <p style="font-size: 16px; color: #333; margin-top: 30px;">
+            يمكنك الآن استخدام رمز الاشتراك الجديد للوصول إلى جميع المحتويات المتاحة.
+          </p>
+          
+          <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; color: #666; font-size: 14px;">
+            شكراً لثقتك بنا!
+          </div>
+          
+          <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; color: #666; font-size: 14px;">
+            مع تحيات فريق مكان TV
+          </div>
+        </div>
+      </div>
+    `,
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+    console.log(`Subscription refresh email sent to ${data.userEmail}`);
+  } catch (error) {
+    console.error('Error sending subscription refresh email:', error);
+    throw error;
+  }
+}
+
+/**
+ * Send email notification to user when their ticket is closed
+ */
+export async function sendTicketClosedEmail(data: TicketClosedEmailData): Promise<void> {
+  const mailOptions = {
+    from: `"مكان TV" <${emailConfig.auth.user}>`,
+    to: data.userEmail,
+    subject: `تم إغلاق تذكرة الدعم - ${escapeHtml(data.subject)}`,
+    html: `
+      <div dir="rtl" style="font-family: Arial, sans-serif; padding: 20px; background-color: #f5f5f5;">
+        <div style="max-width: 600px; margin: 0 auto; background-color: white; padding: 30px; border-radius: 10px;">
+          <h2 style="color: #6c757d; margin-bottom: 20px;">تم إغلاق تذكرة الدعم</h2>
+          
+          <p style="font-size: 16px; color: #333; margin-bottom: 20px;">
+            مرحباً ${escapeHtml(data.userName)}،
+          </p>
+          
+          <p style="font-size: 16px; color: #333; margin-bottom: 20px;">
+            تم إغلاق تذكرة الدعم الخاصة بك بخصوص: <strong>${escapeHtml(data.subject)}</strong>
+          </p>
+          
+          <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0; border-right: 4px solid #6c757d;">
+            <p style="color: #333; margin: 0;">
+              إذا كان لديك أي استفسارات إضافية، يمكنك فتح تذكرة دعم جديدة من خلال صفحة طلباتك.
+            </p>
+          </div>
+          
+          <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; color: #666; font-size: 14px;">
+            شكراً لاستخدامك خدماتنا!
+          </div>
+          
+          <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; color: #666; font-size: 14px;">
+            مع تحيات فريق مكان TV
+          </div>
+        </div>
+      </div>
+    `,
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+    console.log(`Ticket closed email sent to ${data.userEmail} for ticket ${data.ticketId}`);
+  } catch (error) {
+    console.error('Error sending ticket closed email:', error);
     throw error;
   }
 }
