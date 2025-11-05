@@ -1,0 +1,1258 @@
+'use client';
+
+import { useEffect, useState, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
+import { format } from 'date-fns';
+import { ar } from 'date-fns/locale';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import Header from '@/components/Header';
+import Footer from '@/components/Footer';
+import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/lib/supabase';
+import {
+  Loader2,
+  Search,
+  Plus,
+  Upload,
+  RefreshCw,
+  Calendar as CalendarIcon,
+  Phone,
+  Mail,
+  MessageSquare,
+  CheckCircle2,
+  AlertTriangle,
+  RotateCcw,
+  Trash2,
+  Download,
+  FileText,
+} from 'lucide-react';
+import type { User } from '@supabase/supabase-js';
+import { getSubscriptionTypeLabel, calculateExpirationDate, parseDurationToDays } from '@/lib/subscription-utils';
+
+interface ActiveSubscription {
+  id: string;
+  order_id: string | null;
+  customer_name: string;
+  customer_email: string;
+  customer_phone: string | null;
+  subscription_code: string;
+  subscription_type: 'iptv' | 'shahid' | 'netflix' | 'package';
+  subscription_duration: string;
+  expiration_date: string;
+  due_days: number;
+  start_date: string;
+  product_code: string | null;
+  reminder_sent: boolean;
+  reminder_sent_at: string | null;
+  last_contacted_at: string | null;
+  renewed_from_subscription_id: string | null;
+  is_renewed: boolean;
+  renewal_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export default function AdminSubscriptionsPage() {
+  const router = useRouter();
+  const { toast } = useToast();
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [subscriptions, setSubscriptions] = useState<ActiveSubscription[]>([]);
+  const [filteredSubscriptions, setFilteredSubscriptions] = useState<ActiveSubscription[]>([]);
+  
+  // Filters
+  const [searchQuery, setSearchQuery] = useState('');
+  const [typeFilter, setTypeFilter] = useState<string>('all');
+  
+  // Dialogs
+  const [manualEntryDialogOpen, setManualEntryDialogOpen] = useState(false);
+  const [csvImportDialogOpen, setCsvImportDialogOpen] = useState(false);
+  const [renewDialogOpen, setRenewDialogOpen] = useState(false);
+  const [selectedSubscription, setSelectedSubscription] = useState<ActiveSubscription | null>(null);
+  const [renewalDuration, setRenewalDuration] = useState<string>('');
+  
+  // Manual entry form
+  const [manualForm, setManualForm] = useState({
+    customer_name: '',
+    customer_email: '',
+    customer_phone: '',
+    subscription_code: '',
+    subscription_type: 'iptv' as 'iptv' | 'shahid' | 'netflix' | 'package',
+    subscription_duration: '1 شهر',
+    start_date: new Date(),
+    expiration_date: new Date(),
+    product_code: '',
+  });
+  
+  // CSV import
+  const [csvText, setCsvText] = useState('');
+  const [importing, setImporting] = useState(false);
+  
+  // Actions
+  const [actionLoading, setActionLoading] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+        if (sessionError) {
+          console.error('Session error:', sessionError);
+          toast({
+            title: 'خطأ',
+            description: 'حدث خطأ أثناء التحقق من الجلسة',
+            variant: 'destructive',
+          });
+          setLoading(false);
+          return;
+        }
+
+        if (!session?.user) {
+          router.push('/auth');
+          return;
+        }
+
+        const adminEmailsStr = process.env.NEXT_PUBLIC_ADMIN_EMAILS || '';
+        if (!adminEmailsStr) {
+          if (process.env.NODE_ENV === 'production') {
+            toast({
+              title: 'خطأ في الإعدادات',
+              description: 'إعدادات الإدارة غير متوفرة. يرجى الاتصال بالدعم الفني.',
+              variant: 'destructive',
+            });
+            router.push('/');
+            return;
+          }
+        } else {
+          const adminEmails = adminEmailsStr.split(',').map(e => e.trim()).filter(Boolean);
+          if (adminEmails.length > 0 && !adminEmails.includes(session.user.email || '')) {
+            toast({
+              title: 'غير مصرح',
+              description: 'ليس لديك صلاحية للوصول إلى هذه الصفحة',
+              variant: 'destructive',
+            });
+            router.push('/');
+            return;
+          }
+        }
+
+        setUser(session.user);
+        fetchSubscriptions();
+      } catch (error: any) {
+        console.error('Auth check error:', error);
+        toast({
+          title: 'خطأ',
+          description: error.message || 'حدث خطأ أثناء التحقق من الصلاحيات',
+          variant: 'destructive',
+        });
+        setLoading(false);
+      }
+    };
+
+    checkAuth();
+  }, [router, toast]);
+
+  // Filter and sort subscriptions
+  useEffect(() => {
+    let filtered = [...subscriptions];
+
+    // Filter by type
+    if (typeFilter !== 'all') {
+      filtered = filtered.filter(sub => sub.subscription_type === typeFilter);
+    }
+
+    // Filter by search query
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(sub =>
+        sub.customer_name.toLowerCase().includes(query) ||
+        sub.customer_email.toLowerCase().includes(query) ||
+        sub.customer_phone?.toLowerCase().includes(query) ||
+        sub.subscription_code.toLowerCase().includes(query)
+      );
+    }
+
+    // Sort by expiration date (soonest first)
+    filtered.sort((a, b) => {
+      const dateA = new Date(a.expiration_date).getTime();
+      const dateB = new Date(b.expiration_date).getTime();
+      return dateA - dateB;
+    });
+
+    setFilteredSubscriptions(filtered);
+  }, [subscriptions, searchQuery, typeFilter]);
+
+  const calculateDueDays = (expirationDate: string): number => {
+    const now = new Date();
+    const expiration = new Date(expirationDate);
+    const diffTime = expiration.getTime() - now.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return Math.max(0, diffDays);
+  };
+
+  const fetchSubscriptions = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('active_subscriptions')
+        .select('*')
+        .order('expiration_date', { ascending: true });
+
+      if (error) {
+        console.error('Error fetching subscriptions:', error);
+        toast({
+          title: 'خطأ',
+          description: error.message || 'حدث خطأ أثناء جلب الاشتراكات',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      // Calculate due_days for each subscription
+      const subscriptionsWithDueDays = (data || []).map((sub: any) => ({
+        ...sub,
+        due_days: calculateDueDays(sub.expiration_date),
+      }));
+
+      setSubscriptions(subscriptionsWithDueDays);
+    } catch (error: any) {
+      console.error('Error fetching subscriptions:', error);
+      toast({
+        title: 'خطأ',
+        description: error.message || 'حدث خطأ أثناء جلب الاشتراكات',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleManualEntry = async () => {
+    try {
+      const { error } = await supabase
+        .from('active_subscriptions')
+        .insert({
+          customer_name: manualForm.customer_name,
+          customer_email: manualForm.customer_email,
+          customer_phone: manualForm.customer_phone || null,
+          subscription_code: manualForm.subscription_code,
+          subscription_type: manualForm.subscription_type,
+          subscription_duration: manualForm.subscription_duration,
+          start_date: manualForm.start_date.toISOString(),
+          expiration_date: manualForm.expiration_date.toISOString(),
+          product_code: manualForm.product_code || null,
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: 'نجح',
+        description: 'تم إضافة الاشتراك بنجاح',
+      });
+
+      setManualEntryDialogOpen(false);
+      setManualForm({
+        customer_name: '',
+        customer_email: '',
+        customer_phone: '',
+        subscription_code: '',
+        subscription_type: 'iptv',
+        subscription_duration: '1 شهر',
+        start_date: new Date(),
+        expiration_date: new Date(),
+        product_code: '',
+      });
+      fetchSubscriptions();
+    } catch (error: any) {
+      console.error('Error adding subscription:', error);
+      toast({
+        title: 'خطأ',
+        description: error.message || 'حدث خطأ أثناء إضافة الاشتراك',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleCSVImport = async () => {
+    if (!csvText.trim()) {
+      toast({
+        title: 'خطأ',
+        description: 'يرجى إدخال بيانات CSV',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setImporting(true);
+    try {
+      const response = await fetch('/api/admin/subscriptions/import-csv', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ csvText }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'فشل استيراد البيانات');
+      }
+
+      toast({
+        title: 'نجح',
+        description: `تم استيراد ${result.imported} اشتراك بنجاح`,
+      });
+
+      setCsvImportDialogOpen(false);
+      setCsvText('');
+      fetchSubscriptions();
+    } catch (error: any) {
+      console.error('Error importing CSV:', error);
+      toast({
+        title: 'خطأ',
+        description: error.message || 'حدث خطأ أثناء استيراد البيانات',
+        variant: 'destructive',
+      });
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const handleRenew = async (subscription: ActiveSubscription) => {
+    setSelectedSubscription(subscription);
+    setRenewalDuration(subscription.subscription_duration); // Default to current duration
+    setRenewDialogOpen(true);
+  };
+
+  const confirmRenew = async () => {
+    if (!selectedSubscription) return;
+
+    // Ensure we use the selected renewal duration, not the original
+    const durationToSend = renewalDuration || selectedSubscription.subscription_duration;
+    
+    console.log('Frontend - Renewal preparation:', {
+      subscriptionId: selectedSubscription.id,
+      renewalDurationState: renewalDuration,
+      selectedSubscriptionDuration: selectedSubscription.subscription_duration,
+      durationToSend: durationToSend,
+      isEmpty: !renewalDuration || renewalDuration === '',
+    });
+
+    setActionLoading(prev => new Set(prev).add(selectedSubscription.id));
+    try {
+      const requestBody = {
+        subscriptionId: selectedSubscription.id,
+        newDuration: durationToSend,
+      };
+      
+      console.log('Sending renewal request:', requestBody);
+      
+      const response = await fetch('/api/admin/subscriptions/renew', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody),
+      });
+
+      const result = await response.json();
+      console.log('Renewal response:', result);
+
+      if (!response.ok) {
+        throw new Error(result.error || 'فشل تجديد الاشتراك');
+      }
+
+      toast({
+        title: 'نجح',
+        description: 'تم تجديد الاشتراك بنجاح',
+      });
+
+      setRenewDialogOpen(false);
+      setSelectedSubscription(null);
+      setRenewalDuration('');
+      
+      // Force refresh subscriptions immediately
+      // Clear any cached data first
+      setSubscriptions([]);
+      
+      // Small delay to ensure database consistency
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
+      await fetchSubscriptions();
+      console.log('Subscriptions refreshed after renewal');
+      console.log('Renewed subscription should have expiration:', result.renewalDetails?.newExpirationDate);
+      console.log('Updated subscription data:', result.subscription);
+      
+      // Verify the subscription was updated in the fetched data
+      // Wait a bit more for state to update
+      setTimeout(() => {
+        const updated = subscriptions.find(s => s.id === result.subscription?.id);
+        if (updated) {
+          console.log('Found updated subscription in list:', {
+            id: updated.id,
+            expiration: updated.expiration_date,
+            startDate: updated.start_date,
+            expectedExpiration: result.renewalDetails?.newExpirationDate,
+            expectedStartDate: result.renewalDetails?.newStartDate,
+            expirationMatches: updated.expiration_date === result.renewalDetails?.newExpirationDate || 
+                              Math.abs(new Date(updated.expiration_date).getTime() - new Date(result.renewalDetails?.newExpirationDate || 0).getTime()) < 1000,
+            startDateMatches: updated.start_date === result.renewalDetails?.newStartDate ||
+                             Math.abs(new Date(updated.start_date).getTime() - new Date(result.renewalDetails?.newStartDate || 0).getTime()) < 1000,
+          });
+        } else {
+          console.warn('Updated subscription not found in list after refresh');
+        }
+      }, 500);
+    } catch (error: any) {
+      console.error('Error renewing subscription:', error);
+      toast({
+        title: 'خطأ',
+        description: error.message || 'حدث خطأ أثناء تجديد الاشتراك',
+        variant: 'destructive',
+      });
+    } finally {
+      setActionLoading(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(selectedSubscription.id);
+        return newSet;
+      });
+    }
+  };
+
+  const handleReminderSent = async (subscription: ActiveSubscription) => {
+    setActionLoading(prev => new Set(prev).add(subscription.id));
+    try {
+      const response = await fetch('/api/admin/subscriptions/update-reminder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subscriptionId: subscription.id }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'فشل تحديث حالة التذكير');
+      }
+
+      toast({
+        title: 'نجح',
+        description: 'تم تحديث حالة التذكير',
+      });
+
+      fetchSubscriptions();
+    } catch (error: any) {
+      console.error('Error updating reminder:', error);
+      toast({
+        title: 'خطأ',
+        description: error.message || 'حدث خطأ أثناء تحديث حالة التذكير',
+        variant: 'destructive',
+      });
+    } finally {
+      setActionLoading(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(subscription.id);
+        return newSet;
+      });
+    }
+  };
+
+  const handleCleanupExpired = async () => {
+    try {
+      const response = await fetch('/api/admin/subscriptions/cleanup-expired', {
+        method: 'POST',
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'فشل نقل الاشتراكات المنتهية');
+      }
+
+      toast({
+        title: 'نجح',
+        description: `تم نقل ${result.movedCount} اشتراك منتهي`,
+      });
+
+      fetchSubscriptions();
+    } catch (error: any) {
+      console.error('Error cleaning up expired:', error);
+      toast({
+        title: 'خطأ',
+        description: error.message || 'حدث خطأ أثناء نقل الاشتراكات المنتهية',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleDeleteSubscription = async (subscription: ActiveSubscription) => {
+    if (!confirm(`هل أنت متأكد من حذف اشتراك ${subscription.customer_name}؟ سيتم نقله إلى الاشتراكات المنتهية.`)) {
+      return;
+    }
+
+    setActionLoading(prev => new Set(prev).add(subscription.id));
+    try {
+      const response = await fetch('/api/admin/subscriptions/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subscriptionId: subscription.id }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'فشل حذف الاشتراك');
+      }
+
+      toast({
+        title: 'نجح',
+        description: 'تم نقل الاشتراك إلى الاشتراكات المنتهية',
+      });
+
+      fetchSubscriptions();
+    } catch (error: any) {
+      console.error('Error deleting subscription:', error);
+      toast({
+        title: 'خطأ',
+        description: error.message || 'حدث خطأ أثناء حذف الاشتراك',
+        variant: 'destructive',
+      });
+    } finally {
+      setActionLoading(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(subscription.id);
+        return newSet;
+      });
+    }
+  };
+
+  // Statistics
+  const stats = useMemo(() => {
+    const total = subscriptions.length;
+    const expiringSoon = subscriptions.filter(s => s.due_days <= 4 && s.due_days > 0).length;
+    const expired = subscriptions.filter(s => s.due_days <= 0).length;
+    const byType = {
+      iptv: subscriptions.filter(s => s.subscription_type === 'iptv').length,
+      shahid: subscriptions.filter(s => s.subscription_type === 'shahid').length,
+      netflix: subscriptions.filter(s => s.subscription_type === 'netflix').length,
+      package: subscriptions.filter(s => s.subscription_type === 'package').length,
+    };
+    const renewed = subscriptions.filter(s => (s.renewal_count || 0) > 0).length;
+    const renewalRate = total > 0 ? ((renewed / total) * 100).toFixed(1) : '0';
+
+    return {
+      total,
+      expiringSoon,
+      expired,
+      byType,
+      renewed,
+      renewalRate,
+    };
+  }, [subscriptions]);
+
+  // Expiring soon subscriptions (4 days)
+  const expiringSoon = useMemo(() => {
+    return subscriptions.filter(s => s.due_days <= 4 && s.due_days > 0);
+  }, [subscriptions]);
+
+  const whatsappNumber = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || '';
+
+  const getWhatsAppUrl = (phone: string | null) => {
+    if (!phone) return '';
+    const cleanPhone = phone.replace(/\D/g, '');
+    const message = encodeURIComponent('مرحباً، نود تذكيرك بأن اشتراكك على وشك الانتهاء. يرجى التواصل معنا لتجديد الاشتراك.');
+    return `https://wa.me/${cleanPhone}?text=${message}`;
+  };
+
+  const getEmailUrl = (email: string) => {
+    const subject = encodeURIComponent('تجديد الاشتراك');
+    const body = encodeURIComponent('مرحباً، نود تذكيرك بأن اشتراكك على وشك الانتهاء. يرجى التواصل معنا لتجديد الاشتراك.');
+    return `mailto:${email}?subject=${subject}&body=${body}`;
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900">
+        <Header />
+        <main className="container mx-auto px-4 py-24 pt-32">
+          <div className="max-w-6xl mx-auto text-center">
+            <Loader2 className="h-8 w-8 animate-spin text-white mx-auto" />
+            <p className="text-slate-300 mt-4">جاري التحميل...</p>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return null;
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900">
+      <Header />
+      <main className="container mx-auto px-4 py-24 pt-32">
+        <div className="max-w-7xl mx-auto">
+          {/* Header */}
+          <div className="mb-8">
+            <h1 className="text-4xl font-bold text-white mb-2">إدارة الإشتراكات</h1>
+            <p className="text-slate-300">إدارة وتتبع اشتراكات العملاء</p>
+          </div>
+
+          {/* Statistics Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <Card className="bg-slate-800/50 border-slate-700">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-slate-300">إجمالي الاشتراكات</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-white">{stats.total}</div>
+              </CardContent>
+            </Card>
+            <Card className="bg-slate-800/50 border-slate-700">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-slate-300">على وشك الانتهاء (4 أيام)</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-orange-400">{stats.expiringSoon}</div>
+              </CardContent>
+            </Card>
+            <Card className="bg-slate-800/50 border-slate-700">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-slate-300">منتهية</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-red-400">{stats.expired}</div>
+              </CardContent>
+            </Card>
+            <Card className="bg-slate-800/50 border-slate-700">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-slate-300">معدل التجديد</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-green-400">{stats.renewalRate}%</div>
+                <div className="text-xs text-slate-400 mt-1">{stats.renewed} من {stats.total}</div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Expiring Soon Banner */}
+          {expiringSoon.length > 0 && (
+            <Card className="bg-orange-500/10 border-orange-500/50 mb-6">
+              <CardHeader>
+                <CardTitle className="text-orange-400 flex items-center gap-2">
+                  <AlertTriangle className="h-5 w-5" />
+                  اشتراكات على وشك الانتهاء ({expiringSoon.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3 max-h-64 overflow-y-auto">
+                  {expiringSoon.map((sub) => (
+                    <div
+                      key={sub.id}
+                      className="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg"
+                    >
+                      <div className="flex-1">
+                        <div className="text-white font-medium">{sub.customer_name}</div>
+                        <div className="text-sm text-slate-300">{sub.customer_email}</div>
+                        <div className="text-xs text-slate-400">
+                          {getSubscriptionTypeLabel(sub.subscription_type)} • ينتهي في {sub.due_days} يوم
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {sub.customer_phone && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="border-green-500 text-green-400 hover:bg-green-500/10"
+                            onClick={() => window.open(getWhatsAppUrl(sub.customer_phone), '_blank')}
+                          >
+                            <Phone className="h-4 w-4" />
+                          </Button>
+                        )}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="border-blue-500 text-blue-400 hover:bg-blue-500/10"
+                          onClick={() => window.open(getEmailUrl(sub.customer_email), '_blank')}
+                        >
+                          <Mail className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant={sub.reminder_sent ? 'default' : 'outline'}
+                          onClick={() => handleReminderSent(sub)}
+                          disabled={actionLoading.has(sub.id)}
+                        >
+                          {actionLoading.has(sub.id) ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <>
+                              <MessageSquare className="h-4 w-4 mr-1" />
+                              {sub.reminder_sent ? 'تم الإرسال' : 'إرسال تذكير'}
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Actions Bar */}
+          <div className="flex flex-wrap items-center gap-4 mb-6">
+            <div className="flex-1 min-w-[200px]">
+              <div className="relative">
+                <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 h-4 w-4" />
+                <Input
+                  placeholder="البحث عن اشتراك..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pr-10 bg-slate-800/50 border-slate-700 text-white"
+                />
+              </div>
+            </div>
+            <Select value={typeFilter} onValueChange={setTypeFilter}>
+              <SelectTrigger className="w-[180px] bg-slate-800/50 border-slate-700 text-white">
+                <SelectValue placeholder="نوع الاشتراك" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">جميع الأنواع</SelectItem>
+                <SelectItem value="iptv">IPTV</SelectItem>
+                <SelectItem value="shahid">Shahid</SelectItem>
+                <SelectItem value="netflix">Netflix</SelectItem>
+                <SelectItem value="package">باقة</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button
+              onClick={() => setManualEntryDialogOpen(true)}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              إضافة يدوي
+            </Button>
+            <Button
+              onClick={() => setCsvImportDialogOpen(true)}
+              variant="outline"
+              className="border-slate-600 text-slate-300 hover:bg-slate-700"
+            >
+              <Upload className="h-4 w-4 mr-2" />
+              استيراد CSV
+            </Button>
+            <Button
+              onClick={handleCleanupExpired}
+              variant="outline"
+              className="border-red-600 text-red-400 hover:bg-red-600/10"
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              نقل المنتهية
+            </Button>
+            <Button
+              onClick={fetchSubscriptions}
+              variant="outline"
+              className="border-slate-600 text-slate-300 hover:bg-slate-700"
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              تحديث
+            </Button>
+          </div>
+
+          {/* Subscriptions Table */}
+          <Card className="bg-slate-800/50 border-slate-700">
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="border-slate-700">
+                      <TableHead className="text-slate-300">العميل</TableHead>
+                      <TableHead className="text-slate-300">نوع الاشتراك</TableHead>
+                      <TableHead className="text-slate-300">رمز الاشتراك</TableHead>
+                      <TableHead className="text-slate-300">تاريخ البدء</TableHead>
+                      <TableHead className="text-slate-300">تاريخ الانتهاء</TableHead>
+                      <TableHead className="text-slate-300">الأيام المتبقية</TableHead>
+                      <TableHead className="text-slate-300">التجديد</TableHead>
+                      <TableHead className="text-slate-300">الإجراءات</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredSubscriptions.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={8} className="text-center text-slate-400 py-8">
+                          لا توجد اشتراكات
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      filteredSubscriptions.map((sub) => (
+                        <TableRow key={sub.id} className="border-slate-700">
+                          <TableCell>
+                            <div>
+                              <div className="text-white font-medium">{sub.customer_name}</div>
+                              <div className="text-sm text-slate-400">{sub.customer_email}</div>
+                              {sub.customer_phone && (
+                                <div className="text-xs text-slate-500">{sub.customer_phone}</div>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge
+                              variant="outline"
+                              className={
+                                sub.subscription_type === 'iptv'
+                                  ? 'border-purple-500 text-purple-400'
+                                  : sub.subscription_type === 'netflix'
+                                  ? 'border-red-500 text-red-400'
+                                  : sub.subscription_type === 'shahid'
+                                  ? 'border-blue-500 text-blue-400'
+                                  : 'border-green-500 text-green-400'
+                              }
+                            >
+                              {getSubscriptionTypeLabel(sub.subscription_type)}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-slate-300 font-mono text-sm">
+                            {sub.subscription_code}
+                          </TableCell>
+                          <TableCell className="text-slate-300">
+                            {format(new Date(sub.start_date), 'yyyy-MM-dd', { locale: ar })}
+                          </TableCell>
+                          <TableCell className="text-slate-300">
+                            {sub.expiration_date ? format(new Date(sub.expiration_date), 'yyyy-MM-dd', { locale: ar }) : 'N/A'}
+                          </TableCell>
+                          <TableCell>
+                            <Badge
+                              variant={
+                                sub.due_days <= 0
+                                  ? 'destructive'
+                                  : sub.due_days <= 4
+                                  ? 'default'
+                                  : 'outline'
+                              }
+                              className={
+                                sub.due_days <= 0
+                                  ? 'bg-red-500'
+                                  : sub.due_days <= 4
+                                  ? 'bg-orange-500'
+                                  : 'border-slate-600 text-slate-300'
+                              }
+                            >
+                              {sub.due_days <= 0 ? 'منتهي' : `${sub.due_days} يوم`}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-slate-300">
+                            {(sub.renewal_count || 0) > 0 ? (
+                              <Badge variant="outline" className="border-green-500 text-green-400">
+                                تم التجديد ({sub.renewal_count})
+                              </Badge>
+                            ) : (
+                              <span className="text-slate-400">-</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              {sub.customer_phone && (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => window.open(getWhatsAppUrl(sub.customer_phone), '_blank')}
+                                  className="text-green-400 hover:text-green-300"
+                                >
+                                  <Phone className="h-4 w-4" />
+                                </Button>
+                              )}
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => window.open(getEmailUrl(sub.customer_email), '_blank')}
+                                className="text-blue-400 hover:text-blue-300"
+                              >
+                                <Mail className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleRenew(sub)}
+                                disabled={actionLoading.has(sub.id)}
+                                className="text-purple-400 hover:text-purple-300"
+                              >
+                                {actionLoading.has(sub.id) ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <RotateCcw className="h-4 w-4" />
+                                )}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleReminderSent(sub)}
+                                disabled={actionLoading.has(sub.id)}
+                                className={
+                                  sub.reminder_sent
+                                    ? 'text-green-400 hover:text-green-300'
+                                    : 'text-slate-400 hover:text-slate-300'
+                                }
+                              >
+                                {actionLoading.has(sub.id) ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : sub.reminder_sent ? (
+                                  <CheckCircle2 className="h-4 w-4" />
+                                ) : (
+                                  <MessageSquare className="h-4 w-4" />
+                                )}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleDeleteSubscription(sub)}
+                                disabled={actionLoading.has(sub.id)}
+                                className="text-red-400 hover:text-red-300"
+                                title="حذف ونقل إلى الاشتراكات المنتهية"
+                              >
+                                {actionLoading.has(sub.id) ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Trash2 className="h-4 w-4" />
+                                )}
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </main>
+
+      {/* Manual Entry Dialog */}
+      <Dialog open={manualEntryDialogOpen} onOpenChange={setManualEntryDialogOpen}>
+        <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>إضافة اشتراك يدوياً</DialogTitle>
+            <DialogDescription className="text-slate-400">
+              أضف اشتراك جديد يدوياً
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label>اسم العميل *</Label>
+              <Input
+                value={manualForm.customer_name}
+                onChange={(e) => setManualForm({ ...manualForm, customer_name: e.target.value })}
+                className="bg-slate-700 border-slate-600 text-white"
+              />
+            </div>
+            <div>
+              <Label>البريد الإلكتروني *</Label>
+              <Input
+                type="email"
+                value={manualForm.customer_email}
+                onChange={(e) => setManualForm({ ...manualForm, customer_email: e.target.value })}
+                className="bg-slate-700 border-slate-600 text-white"
+              />
+            </div>
+            <div>
+              <Label>رقم الهاتف</Label>
+              <Input
+                value={manualForm.customer_phone}
+                onChange={(e) => setManualForm({ ...manualForm, customer_phone: e.target.value })}
+                className="bg-slate-700 border-slate-600 text-white"
+              />
+            </div>
+            <div>
+              <Label>رمز الاشتراك *</Label>
+              <Input
+                value={manualForm.subscription_code}
+                onChange={(e) => setManualForm({ ...manualForm, subscription_code: e.target.value })}
+                className="bg-slate-700 border-slate-600 text-white"
+              />
+            </div>
+            <div>
+              <Label>نوع الاشتراك *</Label>
+              <Select
+                value={manualForm.subscription_type}
+                onValueChange={(value: any) =>
+                  setManualForm({ ...manualForm, subscription_type: value })
+                }
+              >
+                <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="iptv">IPTV</SelectItem>
+                  <SelectItem value="shahid">Shahid</SelectItem>
+                  <SelectItem value="netflix">Netflix</SelectItem>
+                  <SelectItem value="package">باقة</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>مدة الاشتراك *</Label>
+              <Input
+                value={manualForm.subscription_duration}
+                onChange={(e) => {
+                  const duration = e.target.value;
+                  setManualForm({
+                    ...manualForm,
+                    subscription_duration: duration,
+                    expiration_date: calculateExpirationDate(manualForm.start_date, duration),
+                  });
+                }}
+                className="bg-slate-700 border-slate-600 text-white"
+                placeholder="مثال: 3 أشهر"
+              />
+            </div>
+            <div>
+              <Label>تاريخ البدء *</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start text-left font-normal bg-slate-700 border-slate-600 text-white"
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {format(manualForm.start_date, 'yyyy-MM-dd', { locale: ar })}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0 bg-slate-800 border-slate-700">
+                  <Calendar
+                    mode="single"
+                    selected={manualForm.start_date}
+                    onSelect={(date) => {
+                      if (date) {
+                        setManualForm({
+                          ...manualForm,
+                          start_date: date,
+                          expiration_date: calculateExpirationDate(date, manualForm.subscription_duration),
+                        });
+                      }
+                    }}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+            <div>
+              <Label>تاريخ الانتهاء *</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start text-left font-normal bg-slate-700 border-slate-600 text-white"
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {format(manualForm.expiration_date, 'yyyy-MM-dd', { locale: ar })}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0 bg-slate-800 border-slate-700">
+                  <Calendar
+                    mode="single"
+                    selected={manualForm.expiration_date}
+                    onSelect={(date) => {
+                      if (date) {
+                        setManualForm({ ...manualForm, expiration_date: date });
+                      }
+                    }}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+            <div className="col-span-2">
+              <Label>رمز المنتج (اختياري)</Label>
+              <Input
+                value={manualForm.product_code}
+                onChange={(e) => setManualForm({ ...manualForm, product_code: e.target.value })}
+                className="bg-slate-700 border-slate-600 text-white"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setManualEntryDialogOpen(false)}
+              className="border-slate-600 text-slate-300"
+            >
+              إلغاء
+            </Button>
+            <Button
+              onClick={handleManualEntry}
+              disabled={
+                !manualForm.customer_name ||
+                !manualForm.customer_email ||
+                !manualForm.subscription_code
+              }
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              إضافة
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* CSV Import Dialog */}
+      <Dialog open={csvImportDialogOpen} onOpenChange={setCsvImportDialogOpen}>
+        <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>استيراد CSV</DialogTitle>
+            <DialogDescription className="text-slate-400">
+              الصق محتوى ملف CSV هنا. يجب أن يحتوي على الرؤوس التالية:
+              <br />
+              <code className="text-xs bg-slate-900 p-2 rounded mt-2 block">
+                customer_name,customer_email,customer_phone,subscription_code,subscription_type,subscription_duration,expiration_date,start_date,product_code
+              </code>
+            </DialogDescription>
+          </DialogHeader>
+          <div>
+            <Label>محتوى CSV</Label>
+            <Textarea
+              value={csvText}
+              onChange={(e) => setCsvText(e.target.value)}
+              className="bg-slate-700 border-slate-600 text-white font-mono text-sm min-h-[300px]"
+              placeholder="customer_name,customer_email,customer_phone,subscription_code,subscription_type,subscription_duration,expiration_date,start_date,product_code&#10;محمد أحمد,email@example.com,966501234567,SUB-001,iptv,3 أشهر,2025-04-15,2025-01-15,SUB-BASIC-3M"
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setCsvImportDialogOpen(false)}
+              className="border-slate-600 text-slate-300"
+            >
+              إلغاء
+            </Button>
+            <Button
+              onClick={handleCSVImport}
+              disabled={importing || !csvText.trim()}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              {importing ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  جاري الاستيراد...
+                </>
+              ) : (
+                'استيراد'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Renew Dialog */}
+      <Dialog open={renewDialogOpen} onOpenChange={setRenewDialogOpen}>
+        <DialogContent className="bg-slate-800 border-slate-700 text-white">
+          <DialogHeader>
+            <DialogTitle>تجديد الاشتراك</DialogTitle>
+            <DialogDescription className="text-slate-400">
+              قم بتحديث الاشتراك بتاريخ بدء جديد. يمكنك اختيار مدة جديدة للاشتراك.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedSubscription && (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <div>
+                  <span className="text-slate-400">العميل:</span>{' '}
+                  <span className="text-white">{selectedSubscription.customer_name}</span>
+                </div>
+                <div>
+                  <span className="text-slate-400">نوع الاشتراك:</span>{' '}
+                  <span className="text-white">
+                    {getSubscriptionTypeLabel(selectedSubscription.subscription_type)}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-400">المدة الحالية:</span>{' '}
+                  <span className="text-white">{selectedSubscription.subscription_duration}</span>
+                </div>
+                <div>
+                  <span className="text-slate-400">تاريخ الانتهاء الحالي:</span>{' '}
+                  <span className="text-white">
+                    {format(new Date(selectedSubscription.expiration_date), 'yyyy-MM-dd', { locale: ar })}
+                  </span>
+                </div>
+              </div>
+              
+              <div>
+                <Label>مدة التجديد *</Label>
+                <Select
+                  value={renewalDuration}
+                  onValueChange={(value) => {
+                    console.log('Duration changed to:', value);
+                    setRenewalDuration(value);
+                  }}
+                >
+                  <SelectTrigger className="bg-slate-700 border-slate-600 text-white mt-2">
+                    <SelectValue placeholder="اختر المدة">
+                      {renewalDuration || 'اختر المدة'}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1 شهر">1 شهر</SelectItem>
+                    <SelectItem value="3 أشهر">3 أشهر</SelectItem>
+                    <SelectItem value="6 أشهر">6 أشهر</SelectItem>
+                    <SelectItem value="12 شهر">12 شهر</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-slate-400 mt-1">
+                  المدة المختارة: <strong>{renewalDuration || 'غير محدد'}</strong>
+                  <br />
+                  التاريخ الجديد: {renewalDuration && selectedSubscription ? (() => {
+                    // Calculate new expiration: current expiration + selected duration
+                    const currentExpiration = new Date(selectedSubscription.expiration_date);
+                    const daysToAdd = parseDurationToDays(renewalDuration);
+                    const newExpiration = new Date(currentExpiration.getTime() + (daysToAdd * 24 * 60 * 60 * 1000));
+                    return format(newExpiration, 'yyyy-MM-dd', { locale: ar });
+                  })() : 'يرجى اختيار المدة'}
+                </p>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setRenewDialogOpen(false);
+                setRenewalDuration('');
+              }}
+              className="border-slate-600 text-slate-300"
+            >
+              إلغاء
+            </Button>
+            <Button
+              onClick={confirmRenew}
+              disabled={actionLoading.has(selectedSubscription?.id || '') || !renewalDuration || renewalDuration.trim() === ''}
+              className="bg-purple-600 hover:bg-purple-700"
+            >
+              {actionLoading.has(selectedSubscription?.id || '') ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  جاري التجديد...
+                </>
+              ) : (
+                'تجديد'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Footer />
+    </div>
+  );
+}
+
