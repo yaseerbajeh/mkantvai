@@ -13,6 +13,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
@@ -30,7 +33,7 @@ import {
   TrendingUp,
   DollarSign,
   ShoppingCart,
-  CreditCard
+  Plus
 } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Legend, ResponsiveContainer } from 'recharts';
@@ -93,8 +96,26 @@ export default function AdminOrdersPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
   
-  // Capture payment state
-  const [capturingOrders, setCapturingOrders] = useState<Set<string>>(new Set());
+  // Complete order state
+  const [completingOrders, setCompletingOrders] = useState<Set<string>>(new Set());
+  
+  // Manual order creation state
+  const [manualOrderDialogOpen, setManualOrderDialogOpen] = useState(false);
+  const [products, setProducts] = useState<any[]>([]);
+  const [loadingProducts, setLoadingProducts] = useState(false);
+  const [creatingOrder, setCreatingOrder] = useState(false);
+  const [availableSubscriptionCodes, setAvailableSubscriptionCodes] = useState<any[]>([]);
+  const [loadingSubscriptionCodes, setLoadingSubscriptionCodes] = useState(false);
+  const [manualOrderForm, setManualOrderForm] = useState({
+    customer_name: '',
+    customer_email: '',
+    customer_whatsapp: '',
+    product_code: '',
+    product_name: '',
+    price: '',
+    payment_status: 'unpaid' as 'paid' | 'unpaid',
+    selected_subscription_code: '', // Optional: manually select subscription code
+  });
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -148,6 +169,7 @@ export default function AdminOrdersPage() {
 
         setUser(session.user);
         fetchOrders();
+        fetchProducts();
       } catch (error: any) {
         console.error('Auth check error:', error);
         toast({
@@ -193,10 +215,47 @@ export default function AdminOrdersPage() {
     }
   }, [quickFilter]);
 
+  const fetchProducts = async () => {
+    setLoadingProducts(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        toast({
+          title: 'خطأ',
+          description: 'يرجى تسجيل الدخول',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      const response = await fetch('/api/admin/products', {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'فشل في جلب المنتجات');
+      }
+      
+      const result = await response.json();
+      setProducts(result.products || []);
+    } catch (error: any) {
+      console.error('Error fetching products:', error);
+      toast({
+        title: 'خطأ',
+        description: error.message || 'فشل في جلب المنتجات',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoadingProducts(false);
+    }
+  };
+
   const fetchOrders = async () => {
     try {
       // Fetch paid, approved, and pending orders with order_items for cart orders
-      // Include pending to show capture payment button
       // Explicitly select status field to ensure we get the correct value from database
       const { data, error } = await supabase
         .from('orders')
@@ -492,8 +551,8 @@ export default function AdminOrdersPage() {
       <ArrowDown className="h-4 w-4 ml-1" />;
   };
 
-  const handleCapturePayment = async (orderId: string) => {
-    setCapturingOrders(prev => new Set(prev).add(orderId));
+  const handleCompleteOrder = async (orderId: string) => {
+    setCompletingOrders(prev => new Set(prev).add(orderId));
     
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -506,7 +565,7 @@ export default function AdminOrdersPage() {
         return;
       }
 
-      const response = await fetch('/api/admin/capture-payment', {
+      const response = await fetch('/api/admin/orders/complete', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -518,12 +577,12 @@ export default function AdminOrdersPage() {
       const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.error || 'فشل في معالجة الدفع');
+        throw new Error(result.error || 'فشل في تحديث حالة الطلب');
       }
 
       toast({
         title: 'نجح',
-        description: result.message || 'تم استلام الدفع بنجاح',
+        description: result.message || 'تم تحديث حالة الطلب إلى مدفوع بنجاح',
       });
 
       // Refresh orders to show updated status
@@ -542,18 +601,188 @@ export default function AdminOrdersPage() {
         }
       }
     } catch (error: any) {
-      console.error('Error capturing payment:', error);
+      console.error('Error completing order:', error);
       toast({
         title: 'خطأ',
-        description: error.message || 'فشل في معالجة الدفع',
+        description: error.message || 'فشل في تحديث حالة الطلب',
         variant: 'destructive',
       });
     } finally {
-      setCapturingOrders(prev => {
+      setCompletingOrders(prev => {
         const newSet = new Set(prev);
         newSet.delete(orderId);
         return newSet;
       });
+    }
+  };
+
+  const handleManualOrderSubmit = async () => {
+    // Validation
+    if (!manualOrderForm.customer_name || !manualOrderForm.customer_email || !manualOrderForm.product_name || !manualOrderForm.price) {
+      toast({
+        title: 'خطأ',
+        description: 'يرجى ملء جميع الحقول المطلوبة',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setCreatingOrder(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        toast({
+          title: 'خطأ',
+          description: 'يرجى تسجيل الدخول',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      const response = await fetch('/api/admin/orders/create-manual', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          customer_name: manualOrderForm.customer_name,
+          customer_email: manualOrderForm.customer_email,
+          customer_whatsapp: manualOrderForm.customer_whatsapp || null,
+          product_code: manualOrderForm.product_code || null,
+          product_name: manualOrderForm.product_name,
+          price: parseFloat(manualOrderForm.price),
+          payment_status: manualOrderForm.payment_status,
+          selected_subscription_code: manualOrderForm.selected_subscription_code || null,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'فشل في إنشاء الطلب');
+      }
+
+      toast({
+        title: 'نجح',
+        description: result.message || 'تم إنشاء الطلب بنجاح',
+      });
+
+      // Reset form
+      setManualOrderForm({
+        customer_name: '',
+        customer_email: '',
+        customer_whatsapp: '',
+        product_code: '',
+        product_name: '',
+        price: '',
+        payment_status: 'unpaid',
+        selected_subscription_code: '',
+      });
+      setAvailableSubscriptionCodes([]);
+      setManualOrderDialogOpen(false);
+
+      // Refresh orders list
+      const { data: ordersData, error: ordersError } = await supabase
+        .from('orders')
+        .select(`
+          id,
+          order_number,
+          name,
+          email,
+          whatsapp,
+          product_name,
+          product_code,
+          price,
+          total_amount,
+          discount_amount,
+          promo_code_id,
+          is_cart_order,
+          status,
+          payment_method,
+          payment_id,
+          payment_status,
+          assigned_subscription,
+          created_at,
+          order_items (*)
+        `)
+        .in('status', ['paid', 'approved', 'pending'])
+        .order('created_at', { ascending: false });
+      
+      if (!ordersError && ordersData) {
+        setOrders(ordersData as Order[]);
+      }
+
+      if (result.warning) {
+        toast({
+          title: 'تحذير',
+          description: result.warning,
+          variant: 'default',
+        });
+      }
+    } catch (error: any) {
+      console.error('Error creating manual order:', error);
+      toast({
+        title: 'خطأ',
+        description: error.message || 'حدث خطأ أثناء إنشاء الطلب',
+        variant: 'destructive',
+      });
+    } finally {
+      setCreatingOrder(false);
+    }
+  };
+
+  const fetchAvailableSubscriptionCodes = async (productCode: string) => {
+    if (!productCode) {
+      setAvailableSubscriptionCodes([]);
+      return;
+    }
+
+    setLoadingSubscriptionCodes(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        return;
+      }
+
+      const response = await fetch(`/api/admin/products/subscription-codes?product_code=${encodeURIComponent(productCode)}`, {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('فشل في جلب رموز الاشتراكات المتاحة');
+      }
+
+      const result = await response.json();
+      setAvailableSubscriptionCodes(result.subscriptionCodes || []);
+    } catch (error: any) {
+      console.error('Error fetching subscription codes:', error);
+      toast({
+        title: 'تحذير',
+        description: 'فشل في جلب رموز الاشتراكات المتاحة',
+        variant: 'default',
+      });
+      setAvailableSubscriptionCodes([]);
+    } finally {
+      setLoadingSubscriptionCodes(false);
+    }
+  };
+
+  const handleProductSelect = (productCode: string) => {
+    const product = products.find(p => p.product_code === productCode);
+    if (product) {
+      setManualOrderForm({
+        ...manualOrderForm,
+        product_code: product.product_code,
+        product_name: product.name,
+        price: product.price.toString(),
+        selected_subscription_code: '', // Reset selected subscription code
+      });
+      
+      // Fetch available subscription codes for this product
+      fetchAvailableSubscriptionCodes(product.product_code);
     }
   };
 
@@ -630,10 +859,19 @@ export default function AdminOrdersPage() {
         <div className="max-w-7xl mx-auto">
           <div className="flex justify-between items-center mb-8">
             <h1 className="text-3xl font-bold text-white">لوحة تحكم الإدارة - الطلبات</h1>
-            <Button onClick={exportToCSV} variant="outline" className="bg-slate-800 text-white border-slate-700">
-              <Download className="h-4 w-4 ml-2" />
-              تصدير CSV
-            </Button>
+            <div className="flex gap-2">
+              <Button 
+                onClick={() => setManualOrderDialogOpen(true)} 
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                <Plus className="h-4 w-4 ml-2" />
+                إضافة طلب
+              </Button>
+              <Button onClick={exportToCSV} variant="outline" className="bg-slate-800 text-white border-slate-700">
+                <Download className="h-4 w-4 ml-2" />
+                تصدير CSV
+              </Button>
+            </div>
           </div>
 
           <Tabs defaultValue="orders" className="w-full">
@@ -671,6 +909,7 @@ export default function AdminOrdersPage() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">جميع الحالات</SelectItem>
+                        <SelectItem value="pending">قيد الانتظار</SelectItem>
                         <SelectItem value="paid">مدفوع</SelectItem>
                         <SelectItem value="approved">مقبول</SelectItem>
                       </SelectContent>
@@ -934,25 +1173,23 @@ export default function AdminOrdersPage() {
                                   {format(new Date(order.created_at), 'yyyy-MM-dd HH:mm', { locale: ar })}
                                 </TableCell>
                                 <TableCell>
-                                  {/* Show capture button for pending orders with PayPal payment_id */}
-                                  {order.status === 'pending' && 
-                                   order.payment_id && 
-                                   (order.payment_method === 'paypal_cart' || order.payment_method?.includes('paypal')) && (
+                                  {/* Show mark as paid button for pending orders */}
+                                  {order.status === 'pending' && (
                                     <Button
                                       size="sm"
-                                      onClick={() => handleCapturePayment(order.id)}
-                                      disabled={capturingOrders.has(order.id)}
+                                      onClick={() => handleCompleteOrder(order.id)}
+                                      disabled={completingOrders.has(order.id)}
                                       className="bg-green-600 hover:bg-green-700 text-white"
                                     >
-                                      {capturingOrders.has(order.id) ? (
+                                      {completingOrders.has(order.id) ? (
                                         <>
                                           <Loader2 className="h-4 w-4 ml-2 animate-spin" />
                                           جاري المعالجة...
                                         </>
                                       ) : (
                                         <>
-                                          <CreditCard className="h-4 w-4 ml-2" />
-                                          استلام الدفع
+                                          <CheckCircle2 className="h-4 w-4 ml-2" />
+                                          تم الاستلام
                                         </>
                                       )}
                                     </Button>
@@ -1156,6 +1393,160 @@ export default function AdminOrdersPage() {
         </div>
       </main>
       <Footer />
+
+      {/* Manual Order Creation Dialog */}
+      <Dialog open={manualOrderDialogOpen} onOpenChange={setManualOrderDialogOpen}>
+        <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>إضافة طلب يدوياً</DialogTitle>
+            <DialogDescription className="text-slate-400">
+              أضف طلب جديد يدوياً مع معلومات العميل وحالة الدفع
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-4 mt-4">
+            <div className="col-span-2">
+              <Label>اسم العميل *</Label>
+              <Input
+                value={manualOrderForm.customer_name}
+                onChange={(e) => setManualOrderForm({ ...manualOrderForm, customer_name: e.target.value })}
+                className="bg-slate-700 border-slate-600 text-white mt-1"
+                placeholder="أدخل اسم العميل"
+              />
+            </div>
+            <div>
+              <Label>البريد الإلكتروني *</Label>
+              <Input
+                type="email"
+                value={manualOrderForm.customer_email}
+                onChange={(e) => setManualOrderForm({ ...manualOrderForm, customer_email: e.target.value })}
+                className="bg-slate-700 border-slate-600 text-white mt-1"
+                placeholder="email@example.com"
+              />
+            </div>
+            <div>
+              <Label>رقم الواتساب (اختياري)</Label>
+              <Input
+                value={manualOrderForm.customer_whatsapp}
+                onChange={(e) => setManualOrderForm({ ...manualOrderForm, customer_whatsapp: e.target.value })}
+                className="bg-slate-700 border-slate-600 text-white mt-1"
+                placeholder="966501234567"
+              />
+            </div>
+            <div className="col-span-2">
+              <Label>المنتج *</Label>
+              <Select
+                value={manualOrderForm.product_code}
+                onValueChange={handleProductSelect}
+                disabled={loadingProducts}
+              >
+                <SelectTrigger className="bg-slate-700 border-slate-600 text-white mt-1">
+                  <SelectValue placeholder={loadingProducts ? "جاري التحميل..." : "اختر المنتج"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {products.map((product) => (
+                    <SelectItem key={product.product_code} value={product.product_code}>
+                      {product.name} ({product.product_code}) - {product.price} ريال
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {manualOrderForm.product_code && (
+                <p className="text-xs text-slate-400 mt-1">
+                  {loadingSubscriptionCodes ? (
+                    'جاري جلب رموز الاشتراكات المتاحة...'
+                  ) : (
+                    `رموز الاشتراكات المتاحة: ${availableSubscriptionCodes.length}`
+                  )}
+                </p>
+              )}
+            </div>
+            {manualOrderForm.product_code && availableSubscriptionCodes.length > 0 && manualOrderForm.payment_status === 'paid' && (
+              <div className="col-span-2">
+                <Label>اختر رمز الاشتراك (اختياري)</Label>
+                <Select
+                  value={manualOrderForm.selected_subscription_code}
+                  onValueChange={(value) => setManualOrderForm({ ...manualOrderForm, selected_subscription_code: value })}
+                  disabled={loadingSubscriptionCodes}
+                >
+                  <SelectTrigger className="bg-slate-700 border-slate-600 text-white mt-1">
+                    <SelectValue placeholder="اختر رمز الاشتراك (سيتم اختيار واحد تلقائياً إذا لم تختر)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">تلقائي (اختيار عشوائي)</SelectItem>
+                    {availableSubscriptionCodes.map((sub) => (
+                      <SelectItem key={sub.id} value={sub.subscription_code}>
+                        {sub.subscription_code} {sub.subscription_meta?.duration ? `(${sub.subscription_meta.duration})` : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-slate-400 mt-1">
+                  إذا لم تختر رمزاً، سيتم اختيار واحد تلقائياً من المتوفر
+                </p>
+              </div>
+            )}
+            <div>
+              <Label>السعر *</Label>
+              <Input
+                type="number"
+                value={manualOrderForm.price}
+                onChange={(e) => setManualOrderForm({ ...manualOrderForm, price: e.target.value })}
+                className="bg-slate-700 border-slate-600 text-white mt-1"
+                placeholder="0"
+                min="0"
+                step="0.01"
+              />
+            </div>
+            <div className="col-span-2">
+              <Label>حالة الدفع *</Label>
+              <RadioGroup
+                value={manualOrderForm.payment_status}
+                onValueChange={(value: 'paid' | 'unpaid') => {
+                  setManualOrderForm({ ...manualOrderForm, payment_status: value, selected_subscription_code: value === 'unpaid' ? '' : manualOrderForm.selected_subscription_code });
+                  // Refresh subscription codes if switching to paid
+                  if (value === 'paid' && manualOrderForm.product_code) {
+                    fetchAvailableSubscriptionCodes(manualOrderForm.product_code);
+                  }
+                }}
+                className="mt-2"
+              >
+                <div className="flex items-center space-x-2 space-x-reverse">
+                  <RadioGroupItem value="paid" id="paid" />
+                  <Label htmlFor="paid" className="cursor-pointer">مدفوع (سيتم تعيين الاشتراك تلقائياً)</Label>
+                </div>
+                <div className="flex items-center space-x-2 space-x-reverse">
+                  <RadioGroupItem value="unpaid" id="unpaid" />
+                  <Label htmlFor="unpaid" className="cursor-pointer">غير مدفوع</Label>
+                </div>
+              </RadioGroup>
+            </div>
+          </div>
+          <DialogFooter className="mt-6">
+            <Button
+              variant="outline"
+              onClick={() => setManualOrderDialogOpen(false)}
+              className="border-slate-600 text-slate-300"
+              disabled={creatingOrder}
+            >
+              إلغاء
+            </Button>
+            <Button
+              onClick={handleManualOrderSubmit}
+              disabled={creatingOrder || !manualOrderForm.customer_name || !manualOrderForm.customer_email || !manualOrderForm.product_name || !manualOrderForm.price}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              {creatingOrder ? (
+                <>
+                  <Loader2 className="h-4 w-4 ml-2 animate-spin" />
+                  جاري الإنشاء...
+                </>
+              ) : (
+                'إنشاء الطلب'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

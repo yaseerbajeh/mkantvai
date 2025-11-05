@@ -89,7 +89,7 @@ export default function AdminPaymentsPage() {
 
         setUser(session.user);
 
-        // Fetch PayPal payments (orders with payment_method = 'paypal', 'paypal_link', or 'paypal_cart')
+        // Fetch payments (PayPal and Manual - orders with payment_method = 'paypal', 'paypal_link', 'paypal_cart', or 'manual')
         // Include order_items for cart orders
         let query = supabase
           .from('orders')
@@ -118,13 +118,14 @@ export default function AdminPaymentsPage() {
               throw fallbackError;
             }
             
-            // Filter client-side for PayPal payments (or show all if payment_method doesn't exist)
-            // Include 'paypal', 'paypal_link', and 'paypal_cart' payment methods
+            // Filter client-side for payments (PayPal and Manual)
+            // Include 'paypal', 'paypal_link', 'paypal_cart', and 'manual' payment methods
             const filteredData = (fallbackData || []).filter((order: any) => 
               !order.payment_method || 
               order.payment_method === 'paypal' || 
               order.payment_method === 'paypal_link' ||
-              order.payment_method === 'paypal_cart'
+              order.payment_method === 'paypal_cart' ||
+              order.payment_method === 'manual'
             ) as PaymentOrder[];
             
             setPayments(filteredData);
@@ -134,13 +135,14 @@ export default function AdminPaymentsPage() {
           throw error;
         }
 
-        // Filter for PayPal payments only (in case payment_method column exists)
-        // Include 'paypal', 'paypal_link', and 'paypal_cart' payment methods
+        // Filter for payments (PayPal and Manual)
+        // Include 'paypal', 'paypal_link', 'paypal_cart', and 'manual' payment methods
         const filteredPayments = (data || []).filter((order: any) => 
           !order.payment_method || 
           order.payment_method === 'paypal' || 
           order.payment_method === 'paypal_link' ||
-          order.payment_method === 'paypal_cart'
+          order.payment_method === 'paypal_cart' ||
+          order.payment_method === 'manual'
         ) as PaymentOrder[];
 
         setPayments(filteredPayments);
@@ -203,6 +205,9 @@ export default function AdminPaymentsPage() {
     if (paymentMethod === 'paypal') {
       return <Badge className="bg-blue-900/20 text-blue-400 border-blue-700">PayPal</Badge>;
     }
+    if (paymentMethod === 'manual') {
+      return <Badge className="bg-green-900/20 text-green-400 border-green-700">Manual</Badge>;
+    }
     return <span className="text-slate-300 capitalize">{paymentMethod}</span>;
   };
 
@@ -231,8 +236,8 @@ export default function AdminPaymentsPage() {
       <main className="container mx-auto px-4 py-24 pt-32">
         <div className="max-w-7xl mx-auto">
           <div className="mb-8">
-            <h1 className="text-4xl font-bold text-white mb-2">نظام الدفع - PayPal</h1>
-            <p className="text-slate-300">عرض وإدارة جميع المدفوعات عبر PayPal</p>
+            <h1 className="text-4xl font-bold text-white mb-2">نظام الدفع</h1>
+            <p className="text-slate-300">عرض وإدارة جميع المدفوعات (PayPal و Manual)</p>
           </div>
 
           {/* Statistics Cards */}
