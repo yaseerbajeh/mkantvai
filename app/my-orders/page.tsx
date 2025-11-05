@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { supabase } from '@/lib/supabase';
-import { CheckCircle2, Clock, XCircle, Package, ExternalLink, MessageCircle, AlertCircle, Filter, Star, HelpCircle, Send, Loader2 } from 'lucide-react';
+import { CheckCircle2, Clock, XCircle, Package, ExternalLink, MessageCircle, AlertCircle, Filter, Star, HelpCircle, Send, Loader2, Image as ImageIcon, X } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
@@ -65,6 +65,7 @@ export default function MyOrdersPage() {
   const [newMessage, setNewMessage] = useState<string>('');
   const [sendingMessage, setSendingMessage] = useState(false);
   const [loadingTicket, setLoadingTicket] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
   
   // My Tickets section
   const [userTickets, setUserTickets] = useState<any[]>([]);
@@ -262,13 +263,14 @@ export default function MyOrdersPage() {
   };
 
   // Handle opening ticket dialog - for creating new ticket from order
-  const handleOpenTicketDialog = async (order: Order) => {
+  const handleOpenTicketDialog = (order: Order) => {
     setSelectedOrderForTicket(order);
     setTicketSubject('');
     setTicketMessage('');
     setCurrentTicket(null);
     setTicketMessages([]);
     setNewMessage('');
+    setSelectedImage(null);
     setTicketDialogOpen(true);
   };
 
@@ -278,6 +280,7 @@ export default function MyOrdersPage() {
     setCurrentTicket(null);
     setTicketMessages([]);
     setNewMessage('');
+    setSelectedImage(null);
     
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -323,10 +326,10 @@ export default function MyOrdersPage() {
 
   // Handle creating new ticket
   const handleCreateTicket = async () => {
-    if (!ticketSubject.trim() || !ticketMessage.trim()) {
+    if ((!ticketSubject.trim() || (!ticketMessage.trim() && !selectedImage))) {
       toast({
         title: 'خطأ',
-        description: 'يرجى إدخال الموضوع والرسالة',
+        description: 'يرجى إدخال الموضوع والرسالة أو الصورة',
         variant: 'destructive',
       });
       return;
@@ -344,18 +347,40 @@ export default function MyOrdersPage() {
         return;
       }
 
-      const response = await fetch('/api/tickets', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({
-          order_id: selectedOrderForTicket?.id || null, // Allow null for general tickets
-          subject: ticketSubject.trim(),
-          message: ticketMessage.trim(),
-        }),
-      });
+      let response: Response;
+      
+      if (selectedImage) {
+        // Send with FormData for image upload
+        const formData = new FormData();
+        formData.append('order_id', selectedOrderForTicket?.id || '');
+        formData.append('subject', ticketSubject.trim());
+        if (ticketMessage.trim()) {
+          formData.append('message', ticketMessage.trim());
+        }
+        formData.append('image', selectedImage);
+
+        response = await fetch('/api/tickets', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body: formData,
+        });
+      } else {
+        // Send JSON for text only
+        response = await fetch('/api/tickets', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            order_id: selectedOrderForTicket?.id || null,
+            subject: ticketSubject.trim(),
+            message: ticketMessage.trim(),
+          }),
+        });
+      }
 
       const result = await response.json();
 
@@ -372,6 +397,7 @@ export default function MyOrdersPage() {
       setTicketMessages(result.ticket.messages || []);
       setTicketSubject('');
       setTicketMessage('');
+      setSelectedImage(null);
       
       // Refresh tickets list
       await fetchUserTickets();
@@ -388,10 +414,10 @@ export default function MyOrdersPage() {
 
   // Handle sending message to ticket
   const handleSendMessage = async () => {
-    if (!currentTicket || !newMessage.trim()) {
+    if (!currentTicket || (!newMessage.trim() && !selectedImage)) {
       toast({
         title: 'خطأ',
-        description: 'يرجى إدخال رسالة',
+        description: 'يرجى إدخال رسالة أو إضافة صورة',
         variant: 'destructive',
       });
       return;
@@ -409,16 +435,36 @@ export default function MyOrdersPage() {
         return;
       }
 
-      const response = await fetch(`/api/tickets/${currentTicket.id}/messages`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({
-          message: newMessage.trim(),
-        }),
-      });
+      let response: Response;
+      
+      if (selectedImage) {
+        // Send with FormData for image upload
+        const formData = new FormData();
+        if (newMessage.trim()) {
+          formData.append('message', newMessage.trim());
+        }
+        formData.append('image', selectedImage);
+
+        response = await fetch(`/api/tickets/${currentTicket.id}/messages`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body: formData,
+        });
+      } else {
+        // Send JSON for text only
+        response = await fetch(`/api/tickets/${currentTicket.id}/messages`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            message: newMessage.trim(),
+          }),
+        });
+      }
 
       const result = await response.json();
 
@@ -428,6 +474,7 @@ export default function MyOrdersPage() {
 
       setTicketMessages([...ticketMessages, result.message]);
       setNewMessage('');
+      setSelectedImage(null);
       
       // Refresh tickets list to update updated_at
       await fetchUserTickets();
@@ -440,6 +487,41 @@ export default function MyOrdersPage() {
     } finally {
       setSendingMessage(false);
     }
+  };
+
+  // Handle image selection
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        toast({
+          title: 'خطأ',
+          description: 'يرجى اختيار ملف صورة',
+          variant: 'destructive',
+        });
+        return;
+      }
+      
+      // Validate file size (5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        toast({
+          title: 'خطأ',
+          description: 'حجم الصورة يجب أن يكون أقل من 5 ميجابايت',
+          variant: 'destructive',
+        });
+        return;
+      }
+      
+      setSelectedImage(file);
+    }
+    // Reset input value to allow selecting the same file again
+    e.target.value = '';
+  };
+
+  // Remove selected image
+  const handleRemoveImage = () => {
+    setSelectedImage(null);
   };
 
   // Handle submitting review
@@ -1055,7 +1137,7 @@ export default function MyOrdersPage() {
               </div>
               
               {/* Messages Area */}
-              <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4 bg-gradient-to-b from-slate-900/50 to-slate-800/50">
+              <div className="flex-1 overflow-y-auto px-3 sm:px-6 py-4 bg-gradient-to-b from-slate-900/50 to-slate-800/50">
                 {ticketMessages.length === 0 ? (
                   <div className="text-center py-12">
                     <MessageCircle className="w-12 h-12 text-slate-600 mx-auto mb-3" />
@@ -1065,42 +1147,117 @@ export default function MyOrdersPage() {
                   ticketMessages.map((msg) => (
                     <div
                       key={msg.id}
-                      className={`flex ${msg.sender_type === 'user' ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2`}
+                      className={`flex ${msg.sender_type === 'user' ? 'justify-end' : 'justify-start'} mb-4 w-full`}
+                      style={{ width: '100%', maxWidth: '100%' }}
                     >
-                      <div className="flex flex-col max-w-[75%]">
-                        <div className="flex items-center gap-2 mb-1 px-2">
-                          {msg.sender_type === 'admin' && (
-                            <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center">
-                              <span className="text-xs text-white font-bold">م</span>
-                            </div>
-                          )}
-                          <span className="text-xs text-slate-400">
-                            {msg.sender_type === 'user' ? 'أنت' : 'المدير'}
+                      <div 
+                        className={`flex gap-2 ${msg.sender_type === 'user' ? 'flex-row-reverse' : 'flex-row'}`}
+                        style={{ 
+                          width: '100%', 
+                          maxWidth: '100%',
+                          minWidth: 0
+                        }}
+                      >
+                        {/* Avatar */}
+                        <div className={`flex-shrink-0 w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center ${
+                          msg.sender_type === 'user' ? 'bg-green-500' : 'bg-blue-500'
+                        }`}>
+                          <span className="text-xs text-white font-bold">
+                            {msg.sender_type === 'user' ? 'أ' : 'م'}
                           </span>
-                          {msg.sender_type === 'user' && (
-                            <div className="w-6 h-6 rounded-full bg-green-500 flex items-center justify-center">
-                              <span className="text-xs text-white font-bold">أ</span>
-                            </div>
-                          )}
                         </div>
-                        <div
-                          className={`rounded-2xl px-4 py-3 shadow-lg ${
-                            msg.sender_type === 'user'
-                              ? 'bg-blue-600 text-white rounded-br-sm'
-                              : 'bg-slate-700 text-white rounded-bl-sm border border-slate-600'
-                          }`}
+                        
+                        {/* Message Content */}
+                        <div 
+                          className="flex flex-col flex-1"
+                          style={{ 
+                            minWidth: 0,
+                            maxWidth: '100%',
+                            width: '100%'
+                          }}
                         >
-                          <p className="whitespace-pre-wrap text-sm leading-relaxed">{msg.message}</p>
+                          {/* Sender Name */}
+                          <div className={`mb-1 ${msg.sender_type === 'user' ? 'text-right' : 'text-left'}`}>
+                            <span className="text-xs text-slate-400 font-medium">
+                              {msg.sender_type === 'user' ? 'أنت' : 'المدير'}
+                            </span>
+                          </div>
+                          
+                          {/* Message Bubble */}
+                          <div
+                            className={`rounded-2xl px-3 py-2 sm:px-4 sm:py-2.5 shadow-md ${
+                              msg.sender_type === 'user'
+                                ? 'bg-blue-600 text-white rounded-br-sm'
+                                : 'bg-slate-700 text-white rounded-bl-sm border border-slate-600'
+                            }`}
+                            style={{ 
+                              maxWidth: '100%', 
+                              width: '100%',
+                              minWidth: 0,
+                              wordWrap: 'break-word', 
+                              overflowWrap: 'break-word',
+                              overflow: 'hidden',
+                              boxSizing: 'border-box'
+                            }}
+                          >
+                            {/* Text Message */}
+                            {msg.message && msg.message.trim() && (
+                              <p 
+                                className="text-sm leading-relaxed" 
+                                style={{ 
+                                  whiteSpace: 'pre-wrap', 
+                                  wordBreak: 'break-word', 
+                                  overflowWrap: 'anywhere',
+                                  wordWrap: 'break-word',
+                                  maxWidth: '100%',
+                                  width: '100%',
+                                  minWidth: 0,
+                                  display: 'block',
+                                  boxSizing: 'border-box',
+                                  margin: 0,
+                                  padding: 0
+                                }}
+                              >
+                                {msg.message}
+                              </p>
+                            )}
+                            
+                            {/* Image */}
+                            {msg.image_url && msg.image_url.trim() && (
+                              <div className={msg.message && msg.message.trim() ? 'mt-2' : ''}>
+                                <a
+                                  href={msg.image_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="block rounded-lg overflow-hidden"
+                                >
+                                  <img
+                                    src={msg.image_url}
+                                    alt="مرفق"
+                                    className="max-w-[150px] sm:max-w-[200px] max-h-[150px] sm:max-h-[200px] w-auto h-auto object-contain rounded-lg cursor-pointer hover:opacity-90 transition"
+                                    onError={(e) => {
+                                      console.error('Image load error:', msg.image_url);
+                                      (e.target as HTMLImageElement).style.display = 'none';
+                                    }}
+                                  />
+                                </a>
+                              </div>
+                            )}
+                          </div>
+                          
+                          {/* Timestamp */}
+                          <div className={`mt-1 ${msg.sender_type === 'user' ? 'text-right' : 'text-left'}`}>
+                            <span className="text-xs text-slate-500">
+                              {new Date(msg.created_at).toLocaleString('ar-SA', {
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })}
+                            </span>
+                          </div>
                         </div>
-                        <span className="text-xs text-slate-500 mt-1 px-2">
-                          {new Date(msg.created_at).toLocaleString('ar-SA', {
-                            year: 'numeric',
-                            month: 'short',
-                            day: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
-                        </span>
                       </div>
                     </div>
                   ))
@@ -1110,6 +1267,22 @@ export default function MyOrdersPage() {
               {/* Input Area */}
               {currentTicket.status === 'open' && (
                 <div className="px-6 py-4 bg-slate-900/50 border-t border-slate-700">
+                  {/* Image File Name Display */}
+                  {selectedImage && (
+                    <div className="mb-3 flex items-center gap-2 p-2 bg-slate-800 border border-slate-600 rounded-lg">
+                      <ImageIcon className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                      <span className="text-sm text-slate-300 flex-1 truncate">{selectedImage.name}</span>
+                      <button
+                        onClick={handleRemoveImage}
+                        className="text-red-400 hover:text-red-300 p-1 hover:bg-red-500/10 rounded transition-colors flex-shrink-0"
+                        type="button"
+                        title="حذف الصورة"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
+                  
                   <div className="flex gap-3 items-end">
                     <div className="flex-1 relative">
                       <Textarea
@@ -1128,21 +1301,46 @@ export default function MyOrdersPage() {
                         Ctrl + Enter
                       </div>
                     </div>
-                    <Button
-                      onClick={handleSendMessage}
-                      disabled={sendingMessage || !newMessage.trim()}
-                      className="bg-blue-600 hover:bg-blue-700 h-[100px] px-6"
-                      size="lg"
-                    >
-                      {sendingMessage ? (
-                        <Loader2 className="w-5 h-5 animate-spin" />
-                      ) : (
-                        <>
-                          <Send className="w-5 h-5 ml-2" />
-                          إرسال
-                        </>
-                      )}
-                    </Button>
+                    <div className="flex gap-2 items-end">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageSelect}
+                        className="hidden"
+                        id="ticket-image-upload"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="border-slate-600 text-slate-300 hover:bg-slate-700 hover:border-slate-500 h-[100px] px-4 flex flex-col items-center justify-center gap-1.5"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          const fileInput = document.getElementById('ticket-image-upload') as HTMLInputElement;
+                          if (fileInput) {
+                            fileInput.click();
+                          }
+                        }}
+                      >
+                        <ImageIcon className="w-5 h-5" />
+                        <span className="text-xs">ارفع صورة</span>
+                      </Button>
+                      <Button
+                        onClick={handleSendMessage}
+                        disabled={sendingMessage || (!newMessage.trim() && !selectedImage)}
+                        className="bg-blue-600 hover:bg-blue-700 h-[100px] px-6"
+                        size="lg"
+                      >
+                        {sendingMessage ? (
+                          <Loader2 className="w-5 h-5 animate-spin" />
+                        ) : (
+                          <>
+                            <Send className="w-5 h-5 ml-2" />
+                            إرسال
+                          </>
+                        )}
+                      </Button>
+                    </div>
                   </div>
                 </div>
               )}
@@ -1171,6 +1369,22 @@ export default function MyOrdersPage() {
                 </div>
               </div>
               
+              {/* Image File Name Display for New Ticket */}
+              {selectedImage && (
+                <div className="mb-4 flex items-center gap-2 p-2 bg-slate-800 border border-slate-600 rounded-lg">
+                  <ImageIcon className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                  <span className="text-sm text-slate-300 flex-1 truncate">{selectedImage.name}</span>
+                  <button
+                    onClick={handleRemoveImage}
+                    className="text-red-400 hover:text-red-300 p-1 hover:bg-red-500/10 rounded transition-colors flex-shrink-0"
+                    type="button"
+                    title="حذف الصورة"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+              
               <div>
                 <Label htmlFor="ticket-subject" className="text-white mb-2 block font-semibold">
                   الموضوع *
@@ -1185,15 +1399,43 @@ export default function MyOrdersPage() {
               </div>
               <div>
                 <Label htmlFor="ticket-message" className="text-white mb-2 block font-semibold">
-                  الرسالة *
+                  الرسالة {selectedImage ? '' : '*'}
                 </Label>
-                <Textarea
-                  id="ticket-message"
-                  value={ticketMessage}
-                  onChange={(e) => setTicketMessage(e.target.value)}
-                  placeholder="اشرح مشكلتك بالتفصيل... كلما كانت المعلومات أكثر تفصيلاً، كان بإمكاننا مساعدتك بشكل أفضل."
-                  className="bg-slate-900 border-slate-600 text-white min-h-[200px] focus:ring-2 focus:ring-blue-500"
-                />
+                <div className="relative">
+                  <Textarea
+                    id="ticket-message"
+                    value={ticketMessage}
+                    onChange={(e) => setTicketMessage(e.target.value)}
+                    placeholder="اشرح مشكلتك بالتفصيل... كلما كانت المعلومات أكثر تفصيلاً، كان بإمكاننا مساعدتك بشكل أفضل."
+                    className="bg-slate-900 border-slate-600 text-white min-h-[200px] focus:ring-2 focus:ring-blue-500 pr-12"
+                  />
+                  <div className="absolute bottom-2 left-2 flex gap-2">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageSelect}
+                      className="hidden"
+                      id="new-ticket-image-upload"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8 border-slate-500 text-slate-300 hover:bg-slate-700 hover:border-slate-400 text-xs gap-1.5"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const fileInput = document.getElementById('new-ticket-image-upload') as HTMLInputElement;
+                        if (fileInput) {
+                          fileInput.click();
+                        }
+                      }}
+                    >
+                      <ImageIcon className="w-4 h-4" />
+                      ارفع صورة
+                    </Button>
+                  </div>
+                </div>
                 <p className="text-slate-400 text-xs mt-2">
                   {ticketMessage.length} حرف
                 </p>
@@ -1211,6 +1453,7 @@ export default function MyOrdersPage() {
                 setNewMessage('');
                 setTicketSubject('');
                 setTicketMessage('');
+                setSelectedImage(null);
                 // Refresh tickets list when closing dialog
                 await fetchUserTickets();
               }}

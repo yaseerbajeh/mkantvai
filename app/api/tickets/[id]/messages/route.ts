@@ -34,8 +34,11 @@ async function getAuthenticatedUser(request: NextRequest) {
 // Helper to check if user is admin
 function isAdmin(userEmail: string | undefined): boolean {
   if (!userEmail) return false;
-  const adminEmails = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim());
-  return adminEmails.length > 0 && adminEmails.includes(userEmail);
+  // Check both ADMIN_EMAILS and NEXT_PUBLIC_ADMIN_EMAILS for compatibility
+  const adminEmailsEnv = process.env.ADMIN_EMAILS || process.env.NEXT_PUBLIC_ADMIN_EMAILS || '';
+  const adminEmails = adminEmailsEnv.split(',').map(e => e.trim()).filter(e => e.length > 0);
+  if (adminEmails.length === 0) return false;
+  return adminEmails.includes(userEmail.toLowerCase());
 }
 
 // POST - Add message to ticket
@@ -58,14 +61,75 @@ export async function POST(
     }
 
     const ticketId = params.id;
-    const body = await request.json();
-    const { message } = body;
-
-    if (!message || message.trim().length === 0) {
-      return NextResponse.json(
-        { error: 'يجب توفير رسالة' },
-        { status: 400 }
-      );
+    
+    // Handle both JSON and FormData (for file uploads)
+    let message = '';
+    let imageUrl: string | null = null;
+    
+    const contentType = request.headers.get('content-type') || '';
+    
+    if (contentType.includes('multipart/form-data')) {
+      // Handle FormData with file upload
+      const formData = await request.formData();
+      message = formData.get('message') as string || '';
+      const imageFile = formData.get('image') as File | null;
+      
+      if (!message.trim() && !imageFile) {
+        return NextResponse.json(
+          { error: 'يجب توفير رسالة أو صورة' },
+          { status: 400 }
+        );
+      }
+      
+      // Upload image to Supabase Storage if provided
+      if (imageFile) {
+        const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+        
+        // Generate unique filename
+        const fileExt = imageFile.name.split('.').pop();
+        const fileName = `${ticketId}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+        
+        // Convert File to ArrayBuffer
+        const arrayBuffer = await imageFile.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+        
+        // Upload to Supabase Storage
+        const { data: uploadData, error: uploadError } = await supabaseAdmin.storage
+          .from('ticket-images')
+          .upload(fileName, buffer, {
+            contentType: imageFile.type,
+            upsert: false,
+          });
+        
+        if (uploadError) {
+          console.error('Error uploading image:', uploadError);
+          return NextResponse.json(
+            { error: 'فشل في رفع الصورة' },
+            { status: 500 }
+          );
+        }
+        
+        // Get public URL
+        const { data: { publicUrl } } = supabaseAdmin.storage
+          .from('ticket-images')
+          .getPublicUrl(fileName);
+        
+        imageUrl = publicUrl;
+      }
+    } else {
+      // Handle JSON (text only)
+      const body = await request.json();
+      message = body.message || '';
+      
+      if (!message || message.trim().length === 0) {
+        return NextResponse.json(
+          { error: 'يجب توفير رسالة' },
+          { status: 400 }
+        );
+      }
+      
+      // Allow image_url to be passed directly for compatibility
+      imageUrl = body.image_url || null;
     }
 
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
@@ -111,7 +175,8 @@ export async function POST(
         ticket_id: ticketId,
         sender_email: user.email,
         sender_type: senderType,
-        message: message.trim(),
+        message: message.trim() || '', // Allow empty message if only image
+        image_url: imageUrl,
       })
       .select()
       .single();
