@@ -34,8 +34,11 @@ async function getAuthenticatedUser(request: NextRequest) {
 // Helper to check if user is admin
 function isAdmin(userEmail: string | undefined): boolean {
   if (!userEmail) return false;
-  const adminEmails = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim());
-  return adminEmails.length > 0 && adminEmails.includes(userEmail);
+  // Check both ADMIN_EMAILS and NEXT_PUBLIC_ADMIN_EMAILS for compatibility
+  const adminEmailsEnv = process.env.ADMIN_EMAILS || process.env.NEXT_PUBLIC_ADMIN_EMAILS || '';
+  const adminEmails = adminEmailsEnv.split(',').map(e => e.trim()).filter(e => e.length > 0);
+  if (adminEmails.length === 0) return false;
+  return adminEmails.includes(userEmail.toLowerCase());
 }
 
 // GET - Get ticket details with messages

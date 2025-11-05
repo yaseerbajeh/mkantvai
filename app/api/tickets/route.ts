@@ -34,8 +34,11 @@ async function getAuthenticatedUser(request: NextRequest) {
 // Helper to check if user is admin
 function isAdmin(userEmail: string | undefined): boolean {
   if (!userEmail) return false;
-  const adminEmails = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim());
-  return adminEmails.length > 0 && adminEmails.includes(userEmail);
+  // Check both ADMIN_EMAILS and NEXT_PUBLIC_ADMIN_EMAILS for compatibility
+  const adminEmailsEnv = process.env.ADMIN_EMAILS || process.env.NEXT_PUBLIC_ADMIN_EMAILS || '';
+  const adminEmails = adminEmailsEnv.split(',').map(e => e.trim()).filter(e => e.length > 0);
+  if (adminEmails.length === 0) return false;
+  return adminEmails.includes(userEmail.toLowerCase());
 }
 
 // POST - Create new ticket
@@ -54,17 +57,47 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const body = await request.json();
-    const { order_id, subject, message } = body;
-
-    if (!subject || !message) {
-      return NextResponse.json(
-        { error: 'يرجى توفير subject و message' },
-        { status: 400 }
-      );
-    }
+    // Handle both JSON and FormData (for file uploads)
+    let order_id: string | null = null;
+    let subject = '';
+    let message = '';
+    let imageFile: File | null = null;
+    let imageUrl: string | null = null;
     
-    // order_id is optional - users can create general tickets
+    const contentType = request.headers.get('content-type') || '';
+    
+    if (contentType.includes('multipart/form-data')) {
+      // Handle FormData with file upload
+      const formData = await request.formData();
+      order_id = formData.get('order_id') as string || null;
+      if (order_id === '') order_id = null; // Convert empty string to null
+      subject = formData.get('subject') as string || '';
+      message = formData.get('message') as string || '';
+      imageFile = formData.get('image') as File | null;
+      
+      if (!subject || (!message && !imageFile)) {
+        return NextResponse.json(
+          { error: 'يرجى توفير subject و message أو صورة' },
+          { status: 400 }
+        );
+      }
+    } else {
+      // Handle JSON (text only)
+      const body = await request.json();
+      order_id = body.order_id || null;
+      subject = body.subject || '';
+      message = body.message || '';
+      
+      if (!subject || !message) {
+        return NextResponse.json(
+          { error: 'يرجى توفير subject و message' },
+          { status: 400 }
+        );
+      }
+      
+      // Allow image_url to be passed directly for compatibility
+      imageUrl = body.image_url || null;
+    }
 
     // Verify order belongs to user (if order_id is provided)
     if (order_id) {
@@ -121,6 +154,36 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Upload image to Supabase Storage if provided (after ticket creation)
+    if (imageFile) {
+      const fileExt = imageFile.name.split('.').pop();
+      const fileName = `${ticket.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+      
+      // Convert File to ArrayBuffer
+      const arrayBuffer = await imageFile.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+      
+      // Upload to Supabase Storage
+      const { data: uploadData, error: uploadError } = await supabaseAdmin.storage
+        .from('ticket-images')
+        .upload(fileName, buffer, {
+          contentType: imageFile.type,
+          upsert: false,
+        });
+      
+      if (uploadError) {
+        console.error('Error uploading image:', uploadError);
+        // Don't fail the ticket creation, just log the error
+      } else {
+        // Get public URL
+        const { data: { publicUrl } } = supabaseAdmin.storage
+          .from('ticket-images')
+          .getPublicUrl(fileName);
+        
+        imageUrl = publicUrl;
+      }
+    }
+
     // Add initial message
     const { data: ticketMessage, error: messageError } = await supabaseAdmin
       .from('ticket_messages')
@@ -128,7 +191,8 @@ export async function POST(request: NextRequest) {
         ticket_id: ticket.id,
         sender_email: user.email,
         sender_type: 'user',
-        message,
+        message: message || '', // Allow empty message if only image
+        image_url: imageUrl,
       })
       .select()
       .single();

@@ -27,6 +27,8 @@ import {
   User,
   Clock,
   RefreshCw,
+  Image as ImageIcon,
+  X,
 } from 'lucide-react';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
 
@@ -47,6 +49,7 @@ interface TicketMessage {
   sender_email: string;
   sender_type: 'user' | 'admin';
   message: string;
+  image_url?: string | null;
   created_at: string;
 }
 
@@ -67,6 +70,7 @@ export default function AdminTicketsPage() {
   const [sendingMessage, setSendingMessage] = useState(false);
   const [closingTicket, setClosingTicket] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -220,10 +224,10 @@ export default function AdminTicketsPage() {
   };
 
   const handleSendMessage = async () => {
-    if (!selectedTicket || !newMessage.trim()) {
+    if (!selectedTicket || (!newMessage.trim() && !selectedImage)) {
       toast({
         title: 'خطأ',
-        description: 'يرجى إدخال رسالة',
+        description: 'يرجى إدخال رسالة أو إضافة صورة',
         variant: 'destructive',
       });
       return;
@@ -236,16 +240,36 @@ export default function AdminTicketsPage() {
         return;
       }
 
-      const response = await fetch(`/api/tickets/${selectedTicket.id}/messages`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({
-          message: newMessage.trim(),
-        }),
-      });
+      let response: Response;
+      
+      if (selectedImage) {
+        // Send with FormData for image upload
+        const formData = new FormData();
+        if (newMessage.trim()) {
+          formData.append('message', newMessage.trim());
+        }
+        formData.append('image', selectedImage);
+
+        response = await fetch(`/api/tickets/${selectedTicket.id}/messages`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body: formData,
+        });
+      } else {
+        // Send JSON for text only
+        response = await fetch(`/api/tickets/${selectedTicket.id}/messages`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            message: newMessage.trim(),
+          }),
+        });
+      }
 
       const result = await response.json();
 
@@ -256,6 +280,7 @@ export default function AdminTicketsPage() {
       // Refresh ticket data
       await handleOpenTicket(selectedTicket);
       setNewMessage('');
+      setSelectedImage(null);
       toast({
         title: 'نجح',
         description: 'تم إرسال الرسالة بنجاح',
@@ -269,6 +294,41 @@ export default function AdminTicketsPage() {
     } finally {
       setSendingMessage(false);
     }
+  };
+
+  // Handle image selection
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        toast({
+          title: 'خطأ',
+          description: 'يرجى اختيار ملف صورة',
+          variant: 'destructive',
+        });
+        return;
+      }
+      
+      // Validate file size (5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        toast({
+          title: 'خطأ',
+          description: 'حجم الصورة يجب أن يكون أقل من 5 ميجابايت',
+          variant: 'destructive',
+        });
+        return;
+      }
+      
+      setSelectedImage(file);
+    }
+    // Reset input value to allow selecting the same file again
+    e.target.value = '';
+  };
+
+  // Remove selected image
+  const handleRemoveImage = () => {
+    setSelectedImage(null);
   };
 
   const handleCloseTicket = async () => {
@@ -529,44 +589,118 @@ export default function AdminTicketsPage() {
               </div>
               
               {/* Messages Area */}
-              <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4 bg-gradient-to-b from-slate-900/50 to-slate-800/50">
+              <div className="flex-1 overflow-y-auto px-3 sm:px-6 py-4 bg-gradient-to-b from-slate-900/50 to-slate-800/50">
                 {selectedTicket.messages && selectedTicket.messages.length > 0 ? (
                   selectedTicket.messages.map((msg) => (
                     <div
                       key={msg.id}
-                      className={`flex ${msg.sender_type === 'user' ? 'justify-start' : 'justify-end'} animate-in fade-in slide-in-from-bottom-2`}
+                      className={`flex ${msg.sender_type === 'user' ? 'justify-start' : 'justify-end'} mb-4 w-full`}
+                      style={{ width: '100%', maxWidth: '100%' }}
                     >
-                      <div className="flex flex-col max-w-[75%]">
-                        <div className="flex items-center gap-2 mb-1 px-2">
-                          {msg.sender_type === 'user' && (
-                            <>
-                              <div className="w-6 h-6 rounded-full bg-green-500 flex items-center justify-center">
-                                <User className="w-3 h-3 text-white" />
-                              </div>
-                              <span className="text-xs text-slate-400">{msg.sender_email}</span>
-                            </>
-                          )}
-                          {msg.sender_type === 'admin' && (
-                            <>
-                              <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center">
-                                <CheckCircle2 className="w-3 h-3 text-white" />
-                              </div>
-                              <span className="text-xs text-slate-400">أنت (المدير)</span>
-                            </>
+                      <div 
+                        className={`flex gap-2 ${msg.sender_type === 'user' ? 'flex-row' : 'flex-row-reverse'}`}
+                        style={{ 
+                          width: '100%', 
+                          maxWidth: '100%',
+                          minWidth: 0
+                        }}
+                      >
+                        {/* Avatar */}
+                        <div className={`flex-shrink-0 w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center ${
+                          msg.sender_type === 'user' ? 'bg-green-500' : 'bg-blue-500'
+                        }`}>
+                          {msg.sender_type === 'user' ? (
+                            <User className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
+                          ) : (
+                            <CheckCircle2 className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
                           )}
                         </div>
-                        <div
-                          className={`rounded-2xl px-4 py-3 shadow-lg ${
-                            msg.sender_type === 'user'
-                              ? 'bg-slate-700 text-white rounded-bl-sm border border-slate-600'
-                              : 'bg-blue-600 text-white rounded-br-sm'
-                          }`}
+                        
+                        {/* Message Content */}
+                        <div 
+                          className="flex flex-col flex-1"
+                          style={{ 
+                            minWidth: 0,
+                            maxWidth: '100%',
+                            width: '100%'
+                          }}
                         >
-                          <p className="whitespace-pre-wrap text-sm leading-relaxed">{msg.message}</p>
+                          {/* Sender Name */}
+                          <div className={`mb-1 ${msg.sender_type === 'user' ? 'text-left' : 'text-right'}`}>
+                            <span className="text-xs text-slate-400 font-medium truncate block max-w-full">
+                              {msg.sender_type === 'user' ? msg.sender_email : 'أنت (المدير)'}
+                            </span>
+                          </div>
+                          
+                          {/* Message Bubble */}
+                          <div
+                            className={`rounded-2xl px-3 py-2 sm:px-4 sm:py-2.5 shadow-md ${
+                              msg.sender_type === 'user'
+                                ? 'bg-slate-700 text-white rounded-bl-sm border border-slate-600'
+                                : 'bg-blue-600 text-white rounded-br-sm'
+                            }`}
+                            style={{ 
+                              maxWidth: '100%', 
+                              width: '100%',
+                              minWidth: 0,
+                              wordWrap: 'break-word', 
+                              overflowWrap: 'break-word',
+                              overflow: 'hidden',
+                              boxSizing: 'border-box'
+                            }}
+                          >
+                            {/* Text Message */}
+                            {msg.message && msg.message.trim() && (
+                              <p 
+                                className="text-sm leading-relaxed" 
+                                style={{ 
+                                  whiteSpace: 'pre-wrap', 
+                                  wordBreak: 'break-word', 
+                                  overflowWrap: 'anywhere',
+                                  wordWrap: 'break-word',
+                                  maxWidth: '100%',
+                                  width: '100%',
+                                  minWidth: 0,
+                                  display: 'block',
+                                  boxSizing: 'border-box',
+                                  margin: 0,
+                                  padding: 0
+                                }}
+                              >
+                                {msg.message}
+                              </p>
+                            )}
+                            
+                            {/* Image */}
+                            {msg.image_url && msg.image_url.trim() && (
+                              <div className={msg.message && msg.message.trim() ? 'mt-2' : ''}>
+                                <a
+                                  href={msg.image_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="block rounded-lg overflow-hidden"
+                                >
+                                  <img
+                                    src={msg.image_url}
+                                    alt="مرفق"
+                                    className="max-w-[150px] sm:max-w-[200px] max-h-[150px] sm:max-h-[200px] w-auto h-auto object-contain rounded-lg cursor-pointer hover:opacity-90 transition"
+                                    onError={(e) => {
+                                      console.error('Image load error:', msg.image_url);
+                                      (e.target as HTMLImageElement).style.display = 'none';
+                                    }}
+                                  />
+                                </a>
+                              </div>
+                            )}
+                          </div>
+                          
+                          {/* Timestamp */}
+                          <div className={`mt-1 ${msg.sender_type === 'user' ? 'text-left' : 'text-right'}`}>
+                            <span className="text-xs text-slate-500">
+                              {format(new Date(msg.created_at), 'yyyy-MM-dd HH:mm', { locale: ar })}
+                            </span>
+                          </div>
                         </div>
-                        <span className="text-xs text-slate-500 mt-1 px-2">
-                          {format(new Date(msg.created_at), 'yyyy-MM-dd HH:mm', { locale: ar })}
-                        </span>
                       </div>
                     </div>
                   ))
@@ -581,6 +715,22 @@ export default function AdminTicketsPage() {
               {/* Input Area */}
               {selectedTicket.status === 'open' && (
                 <div className="px-6 py-4 bg-slate-900/50 border-t border-slate-700">
+                  {/* Image File Name Display */}
+                  {selectedImage && (
+                    <div className="mb-3 flex items-center gap-2 p-2 bg-slate-800 border border-slate-600 rounded-lg">
+                      <ImageIcon className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                      <span className="text-sm text-slate-300 flex-1 truncate">{selectedImage.name}</span>
+                      <button
+                        onClick={handleRemoveImage}
+                        className="text-red-400 hover:text-red-300 p-1 hover:bg-red-500/10 rounded transition-colors flex-shrink-0"
+                        type="button"
+                        title="حذف الصورة"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
+                  
                   <div className="space-y-3">
                     <div className="flex gap-3 items-end">
                       <div className="flex-1 relative">
@@ -601,10 +751,33 @@ export default function AdminTicketsPage() {
                         </div>
                       </div>
                     </div>
-                    <div className="flex gap-3">
+                    <div className="flex gap-3 items-center">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageSelect}
+                        className="hidden"
+                        id="admin-ticket-image-upload"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="border-slate-600 text-slate-300 hover:bg-slate-700 hover:border-slate-500 h-12 px-4 flex items-center gap-2"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          const fileInput = document.getElementById('admin-ticket-image-upload') as HTMLInputElement;
+                          if (fileInput) {
+                            fileInput.click();
+                          }
+                        }}
+                      >
+                        <ImageIcon className="w-5 h-5" />
+                        <span className="text-sm">ارفع صورة</span>
+                      </Button>
                       <Button
                         onClick={handleSendMessage}
-                        disabled={sendingMessage || !newMessage.trim()}
+                        disabled={sendingMessage || (!newMessage.trim() && !selectedImage)}
                         className="bg-blue-600 hover:bg-blue-700 flex-1 h-12"
                         size="lg"
                       >
