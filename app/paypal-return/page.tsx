@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { useToast } from '@/hooks/use-toast';
+import { useCart } from '@/lib/cart-context';
 import { Loader2, CheckCircle2, AlertCircle, Copy, ExternalLink } from 'lucide-react';
 
 interface SubscriptionDetails {
