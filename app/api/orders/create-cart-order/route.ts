@@ -170,6 +170,98 @@ export async function POST(request: NextRequest) {
         }
       }
 
+      // Update order status back to 'paid' (assign_subscription_to_order sets it to 'approved')
+      // Also ensure assigned_subscription is properly set
+      if (assignedSubscriptions.length > 0) {
+        const firstSubscription = assignedSubscriptions[0].subscription;
+        await supabaseAdmin
+          .from('orders')
+          .update({
+            status: 'paid',
+            assigned_subscription: firstSubscription,
+          })
+          .eq('id', order.id);
+      }
+
+      // Create active subscriptions for each assigned subscription
+      for (const assignedSub of assignedSubscriptions) {
+        try {
+          // Determine subscription type from product code or product name
+          let subscriptionType = 'iptv'; // default
+          const productCode = assignedSub.product_code || '';
+          const productName = assignedSub.product_name || '';
+          
+          if (productCode.includes('NETFLIX') || productName.toLowerCase().includes('netflix')) {
+            subscriptionType = 'netflix';
+          } else if (productCode.includes('SHAHID') || productName.toLowerCase().includes('shahid')) {
+            subscriptionType = 'shahid';
+          } else if (productCode.includes('PACKAGE') || productName.toLowerCase().includes('باقة')) {
+            subscriptionType = 'package';
+          }
+
+          // Call auto_create_subscription_from_order function
+          // First, temporarily set status to 'approved' for the function to work
+          await supabaseAdmin
+            .from('orders')
+            .update({ status: 'approved' })
+            .eq('id', order.id);
+
+          const { data: subscriptionId, error: createSubError } = await supabaseAdmin.rpc(
+            'auto_create_subscription_from_order',
+            {
+              p_order_id: order.id,
+              p_subscription_type: subscriptionType,
+            }
+          );
+
+          // Set status back to 'paid'
+          await supabaseAdmin
+            .from('orders')
+            .update({ status: 'paid' })
+            .eq('id', order.id);
+
+          if (createSubError) {
+            console.error('Error creating active subscription:', createSubError);
+            // Try manual insert as fallback
+            try {
+              const { data: product } = await supabaseAdmin
+                .from('products')
+                .select('duration')
+                .eq('product_code', assignedSub.product_code)
+                .single();
+
+              const durationText = product?.duration || assignedSub.subscription.meta?.duration || '1 شهر';
+              const startDate = new Date(order.created_at);
+              const expirationDate = new Date(startDate);
+              
+              // Parse duration to days (simplified - you may need to use parseDurationToDays utility)
+              const durationMatch = durationText.match(/(\d+)/);
+              const durationMonths = durationMatch ? parseInt(durationMatch[1]) : 1;
+              expirationDate.setMonth(expirationDate.getMonth() + durationMonths);
+
+              await supabaseAdmin
+                .from('active_subscriptions')
+                .insert({
+                  order_id: order.id,
+                  customer_name: order.name,
+                  customer_email: order.email,
+                  customer_phone: order.whatsapp || null,
+                  subscription_code: assignedSub.subscription.code,
+                  subscription_type: subscriptionType,
+                  subscription_duration: durationText,
+                  expiration_date: expirationDate.toISOString(),
+                  start_date: startDate.toISOString(),
+                  product_code: assignedSub.product_code || null,
+                });
+            } catch (manualInsertError) {
+              console.error('Error in manual subscription insert fallback:', manualInsertError);
+            }
+          }
+        } catch (err) {
+          console.error('Error creating active subscription:', err);
+        }
+      }
+
       // Update promo code usage
       if (promoCodeId) {
         try {
@@ -192,6 +284,12 @@ export async function POST(request: NextRequest) {
       try {
         const orderDisplayId = (finalOrder as any)?.order_number || order.id.slice(0, 8).toUpperCase();
         
+        // Get subscription code from finalOrder or assignedSubscriptions
+        const subscriptionCode = (finalOrder as any)?.assigned_subscription?.code || 
+                                 (assignedSubscriptions.length > 0 ? assignedSubscriptions[0].subscription.code : undefined);
+        const subscriptionMeta = (finalOrder as any)?.assigned_subscription?.meta || 
+                                 (assignedSubscriptions.length > 0 ? assignedSubscriptions[0].subscription.meta : undefined);
+        
         // Send admin notification
         try {
           await sendNewOrderEmail({
@@ -200,21 +298,29 @@ export async function POST(request: NextRequest) {
             email: order.email,
             whatsapp: order.whatsapp || undefined,
             productName: order.product_name,
-            price: 0,
+            price: totalAmount || 0,
             createdAt: order.created_at,
           });
         } catch (adminEmailError) {
           console.error('Error sending admin notification email:', adminEmailError);
         }
 
-        // Send customer approval email
-        await sendApprovalEmail({
-          orderId: orderDisplayId,
-          name: order.name,
-          email: order.email,
-          subscriptionCode: assignedSubscriptions.length > 0 ? assignedSubscriptions[0].subscription.code : undefined,
-          subscriptionMeta: assignedSubscriptions.length > 0 ? assignedSubscriptions[0].subscription.meta : undefined,
-        });
+        // Send customer approval email with subscription details
+        if (subscriptionCode) {
+          try {
+            await sendApprovalEmail({
+              orderId: orderDisplayId,
+              name: order.name,
+              email: order.email,
+              subscriptionCode: subscriptionCode,
+              subscriptionMeta: subscriptionMeta,
+            });
+          } catch (customerEmailError) {
+            console.error('Error sending customer approval email:', customerEmailError);
+          }
+        } else {
+          console.warn('No subscription code available to send in approval email');
+        }
       } catch (emailError) {
         console.error('Error sending emails:', emailError);
       }

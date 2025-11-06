@@ -748,9 +748,9 @@ export default function MyOrdersPage() {
                         <div className="space-y-3">
                           <div className="bg-slate-900/50 p-3 rounded-lg">
                             <p className="text-slate-400 text-xs mb-1">رمز الاشتراك</p>
-                            <p className="text-white font-mono font-bold text-xl bg-slate-950 px-4 py-3 rounded border border-green-600/50">
+                            <pre className="text-white font-mono font-bold text-sm bg-slate-950 px-4 py-3 rounded border border-green-600/50 whitespace-pre-wrap break-words overflow-x-auto max-h-[200px] overflow-y-auto">
                               {order.assigned_subscription.code}
-                            </p>
+                            </pre>
                           </div>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                             {order.assigned_subscription.meta?.duration && (

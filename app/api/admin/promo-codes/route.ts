@@ -72,7 +72,24 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    return NextResponse.json({ promoCodes: data });
+    // Calculate effective status based on expiry date
+    const now = new Date();
+    const promoCodesWithEffectiveStatus = (data || []).map((code: any) => {
+      const isExpired = code.valid_until && new Date(code.valid_until) < now;
+      const isNotYetValid = code.valid_from && new Date(code.valid_from) > now;
+      
+      // Effective status: active only if is_active is true AND not expired AND valid from date has passed
+      const effectiveIsActive = code.is_active && !isExpired && !isNotYetValid;
+      
+      return {
+        ...code,
+        effective_is_active: effectiveIsActive,
+        is_expired: isExpired,
+        is_not_yet_valid: isNotYetValid,
+      };
+    });
+
+    return NextResponse.json({ promoCodes: promoCodesWithEffectiveStatus });
   } catch (error: any) {
     console.error('Unexpected error:', error);
     return NextResponse.json(
@@ -290,6 +307,49 @@ export async function DELETE(request: NextRequest) {
     }
 
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Check if promo code is used in any orders
+    const { data: ordersUsingPromo, error: checkError } = await supabaseAdmin
+      .from('orders')
+      .select('id')
+      .eq('promo_code_id', id)
+      .limit(1);
+
+    if (checkError) {
+      console.error('Error checking orders:', checkError);
+      return NextResponse.json(
+        { error: 'فشل في التحقق من استخدام رمز الخصم' },
+        { status: 500 }
+      );
+    }
+
+    if (ordersUsingPromo && ordersUsingPromo.length > 0) {
+      // Cannot delete - promo code is used in orders
+      // Instead, deactivate it
+      const { data: updatedCode, error: updateError } = await supabaseAdmin
+        .from('promo_codes')
+        .update({ is_active: false, updated_at: new Date().toISOString() })
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (updateError) {
+        console.error('Error deactivating promo code:', updateError);
+        return NextResponse.json(
+          { error: 'فشل في تعطيل رمز الخصم' },
+          { status: 500 }
+        );
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: 'تم تعطيل رمز الخصم بدلاً من حذفه لأنه مستخدم في طلبات',
+        deactivated: true,
+        promoCode: updatedCode,
+      });
+    }
+
+    // Safe to delete - no orders use this promo code
     const { error } = await supabaseAdmin
       .from('promo_codes')
       .delete()
@@ -297,6 +357,13 @@ export async function DELETE(request: NextRequest) {
 
     if (error) {
       console.error('Error deleting promo code:', error);
+      // Check if it's a foreign key constraint error
+      if (error.code === '23503') {
+        return NextResponse.json(
+          { error: 'لا يمكن حذف رمز الخصم لأنه مستخدم في طلبات. تم تعطيله بدلاً من ذلك.' },
+          { status: 400 }
+        );
+      }
       return NextResponse.json(
         { error: error.message || 'فشل في حذف رمز الخصم' },
         { status: 500 }

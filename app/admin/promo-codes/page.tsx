@@ -51,6 +51,9 @@ interface PromoCode {
   valid_until?: string;
   created_at: string;
   updated_at: string;
+  effective_is_active?: boolean;
+  is_expired?: boolean;
+  is_not_yet_valid?: boolean;
 }
 
 export default function AdminPromoCodesPage() {
@@ -294,8 +297,10 @@ export default function AdminPromoCodesPage() {
       }
 
       toast({
-        title: 'نجح',
-        description: 'تم حذف رمز الخصم بنجاح',
+        title: result.deactivated ? 'تم التعطيل' : 'نجح',
+        description: result.message || result.deactivated 
+          ? 'تم تعطيل رمز الخصم لأنه مستخدم في طلبات'
+          : 'تم حذف رمز الخصم بنجاح',
       });
 
       setDeletingPromoCodeId(null);
@@ -344,9 +349,13 @@ export default function AdminPromoCodesPage() {
   const filteredPromoCodes = promoCodes.filter((pc) => {
     const matchesSearch = pc.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (pc.description?.toLowerCase().includes(searchQuery.toLowerCase()) || false);
+    
+    // Use effective_is_active if available, otherwise fall back to is_active
+    const effectiveActive = pc.effective_is_active !== undefined ? pc.effective_is_active : pc.is_active;
+    
     const matchesActive = activeFilter === 'all' ||
-      (activeFilter === 'active' && pc.is_active) ||
-      (activeFilter === 'inactive' && !pc.is_active);
+      (activeFilter === 'active' && effectiveActive) ||
+      (activeFilter === 'inactive' && !effectiveActive);
     return matchesSearch && matchesActive;
   });
 
@@ -424,6 +433,7 @@ export default function AdminPromoCodesPage() {
                     <TableHead className="text-white">قيمة الخصم</TableHead>
                     <TableHead className="text-white">الاستخدام</TableHead>
                     <TableHead className="text-white">الحالة</TableHead>
+                    <TableHead className="text-white">تاريخ الانتهاء</TableHead>
                     <TableHead className="text-white">تاريخ الإنشاء</TableHead>
                     <TableHead className="text-white">الإجراءات</TableHead>
                   </TableRow>
@@ -431,7 +441,7 @@ export default function AdminPromoCodesPage() {
                 <TableBody>
                   {filteredPromoCodes.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center text-slate-400 py-8">
+                      <TableCell colSpan={9} className="text-center text-slate-400 py-8">
                         لا توجد رموز خصم
                       </TableCell>
                     </TableRow>
@@ -456,12 +466,41 @@ export default function AdminPromoCodesPage() {
                             : `${promoCode.used_count} استخدام`}
                         </TableCell>
                         <TableCell>
-                          <Badge
-                            variant={promoCode.is_active ? 'default' : 'secondary'}
-                            className={promoCode.is_active ? 'bg-green-600' : 'bg-slate-600'}
-                          >
-                            {promoCode.is_active ? 'نشط' : 'غير نشط'}
-                          </Badge>
+                          {(() => {
+                            const effectiveActive = promoCode.effective_is_active !== undefined 
+                              ? promoCode.effective_is_active 
+                              : promoCode.is_active;
+                            const isExpired = promoCode.is_expired || false;
+                            const isNotYetValid = promoCode.is_not_yet_valid || false;
+                            
+                            if (isExpired) {
+                              return (
+                                <Badge className="bg-red-600">
+                                  منتهي الصلاحية
+                                </Badge>
+                              );
+                            }
+                            if (isNotYetValid) {
+                              return (
+                                <Badge className="bg-yellow-600">
+                                  غير مفعّل بعد
+                                </Badge>
+                              );
+                            }
+                            return (
+                              <Badge
+                                variant={effectiveActive ? 'default' : 'secondary'}
+                                className={effectiveActive ? 'bg-green-600' : 'bg-slate-600'}
+                              >
+                                {effectiveActive ? 'نشط' : 'غير نشط'}
+                              </Badge>
+                            );
+                          })()}
+                        </TableCell>
+                        <TableCell className="text-slate-300">
+                          {promoCode.valid_until 
+                            ? format(new Date(promoCode.valid_until), 'yyyy-MM-dd', { locale: ar })
+                            : '-'}
                         </TableCell>
                         <TableCell className="text-slate-300">
                           {format(new Date(promoCode.created_at), 'yyyy-MM-dd', { locale: ar })}

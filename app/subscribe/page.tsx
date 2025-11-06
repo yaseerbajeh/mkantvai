@@ -35,8 +35,8 @@ const iconMap: { [key: string]: any } = {
 export default function SubscribePage() {
   const router = useRouter();
   const { addItem } = useCart();
-  const [productsBySection, setProductsBySection] = useState<{ [key: number]: any[] }>({});
-  const [sectionTitles, setSectionTitles] = useState<{ [key: number]: string }>({});
+  const [productsByCategory, setProductsByCategory] = useState<{ [key: string]: any[] }>({});
+  const [categoryTitles, setCategoryTitles] = useState<{ [key: string]: string }>({});
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<User | null>(null);
   const [authDialogOpen, setAuthDialogOpen] = useState(false);
@@ -73,28 +73,55 @@ export default function SubscribePage() {
           throw new Error(result.error || 'فشل في جلب المنتجات');
         }
 
-        // Group products by section
-        const grouped: { [key: number]: any[] } = {};
-        const titles: { [key: number]: string } = {};
+        // Group products by category (use productsByCategory if available, otherwise fall back to productsBySection)
+        const grouped: { [key: string]: any[] } = {};
+        const titles: { [key: string]: string } = {};
 
-        result.products.forEach((product: any) => {
-          if (!grouped[product.section]) {
-            grouped[product.section] = [];
-            titles[product.section] = product.section_title;
-          }
-          grouped[product.section].push({
-            ...product,
-            code: product.product_code,
-            badgeColor: product.badge_color,
-            isPackage: product.is_package,
-            icon: iconMap[product.icon_name] || Sparkles,
-            available_stock: product.available_stock || 0,
-            purchase_count: product.purchase_count || 0,
+        // Use productsByCategory if available (new format), otherwise use productsBySection (backward compatibility)
+        const productsToGroup = result.productsByCategory || result.productsBySection || {};
+        const titlesToUse = result.categoryTitles || result.sectionTitles || {};
+
+        // If API already grouped by category, use that
+        if (result.productsByCategory) {
+          Object.keys(result.productsByCategory).forEach((categoryId) => {
+            const categoryProducts = result.productsByCategory[categoryId];
+            grouped[categoryId] = categoryProducts.map((product: any) => ({
+              ...product,
+              code: product.product_code,
+              badgeColor: product.badge_color,
+              isPackage: product.is_package,
+              icon: iconMap[product.icon_name] || Sparkles,
+              available_stock: product.available_stock || 0,
+              purchase_count: product.purchase_count || 0,
+            }));
+            // Get category name from first product's category or from titles
+            const firstProduct = categoryProducts[0];
+            titles[categoryId] = titlesToUse[categoryId] || firstProduct?.categories?.name || firstProduct?.section_title || 'غير محدد';
           });
-        });
+        } else {
+          // Fallback: group by section (backward compatibility)
+          result.products.forEach((product: any) => {
+            const categoryId = product.category_id || `section-${product.section}`;
+            const categoryName = product.categories?.name || product.section_title || `القسم ${product.section}`;
+            
+            if (!grouped[categoryId]) {
+              grouped[categoryId] = [];
+              titles[categoryId] = categoryName;
+            }
+            grouped[categoryId].push({
+              ...product,
+              code: product.product_code,
+              badgeColor: product.badge_color,
+              isPackage: product.is_package,
+              icon: iconMap[product.icon_name] || Sparkles,
+              available_stock: product.available_stock || 0,
+              purchase_count: product.purchase_count || 0,
+            });
+          });
+        }
 
-        setProductsBySection(grouped);
-        setSectionTitles(titles);
+        setProductsByCategory(grouped);
+        setCategoryTitles(titles);
       } catch (error: any) {
         console.error('Error fetching products:', error);
       } finally {
@@ -131,28 +158,29 @@ export default function SubscribePage() {
               <p className="text-slate-300">جاري تحميل المنتجات...</p>
             </div>
           ) : (
-            /* Product Sections */
-            Object.keys(productsBySection).map((sectionKey) => {
-              const sectionIndex = parseInt(sectionKey) - 1;
-              const section = productsBySection[parseInt(sectionKey)];
-              const sectionGradient = sectionGradients[sectionIndex] || sectionGradients[0];
-              const isPackageSection = parseInt(sectionKey) === 4; // 4th section is packages
+            /* Product Categories */
+            Object.keys(productsByCategory).map((categoryId, categoryIndex) => {
+              const category = productsByCategory[categoryId];
+              const sectionIndex = categoryIndex % sectionGradients.length;
+              const sectionGradient = sectionGradients[sectionIndex];
+              // Check if this category contains package products
+              const isPackageSection = category.some((p: any) => p.isPackage || p.is_package);
               
-              if (!section || section.length === 0) return null;
+              if (!category || category.length === 0) return null;
               
               return (
-                <div key={sectionKey} className="mb-20">
-                  {/* Section Header */}
+                <div key={categoryId} className="mb-20">
+                  {/* Category Header */}
                   <div className="mb-8 text-center">
                     <h2 className="text-3xl md:text-4xl font-bold text-white mb-2 inline-block">
-                      {sectionTitles[parseInt(sectionKey)] || `القسم ${sectionKey}`}
+                      {categoryTitles[categoryId] || 'غير محدد'}
                     </h2>
-                    <div className={`h-1 w-24 mx-auto mt-4 bg-gradient-to-r ${section[0].gradient} rounded-full`} />
+                    <div className={`h-1 w-24 mx-auto mt-4 bg-gradient-to-r ${category[0].gradient} rounded-full`} />
                   </div>
 
                   {/* Products Grid - Packages: 2 columns (long cards), Others: 3 columns */}
                   <div className={isPackageSection ? "grid grid-cols-2 md:grid-cols-2 gap-3 md:gap-8" : "grid grid-cols-2 md:grid-cols-3 gap-2 md:gap-6"}>
-                    {section.map((product: any) => {
+                    {category.map((product: any) => {
                       const Icon = product.icon || Sparkles;
                     
                     // Package section - long detailed cards
