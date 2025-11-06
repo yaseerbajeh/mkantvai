@@ -177,10 +177,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+
     // Validate category exists
     const { data: category, error: categoryError } = await supabaseAdmin
       .from('categories')
-      .select('id')
+      .select('id, name, display_order')
       .eq('id', category_id)
       .single();
 
@@ -190,8 +192,6 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-
-    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
     // Get category name for section_title (backward compatibility)
     const categoryName = category.name;
