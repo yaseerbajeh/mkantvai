@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Clapperboard, Target, Sparkles, ChevronLeft, ChevronRight, Film, ArrowLeft, ShoppingCart, Tv, Smartphone, Monitor, Laptop, CheckCircle2, Shield, Zap } from 'lucide-react';
+import { Clapperboard, Target, Sparkles, ChevronLeft, ChevronRight, Film, ArrowLeft, ShoppingCart, Tv, Smartphone, Monitor, Laptop, CheckCircle2, Shield, Zap, Bot, TrendingUp } from 'lucide-react';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import Header from '@/components/Header';
@@ -237,73 +237,152 @@ export default function Home() {
         <div
           className="absolute inset-0 bg-cover bg-center"
           style={{
-            backgroundImage: 'url(/background.png)',
+            backgroundImage: 'url(https://wallpapercave.com/wp/wp14847863.webp)',
             opacity: 0.9,
           }}
         />
 
         <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/60 to-black" />
 
-        <div className="relative z-10 container mx-auto px-4 text-center">
-          <h1 className="text-5xl md:text-7xl font-bold mb-6 leading-tight">
-            لا تستطيع تحديد ماذا تشاهد؟
-          </h1>
-          <p className="text-xl md:text-2xl text-slate-300 mb-10 max-w-3xl mx-auto">
-            أخبرنا عن حالتك المزاجية، وسنجد لك الفيلم المثالي
-          </p>
-          <Link href="/browse">
-            <Button size="lg" className="bg-blue-600 hover:bg-blue-700 text-lg px-8 py-6">
-              ابحث عن فيلم الآن
-            </Button>
-          </Link>
+        <div className="relative z-10 container mx-auto px-4">
+          <div className="flex flex-col md:flex-row md:flex-row-reverse items-center md:items-center md:justify-between gap-8 max-w-7xl mx-auto">
+            {/* Text Content - Right Side on Desktop, Top on Mobile */}
+            <div className="flex-1 text-center md:text-right w-full md:w-auto">
+              <h1 className="text-5xl md:text-7xl font-bold mb-6 leading-tight">
+                لا تستطيع تحديد ماذا تشاهد؟
+              </h1>
+              <p className="text-xl md:text-2xl text-slate-300 mb-10 max-w-3xl mx-auto md:mx-0">
+                أخبرنا عن حالتك المزاجية، وسنجد لك الفيلم المثالي
+              </p>
+            </div>
+            
+            {/* Button - Left Side on Desktop, Bottom on Mobile */}
+            <div className="flex-shrink-0 w-full md:w-auto">
+              <Link href="/browse" className="block w-full md:w-auto">
+                <Button size="lg" className="bg-blue-600 hover:bg-blue-700 text-lg px-8 py-6 w-full md:w-auto">
+                  ابحث عن فيلم الآن
+                </Button>
+              </Link>
+            </div>
+          </div>
         </div>
       </section>
 
       <section id="how-it-works" className="py-20 bg-black/50">
         <div className="container mx-auto px-4">
           <h2 className="text-4xl md:text-5xl font-bold text-center mb-4">
-            كيف يعمل؟
+            اكتشف ما نقدمه
           </h2>
           <p className="text-center text-slate-400 text-lg mb-16">
-            العثور على فيلمك المفضل للأمسية سهل مثل ١-٢-٣
+            أدوات ذكية لمساعدتك في العثور على أفضل محتوى لمشاهدتك
           </p>
 
-          <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
-            <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-8 text-center hover:border-blue-600 transition">
-              <div className="w-16 h-16 bg-blue-600/20 rounded-xl flex items-center justify-center mx-auto mb-6">
-                <Clapperboard className="w-8 h-8 text-blue-500" />
+          <div className="max-w-7xl mx-auto space-y-4 md:space-y-8">
+            {/* Large Featured Card - AI Movie Finder */}
+            <Link href="/browse" className="block group">
+              <div className="bg-gradient-to-br from-blue-600/20 via-purple-600/20 to-pink-600/20 border-2 border-blue-500/30 rounded-xl md:rounded-2xl p-4 md:p-8 lg:p-12 hover:border-blue-400/50 transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl hover:shadow-blue-500/20">
+                <div className="flex flex-col md:flex-row items-center gap-4 md:gap-8">
+                  {/* Icon/Illustration */}
+                  <div className="flex-shrink-0">
+                    <div className="w-20 h-20 md:w-32 md:h-32 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl md:rounded-2xl flex items-center justify-center shadow-2xl shadow-blue-500/30 group-hover:scale-110 transition-transform duration-300">
+                      <Bot className="w-10 h-10 md:w-16 md:h-16 text-white" />
+                    </div>
+                  </div>
+                  
+                  {/* Content */}
+                  <div className="flex-1 text-center md:text-right w-full">
+                    <h3 className="text-xl md:text-3xl lg:text-4xl font-bold mb-2 md:mb-4 text-white">
+                      الذكاء الاصطناعي لإيجاد الفيلم المثالي
+                    </h3>
+                    <p className="text-sm md:text-lg lg:text-xl text-slate-300 mb-4 md:mb-6 max-w-2xl mx-auto md:mx-0">
+                      تحدث مع مساعدنا الذكي! أخبرنا عن حالتك المزاجية، التصنيفات المفضلة، والمنصات المتاحة لديك، وسنجد لك أفضل 3 اقتراحات مخصصة لك
+                    </p>
+                    <Button 
+                      size="lg" 
+                      className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white text-sm md:text-lg px-6 md:px-8 py-4 md:py-6 shadow-lg hover:shadow-xl transition-all w-full md:w-auto"
+                    >
+                      جرب الآن
+                      <Sparkles className="w-4 h-4 md:w-5 md:h-5 mr-2" />
+                    </Button>
+                  </div>
+                </div>
               </div>
-              <h3 className="text-2xl font-bold mb-4">اضبط الفلاتر</h3>
-              <p className="text-slate-400">
-                اختر حسب التصنيف، الحقبة، المزاج، والمزيد
-              </p>
-            </div>
+            </Link>
 
-            <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-8 text-center hover:border-blue-600 transition">
-              <div className="w-16 h-16 bg-blue-600/20 rounded-xl flex items-center justify-center mx-auto mb-6">
-                <Target className="w-8 h-8 text-blue-500" />
+            {/* Two Smaller Cards - Trending Movies and Store */}
+            <div className="grid grid-cols-2 md:grid-cols-2 gap-3 md:gap-8">
+              {/* Trending Movies Card */}
+              <div 
+                onClick={() => {
+                  const trendingSection = document.getElementById('trending-movies');
+                  if (trendingSection) {
+                    trendingSection.scrollIntoView({ behavior: 'smooth' });
+                  }
+                }}
+                className="cursor-pointer group"
+              >
+                <div className="bg-gradient-to-br from-orange-600/20 via-red-600/20 to-pink-600/20 border-2 border-orange-500/30 rounded-xl md:rounded-2xl p-4 md:p-8 hover:border-orange-400/50 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-orange-500/20 h-full">
+                  <div className="flex flex-col items-center text-center h-full">
+                    {/* Icon */}
+                    <div className="w-16 h-16 md:w-24 md:h-24 bg-gradient-to-br from-orange-500 to-red-600 rounded-lg md:rounded-xl flex items-center justify-center mb-3 md:mb-6 shadow-xl shadow-orange-500/30 group-hover:scale-110 transition-transform duration-300">
+                      <TrendingUp className="w-8 h-8 md:w-12 md:h-12 text-white" />
+                    </div>
+                    
+                    {/* Content */}
+                    <h3 className="text-base md:text-2xl lg:text-3xl font-bold mb-2 md:mb-4 text-white">
+                      الأفلام الأكثر رواجاً
+                    </h3>
+                    <p className="text-xs md:text-base text-slate-300 mb-3 md:mb-6 flex-grow">
+                      اكتشف قائمة الأفلام الأكثر شعبية ورواجاً حالياً على جميع المنصات. تحديث يومي لأفضل المحتوى
+                    </p>
+                    <Button 
+                      variant="outline"
+                      size="sm"
+                      className="border-orange-500/50 text-orange-400 hover:bg-orange-500/20 hover:text-white hover:border-orange-400 text-xs md:text-lg px-3 md:px-6 py-2 md:py-4 transition-all w-full md:w-auto"
+                    >
+                      <span className="hidden md:inline">عرض القائمة</span>
+                      <span className="md:hidden">القائمة</span>
+                      <ArrowLeft className="w-3 h-3 md:w-5 md:h-5 mr-1 md:mr-2" />
+                    </Button>
+                  </div>
+                </div>
               </div>
-              <h3 className="text-2xl font-bold mb-4">احصل على اقتراحات مخصصة</h3>
-              <p className="text-slate-400">
-                خوارزميتنا تجد ما يناسبك تمامًا
-              </p>
-            </div>
 
-            <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-8 text-center hover:border-blue-600 transition">
-              <div className="w-16 h-16 bg-blue-600/20 rounded-xl flex items-center justify-center mx-auto mb-6">
-                <Sparkles className="w-8 h-8 text-blue-500" />
-              </div>
-              <h3 className="text-2xl font-bold mb-4">استمتع بأمسيتك السينمائية</h3>
-              <p className="text-slate-400">
-                نوفر لك روابط لأماكن المشاهدة
-              </p>
+              {/* Subscription Store Card */}
+              <Link href="/subscribe" className="block group">
+                <div className="bg-gradient-to-br from-green-600/20 via-emerald-600/20 to-teal-600/20 border-2 border-green-500/30 rounded-xl md:rounded-2xl p-4 md:p-8 hover:border-green-400/50 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-green-500/20 h-full">
+                  <div className="flex flex-col items-center text-center h-full">
+                    {/* Icon */}
+                    <div className="w-16 h-16 md:w-24 md:h-24 bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg md:rounded-xl flex items-center justify-center mb-3 md:mb-6 shadow-xl shadow-green-500/30 group-hover:scale-110 transition-transform duration-300">
+                      <ShoppingCart className="w-8 h-8 md:w-12 md:h-12 text-white" />
+                    </div>
+                    
+                    {/* Content */}
+                    <h3 className="text-base md:text-2xl lg:text-3xl font-bold mb-2 md:mb-4 text-white">
+                      متجر الاشتراكات
+                    </h3>
+                    <p className="text-xs md:text-base text-slate-300 mb-3 md:mb-6 flex-grow">
+                      احصل على اشتراكات بأسعار مميزة لجميع المنصات. Netflix، Disney+، HBO Max، وأكثر. تسليم فوري وضمان كامل
+                    </p>
+                    <Button 
+                      variant="outline"
+                      size="sm"
+                      className="border-green-500/50 text-green-400 hover:bg-green-500/20 hover:text-white hover:border-green-400 text-xs md:text-lg px-3 md:px-6 py-2 md:py-4 transition-all w-full md:w-auto"
+                    >
+                      <span className="hidden md:inline">زيارة المتجر</span>
+                      <span className="md:hidden">المتجر</span>
+                      <ShoppingCart className="w-3 h-3 md:w-5 md:h-5 mr-1 md:mr-2" />
+                    </Button>
+                  </div>
+                </div>
+              </Link>
             </div>
           </div>
         </div>
       </section>
 
       {/* Trending Movies */}
-      <section className="py-14 bg-black/40">
+      <section id="trending-movies" className="py-14 bg-black/40">
         <div className="container mx-auto px-4">
           <div className="mb-6">
             <h2 className="text-3xl md:text-4xl font-bold">الأكثر رواجاً في المنصات</h2>
