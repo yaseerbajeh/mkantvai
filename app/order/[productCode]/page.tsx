@@ -23,51 +23,6 @@ export default function OrderPage() {
   const router = useRouter();
   const { toast } = useToast();
   const productCode = params.productCode as string;
-  const [paymentLink, setPaymentLink] = useState<string | null>(null);
-  const [checkingPaymentLink, setCheckingPaymentLink] = useState(true);
-  
-  // Check if product has PayPal payment link and redirect if exists
-  useEffect(() => {
-    const checkPaymentLink = async () => {
-      try {
-        // Try live first, then sandbox
-        let response = await fetch(`/api/products/payment-link?product_code=${productCode}&environment=live`, {
-          cache: 'no-store',
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          if (data.paymentLink) {
-            setPaymentLink(data.paymentLink);
-            window.location.href = data.paymentLink;
-            return;
-          }
-        }
-        
-        // Try sandbox if live not found
-        response = await fetch(`/api/products/payment-link?product_code=${productCode}&environment=sandbox`, {
-          cache: 'no-store',
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          if (data.paymentLink) {
-            setPaymentLink(data.paymentLink);
-            window.location.href = data.paymentLink;
-            return;
-          }
-        }
-      } catch (error) {
-        console.error('Error checking payment link:', error);
-      } finally {
-        setCheckingPaymentLink(false);
-      }
-    };
-
-    if (productCode) {
-      checkPaymentLink();
-    }
-  }, [productCode]);
   
   const [user, setUser] = useState<SupabaseUser | null>(null);
   const [loading, setLoading] = useState(true);
@@ -323,8 +278,8 @@ export default function OrderPage() {
     }
   };
 
-  // Show loading while checking payment link or loading product
-  if (checkingPaymentLink || loading || productLoading) {
+  // Show loading while loading product
+  if (loading || productLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900">
         <Header />
@@ -332,7 +287,7 @@ export default function OrderPage() {
           <div className="max-w-2xl mx-auto text-center">
             <Loader2 className="h-8 w-8 animate-spin text-white mx-auto" />
             <p className="text-slate-300 mt-4">
-              {checkingPaymentLink ? 'جاري التحقق من رابط الدفع...' : 'جاري التحميل...'}
+              جاري التحميل...
             </p>
           </div>
         </main>

@@ -29,27 +29,31 @@ async function getAuthenticatedUser(request: NextRequest) {
   return user;
 }
 
-// GET - Get reviews for a product
+// GET - Get reviews for a product or all latest reviews
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const productCode = searchParams.get('product_code');
-
-    if (!productCode) {
-      return NextResponse.json(
-        { error: 'product_code is required' },
-        { status: 400 }
-      );
-    }
+    const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!) : null;
 
     const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-    // Get all reviews for this product
-    const { data: reviews, error: reviewsError } = await supabase
+    let query = supabase
       .from('reviews')
       .select('*')
-      .eq('product_code', productCode)
       .order('created_at', { ascending: false });
+
+    // If product_code is provided, filter by it
+    if (productCode) {
+      query = query.eq('product_code', productCode);
+    }
+
+    // If limit is provided, apply it
+    if (limit) {
+      query = query.limit(limit);
+    }
+
+    const { data: reviews, error: reviewsError } = await query;
 
     if (reviewsError) {
       console.error('Error fetching reviews:', reviewsError);
@@ -59,12 +63,15 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Calculate average rating
-    const totalRating = reviews.reduce((sum, review) => sum + review.rating, 0);
-    const averageRating = reviews.length > 0 ? totalRating / reviews.length : 0;
+    // Calculate average rating (only if filtering by product)
+    let averageRating = 0;
+    if (productCode && reviews && reviews.length > 0) {
+      const totalRating = reviews.reduce((sum, review) => sum + review.rating, 0);
+      averageRating = totalRating / reviews.length;
+    }
 
     // Anonymize user emails (show only first part)
-    const anonymizedReviews = reviews.map((review) => {
+    const anonymizedReviews = (reviews || []).map((review) => {
       const emailParts = review.user_email.split('@');
       const anonymizedEmail = emailParts[0].substring(0, 2) + '***@' + emailParts[1];
       return {
@@ -75,8 +82,8 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       reviews: anonymizedReviews,
-      averageRating: Math.round(averageRating * 10) / 10, // Round to 1 decimal place
-      totalReviews: reviews.length,
+      averageRating: productCode ? Math.round(averageRating * 10) / 10 : null,
+      totalReviews: anonymizedReviews.length,
     });
   } catch (error: any) {
     console.error('Unexpected error:', error);
