@@ -35,6 +35,8 @@ import {
   ToggleRight,
   X,
   FolderTree,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
 
@@ -103,9 +105,12 @@ export default function AdminProductsPage() {
   const [productDialogOpen, setProductDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [deletingProductId, setDeletingProductId] = useState<string | null>(null);
-  const [subscriptionCodesDialogOpen, setSubscriptionCodesDialogOpen] = useState(false);
+  const [addSubscriptionDialogOpen, setAddSubscriptionDialogOpen] = useState(false);
+  const [editSubscriptionDialogOpen, setEditSubscriptionDialogOpen] = useState(false);
+  const [editingSubscription, setEditingSubscription] = useState<SubscriptionCode | null>(null);
   const [selectedProductCode, setSelectedProductCode] = useState<string>('');
-  const [bulkCodes, setBulkCodes] = useState<string>('');
+  const [subscriptionCode, setSubscriptionCode] = useState<string>('');
+  const [expandedSubscriptions, setExpandedSubscriptions] = useState<Set<string>>(new Set());
   
   // Categories management
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
@@ -392,11 +397,11 @@ export default function AdminProductsPage() {
     }
   };
 
-  const handleAddSubscriptionCodes = async () => {
-    if (!selectedProductCode || !bulkCodes.trim()) {
+  const handleAddSubscription = async () => {
+    if (!selectedProductCode || !subscriptionCode.trim()) {
       toast({
         title: 'خطأ',
-        description: 'يرجى إدخال رمز المنتج ورموز الاشتراكات',
+        description: 'يرجى إدخال رمز المنتج ورمز الاشتراك',
         variant: 'destructive',
       });
       return;
@@ -406,11 +411,6 @@ export default function AdminProductsPage() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('غير مصرح');
 
-      const codes = bulkCodes
-        .split('\n')
-        .map(c => c.trim())
-        .filter(c => c.length > 0);
-
       const response = await fetch('/api/admin/products/subscription-codes', {
         method: 'POST',
         headers: {
@@ -419,22 +419,82 @@ export default function AdminProductsPage() {
         },
         body: JSON.stringify({
           product_code: selectedProductCode,
-          codes,
+          subscription_code: subscriptionCode,
         }),
       });
 
       const result = await response.json();
       if (!response.ok) {
-        throw new Error(result.error || 'فشل في إضافة رموز الاشتراكات');
+        throw new Error(result.error || 'فشل في إضافة رمز الاشتراك');
       }
 
       toast({
         title: 'نجح',
-        description: `تم إضافة ${result.added} رمز اشتراك`,
+        description: 'تم إضافة رمز الاشتراك بنجاح',
       });
 
-      setSubscriptionCodesDialogOpen(false);
-      setBulkCodes('');
+      setAddSubscriptionDialogOpen(false);
+      setSelectedProductCode('');
+      setSubscriptionCode('');
+      fetchSubscriptionCodes();
+    } catch (error: any) {
+      toast({
+        title: 'خطأ',
+        description: error.message || 'حدث خطأ',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleEditSubscription = (subscription: SubscriptionCode) => {
+    setEditingSubscription(subscription);
+    setSelectedProductCode(subscription.product_code || '');
+    setSubscriptionCode(subscription.subscription_code);
+    setEditSubscriptionDialogOpen(true);
+  };
+
+  const handleUpdateSubscription = async () => {
+    if (!editingSubscription) return;
+
+    if (!selectedProductCode || !subscriptionCode.trim()) {
+      toast({
+        title: 'خطأ',
+        description: 'يرجى إدخال رمز المنتج ورمز الاشتراك',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('غير مصرح');
+
+      const response = await fetch(`/api/admin/products/subscription-codes/${editingSubscription.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          product_code: selectedProductCode,
+          subscription_code: subscriptionCode,
+        }),
+      });
+
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || 'فشل في تحديث رمز الاشتراك');
+      }
+
+      toast({
+        title: 'نجح',
+        description: 'تم تحديث رمز الاشتراك بنجاح',
+      });
+
+      setEditSubscriptionDialogOpen(false);
+      setEditingSubscription(null);
+      setSelectedProductCode('');
+      setSubscriptionCode('');
       fetchSubscriptionCodes();
     } catch (error: any) {
       toast({
@@ -736,8 +796,8 @@ export default function AdminProductsPage() {
                                     variant="outline"
                                     onClick={() => {
                                       setSelectedProductCode(product.product_code);
-                                      setBulkCodes('');
-                                      setSubscriptionCodesDialogOpen(true);
+                                      setSubscriptionCode('');
+                                      setAddSubscriptionDialogOpen(true);
                                     }}
                                     className="bg-blue-800 border-blue-700 text-blue-300 hover:bg-blue-700 hover:text-white"
                                     title="إضافة اشتراكات"
@@ -796,62 +856,129 @@ export default function AdminProductsPage() {
                     <Button
                       onClick={() => {
                         setSelectedProductCode('');
-                        setBulkCodes('');
-                        setSubscriptionCodesDialogOpen(true);
+                        setSubscriptionCode('');
+                        setAddSubscriptionDialogOpen(true);
                       }}
                       className="bg-blue-600 hover:bg-blue-700"
                     >
                       <Plus className="h-4 w-4 ml-2" />
-                      إضافة رموز
+                      إضافة إشتراك
                     </Button>
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-4">
+                  <div className="space-y-6">
                     {Object.entries(subscriptionCounts).map(([productCode, count]) => (
-                      <Card key={productCode} className="bg-slate-900/50 border-slate-700">
-                        <CardContent className="pt-6">
-                          <div className="flex justify-between items-center mb-4">
-                            <div>
-                              <h3 className="text-lg font-bold text-white">{productCode}</h3>
-                              <p className="text-slate-300 text-sm">
-                                {count} رمز متاح
-                              </p>
+                      <Card key={productCode} className="bg-slate-800/50 border-slate-700">
+                        <CardHeader className="pb-4">
+                          <div className="flex justify-between items-center">
+                            <div className="flex items-center gap-3">
+                              <Package className="h-5 w-5 text-blue-400" />
+                              <div>
+                                <h3 className="text-xl font-bold text-white">رمز المنتج: {productCode}</h3>
+                                <p className="text-slate-400 text-sm mt-1">
+                                  {count} اشتراك متاح
+                                </p>
+                              </div>
                             </div>
+                            <Badge className="bg-blue-900/50 text-blue-400 border-blue-700">
+                              {count} متاح
+                            </Badge>
                           </div>
-                          <div className="space-y-2">
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-3">
                             {subscriptionCodes
                               .filter(sc => sc.product_code === productCode)
-                              .slice(0, 10)
-                              .map((code) => (
-                                <div
-                                  key={code.id}
-                                  className="flex justify-between items-center p-2 bg-slate-800 rounded"
-                                >
-                                  <span className="text-slate-300 font-mono text-sm">
-                                    {code.subscription_code}
-                                  </span>
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={() => handleDeleteSubscriptionCode(code.id)}
-                                    className="text-red-500 hover:text-red-700"
-                                  >
-                                    <X className="h-4 w-4" />
-                                  </Button>
-                                </div>
-                              ))}
-                            {subscriptionCodes.filter(sc => sc.product_code === productCode).length > 10 && (
-                              <p className="text-slate-400 text-sm text-center">
-                                و {subscriptionCodes.filter(sc => sc.product_code === productCode).length - 10} رمز آخر...
-                              </p>
-                            )}
+                              .map((code) => {
+                                const isExpanded = expandedSubscriptions.has(code.id);
+                                const codeLines = code.subscription_code.split('\n');
+                                const isLong = codeLines.length > 3 || code.subscription_code.length > 150;
+                                const displayCode = isExpanded || !isLong 
+                                  ? code.subscription_code 
+                                  : codeLines.slice(0, 3).join('\n') + (codeLines.length > 3 ? '\n...' : '');
+                                
+                                return (
+                                  <Card key={code.id} className="bg-slate-900/50 border-slate-600">
+                                    <CardContent className="pt-4">
+                                      <div className="flex justify-between items-start gap-4">
+                                        <div className="flex-1 min-w-0">
+                                          <div className="flex items-center gap-2 mb-2">
+                                            <Key className="h-4 w-4 text-slate-400 flex-shrink-0" />
+                                            <Label className="text-slate-400 text-sm">رمز الاشتراك:</Label>
+                                          </div>
+                                          <div className="bg-slate-950 border border-slate-700 rounded p-3">
+                                            <pre className="text-slate-200 font-mono text-sm whitespace-pre-wrap break-words overflow-x-auto max-h-[120px] overflow-y-auto">
+                                              {displayCode}
+                                            </pre>
+                                          </div>
+                                          {isLong && (
+                                            <Button
+                                              size="sm"
+                                              variant="ghost"
+                                              onClick={() => {
+                                                const newExpanded = new Set(expandedSubscriptions);
+                                                if (isExpanded) {
+                                                  newExpanded.delete(code.id);
+                                                } else {
+                                                  newExpanded.add(code.id);
+                                                }
+                                                setExpandedSubscriptions(newExpanded);
+                                              }}
+                                              className="text-slate-400 hover:text-slate-300 text-xs mt-2 h-6 px-2"
+                                            >
+                                              {isExpanded ? (
+                                                <>
+                                                  <ChevronUp className="h-3 w-3 ml-1" />
+                                                  إخفاء
+                                                </>
+                                              ) : (
+                                                <>
+                                                  <ChevronDown className="h-3 w-3 ml-1" />
+                                                  عرض المزيد
+                                                </>
+                                              )}
+                                            </Button>
+                                          )}
+                                        </div>
+                                        <div className="flex gap-2 flex-shrink-0">
+                                          <Button
+                                            size="sm"
+                                            variant="ghost"
+                                            onClick={() => handleEditSubscription(code)}
+                                            className="text-blue-400 hover:text-blue-300 hover:bg-blue-900/20"
+                                            title="تعديل"
+                                          >
+                                            <Edit className="h-4 w-4" />
+                                          </Button>
+                                          <Button
+                                            size="sm"
+                                            variant="ghost"
+                                            onClick={() => handleDeleteSubscriptionCode(code.id)}
+                                            className="text-red-400 hover:text-red-300 hover:bg-red-900/20"
+                                            title="حذف"
+                                          >
+                                            <Trash2 className="h-4 w-4" />
+                                          </Button>
+                                        </div>
+                                      </div>
+                                    </CardContent>
+                                  </Card>
+                                );
+                              })}
                           </div>
+                          {subscriptionCodes.filter(sc => sc.product_code === productCode).length === 0 && (
+                            <p className="text-slate-400 text-sm text-center py-4">لا توجد اشتراكات لهذا المنتج</p>
+                          )}
                         </CardContent>
                       </Card>
                     ))}
                     {Object.keys(subscriptionCounts).length === 0 && (
-                      <p className="text-slate-300 text-center py-8">لا توجد رموز اشتراكات</p>
+                      <div className="text-center py-12">
+                        <Key className="h-12 w-12 text-slate-600 mx-auto mb-4" />
+                        <p className="text-slate-300 text-lg">لا توجد رموز اشتراكات</p>
+                        <p className="text-slate-400 text-sm mt-2">ابدأ بإضافة اشتراك جديد</p>
+                      </div>
                     )}
                   </div>
                 </CardContent>
@@ -966,13 +1093,13 @@ export default function AdminProductsPage() {
         categories={categories}
       />
 
-      {/* Subscription Codes Dialog */}
-      <Dialog open={subscriptionCodesDialogOpen} onOpenChange={setSubscriptionCodesDialogOpen}>
+      {/* Add Subscription Dialog */}
+      <Dialog open={addSubscriptionDialogOpen} onOpenChange={setAddSubscriptionDialogOpen}>
         <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-2xl">
           <DialogHeader>
-            <DialogTitle>إضافة رموز اشتراكات</DialogTitle>
+            <DialogTitle>إضافة اشتراك جديد</DialogTitle>
             <DialogDescription className="text-slate-400">
-              أدخل رموز الاشتراكات (كل رمز في سطر جديد)
+              أدخل رمز المنتج ورمز الاشتراك. يمكن أن يحتوي رمز الاشتراك على تعليمات أو بريد إلكتروني وكلمة مرور.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -981,6 +1108,7 @@ export default function AdminProductsPage() {
               <Select
                 value={selectedProductCode}
                 onValueChange={setSelectedProductCode}
+                required
               >
                 <SelectTrigger className="bg-slate-900 border-slate-700 text-white mt-2">
                   <SelectValue placeholder="اختر رمز المنتج" />
@@ -993,30 +1121,98 @@ export default function AdminProductsPage() {
                   ))}
                 </SelectContent>
               </Select>
-              <p className="text-xs text-slate-400 mt-1">
-                {selectedProductCode ? 'تم اختيار المنتج' : 'اختر منتج من القائمة أو من جدول المنتجات'}
-              </p>
             </div>
             <div>
-              <Label>رموز الاشتراكات</Label>
+              <Label>رمز الاشتراك *</Label>
               <Textarea
-                value={bulkCodes}
-                onChange={(e) => setBulkCodes(e.target.value)}
-                placeholder="SUB-BASIC-1M-001&#10;SUB-BASIC-1M-002&#10;SUB-BASIC-1M-003"
-                className="bg-slate-900 border-slate-700 text-white mt-2 min-h-[200px] font-mono"
+                value={subscriptionCode}
+                onChange={(e) => setSubscriptionCode(e.target.value)}
+                placeholder="أدخل رمز الاشتراك... يمكن أن يحتوي على تعليمات أو بريد إلكتروني وكلمة مرور"
+                className="bg-slate-900 border-slate-700 text-white mt-2 min-h-[150px] font-mono whitespace-pre-wrap break-words"
+                required
               />
+              <p className="text-xs text-slate-400 mt-1">
+                يمكنك إدخال عدة أسطر للتعليمات أو معلومات إضافية
+              </p>
             </div>
           </div>
           <DialogFooter>
             <Button
               variant="outline"
-              onClick={() => setSubscriptionCodesDialogOpen(false)}
+              onClick={() => {
+                setAddSubscriptionDialogOpen(false);
+                setSelectedProductCode('');
+                setSubscriptionCode('');
+              }}
               className="bg-slate-700 border-slate-600 text-white"
             >
               إلغاء
             </Button>
-            <Button onClick={handleAddSubscriptionCodes} className="bg-blue-600 hover:bg-blue-700">
+            <Button onClick={handleAddSubscription} className="bg-blue-600 hover:bg-blue-700">
               إضافة
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Subscription Dialog */}
+      <Dialog open={editSubscriptionDialogOpen} onOpenChange={setEditSubscriptionDialogOpen}>
+        <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>تعديل اشتراك</DialogTitle>
+            <DialogDescription className="text-slate-400">
+              قم بتعديل رمز المنتج أو رمز الاشتراك
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>رمز المنتج *</Label>
+              <Select
+                value={selectedProductCode}
+                onValueChange={setSelectedProductCode}
+                required
+              >
+                <SelectTrigger className="bg-slate-900 border-slate-700 text-white mt-2">
+                  <SelectValue placeholder="اختر رمز المنتج" />
+                </SelectTrigger>
+                <SelectContent>
+                  {products.map((p) => (
+                    <SelectItem key={p.id} value={p.product_code}>
+                      {p.product_code} - {p.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>رمز الاشتراك *</Label>
+              <Textarea
+                value={subscriptionCode}
+                onChange={(e) => setSubscriptionCode(e.target.value)}
+                placeholder="أدخل رمز الاشتراك... يمكن أن يحتوي على تعليمات أو بريد إلكتروني وكلمة مرور"
+                className="bg-slate-900 border-slate-700 text-white mt-2 min-h-[150px] font-mono whitespace-pre-wrap break-words"
+                required
+              />
+              <p className="text-xs text-slate-400 mt-1">
+                يمكنك إدخال عدة أسطر للتعليمات أو معلومات إضافية
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setEditSubscriptionDialogOpen(false);
+                setEditingSubscription(null);
+                setSelectedProductCode('');
+                setSubscriptionCode('');
+              }}
+              className="bg-slate-700 border-slate-600 text-white"
+            >
+              إلغاء
+            </Button>
+            <Button onClick={handleUpdateSubscription} className="bg-blue-600 hover:bg-blue-700">
+              حفظ
             </Button>
           </DialogFooter>
         </DialogContent>
