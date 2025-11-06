@@ -26,6 +26,30 @@ const GENRE_MAP_EN_TO_AR: Record<string, string> = {
   'Crime': 'جريمة'
 };
 
+// Map platform names to TMDB provider IDs (case-insensitive matching)
+const TMDB_PLATFORM_ID_MAP: Record<string, number> = {
+  'netflix': 8,
+  'amazon prime': 9,
+  'amazon prime video': 9,
+  'prime video': 9,
+  'disney+': 337,
+  'disney plus': 337,
+  'disney': 337,
+  'hbo max': 384,
+  'hbo': 384,
+  'hulu': 15,
+  'apple tv+': 350,
+  'apple tv plus': 350,
+  'apple tv': 350,
+  // Note: Shahid and IPTV may not have TMDB provider IDs
+  // They will be filtered out if not found
+};
+
+// Helper function to normalize platform name for matching
+const normalizePlatformName = (name: string): string => {
+  return decodeURIComponent(name).trim().toLowerCase();
+};
+
 // Map common genre names (EN/AR) to TMDB numeric IDs
 const TMDB_GENRE_ID_MAP: Record<string, number> = {
   // Movies (and shared)
@@ -96,7 +120,12 @@ function SuggestionsPageContent() {
   const fetchSuggestions = async (filterObj: any) => {
     setLoading(true);
     setError(null);
-    console.log('[CLIENT] Fetching suggestions with filters:', filterObj);
+    console.log('[CLIENT] ========== Fetching suggestions ==========');
+    console.log('[CLIENT] Filter object:', JSON.stringify(filterObj, null, 2));
+    console.log('[CLIENT] Type:', filterObj.type, '→ TMDB type:', filterObj.type === 'series' ? 'tv' : 'movie');
+    console.log('[CLIENT] Year range:', filterObj.yearMin, '-', filterObj.yearMax);
+    console.log('[CLIENT] Genres:', filterObj.genres);
+    console.log('[CLIENT] Platforms:', filterObj.platforms);
     
     try {
       // Build query params
@@ -106,31 +135,144 @@ function SuggestionsPageContent() {
       params.append('type', tmdbType);
       if (filterObj.yearMin) params.append('yearMin', filterObj.yearMin.toString());
       if (filterObj.yearMax) params.append('yearMax', filterObj.yearMax.toString());
-      // Map selected genres to TMDB IDs
+      // Map selected genres to TMDB IDs (with TV-specific mappings)
       if (filterObj.genres && filterObj.genres.length > 0) {
+        console.log('[CLIENT] Genres received:', filterObj.genres);
+        const isTV = tmdbType === 'tv';
         const ids = Array.from(new Set(filterObj.genres
-          .map((g: string) => (TMDB_GENRE_ID_MAP[g] || TMDB_GENRE_ID_MAP[g.toLowerCase()] || TMDB_GENRE_ID_MAP[(GENRE_MAP_EN_TO_AR[g] ? g : '')]) )
-        ))
-        .filter(Boolean) as number[];
+          .map((g: string) => {
+            let genreId: number | undefined;
+            const lowerG = g.toLowerCase();
+            
+            // For TV shows, prioritize TV-specific genre mappings
+            if (isTV) {
+              // Map Action to Action & Adventure for TV (10759)
+              if (lowerG === 'action' || g === 'أكشن') {
+                genreId = 10759; // Action & Adventure (TV)
+              }
+              // Map Sci-Fi to Sci-Fi & Fantasy for TV (10765)
+              else if (lowerG === 'sci-fi' || lowerG === 'science fiction' || g === 'خيال علمي') {
+                genreId = 10765; // Sci-Fi & Fantasy (TV)
+              }
+              // Try TV-specific genres first
+              else {
+                genreId = TMDB_GENRE_ID_MAP[g] || TMDB_GENRE_ID_MAP[g.toLowerCase()];
+                // If not found, try reverse mapping (Arabic to English)
+                if (!genreId) {
+                  const englishGenre = GENRE_MAP_EN_TO_AR[g] || g;
+                  genreId = TMDB_GENRE_ID_MAP[englishGenre.toLowerCase()] || TMDB_GENRE_ID_MAP[englishGenre];
+                }
+                // For shared genres (like Drama, Comedy), use the shared ID
+                // These work for both movies and TV
+              }
+            } else {
+              // For movies, use standard mapping
+              genreId = TMDB_GENRE_ID_MAP[g] || TMDB_GENRE_ID_MAP[g.toLowerCase()];
+              if (!genreId) {
+                const englishGenre = GENRE_MAP_EN_TO_AR[g] || g;
+                genreId = TMDB_GENRE_ID_MAP[englishGenre.toLowerCase()] || TMDB_GENRE_ID_MAP[englishGenre];
+              }
+            }
+            
+            console.log(`[CLIENT] Mapping genre "${g}" (type: ${tmdbType}) to ID:`, genreId || 'NOT FOUND');
+            return genreId as number | undefined;
+          })
+          .filter((id: number | undefined): id is number => typeof id === 'number')
+        ));
+        console.log('[CLIENT] Mapped genre IDs:', ids);
         if (ids.length > 0) {
           params.append('genres', ids.join(','));
+        } else {
+          console.warn('[CLIENT] No valid genre IDs found');
         }
       }
+      
+      // Map selected platforms to TMDB provider IDs
+      // Special handling: IPTV means show all platforms (don't filter by platform)
+      // But if IPTV is selected WITH other platforms, ignore IPTV and filter by the other platforms
+      if (filterObj.platforms && filterObj.platforms.length > 0) {
+        console.log('[CLIENT] Platforms received (raw):', filterObj.platforms);
+        
+        // Filter out IPTV from the list and map other platforms
+        const normalizedPlatforms = filterObj.platforms.map((p: string) => normalizePlatformName(p));
+        console.log('[CLIENT] Normalized platforms:', normalizedPlatforms);
+        
+        const platformsWithoutIPTV = filterObj.platforms.filter((p: string) => normalizePlatformName(p) !== 'iptv');
+        const hasIPTV = normalizedPlatforms.includes('iptv');
+        const onlyIPTV = hasIPTV && platformsWithoutIPTV.length === 0;
+        
+        console.log('[CLIENT] IPTV detection - hasIPTV:', hasIPTV, 'onlyIPTV:', onlyIPTV, 'platformsWithoutIPTV:', platformsWithoutIPTV);
+        
+        if (onlyIPTV) {
+          // Only IPTV selected - show all platforms (no platform filter)
+          console.log('[CLIENT] Only IPTV selected - will show results from all platforms (no platform filter)');
+          console.log('[CLIENT] API will use progressive fallback: genre+year → genre only → popular content');
+          // Don't add platform filter - this will return results from all platforms
+          // The API will use the default path without provider filtering with progressive fallback
+        } else if (platformsWithoutIPTV.length > 0) {
+          // Other platforms selected (with or without IPTV) - filter by those platforms
+          // IPTV is ignored when other platforms are also selected
+          console.log('[CLIENT] Filtering by platforms:', platformsWithoutIPTV);
+          const providerIds = Array.from(new Set(platformsWithoutIPTV
+            .map((p: string) => {
+              // Normalize platform name (decode URL, trim, lowercase)
+              const normalizedName = normalizePlatformName(p);
+              const providerId = TMDB_PLATFORM_ID_MAP[normalizedName];
+              console.log(`[CLIENT] Mapping platform "${p}" (normalized: "${normalizedName}") to provider ID:`, providerId || 'NOT FOUND');
+              if (!providerId) {
+                console.warn(`[CLIENT] Platform "${p}" (normalized: "${normalizedName}") not found in mapping. Available keys:`, Object.keys(TMDB_PLATFORM_ID_MAP));
+              }
+              return providerId as number | undefined;
+            })
+            .filter((id: number | undefined): id is number => typeof id === 'number')
+          ));
+          console.log('[CLIENT] Mapped provider IDs:', providerIds);
+          if (providerIds.length > 0) {
+            params.append('with_watch_providers', providerIds.join(','));
+            params.append('watch_region', 'SA'); // Saudi Arabia region (will try fallback regions in API)
+            console.log('[CLIENT] Added platform filter to API params:', providerIds.join(','));
+          } else {
+            console.warn('[CLIENT] No valid provider IDs found for platforms:', platformsWithoutIPTV);
+            console.warn('[CLIENT] Available platform mappings:', Object.keys(TMDB_PLATFORM_ID_MAP));
+          }
+        }
+      } else {
+        console.log('[CLIENT] No platforms in filterObj');
+      }
+      
       const apiUrl = `/api/tmdb/discover?${params.toString()}&limit=3`;
-      console.log('[CLIENT] API URL:', apiUrl);
+      console.log('[CLIENT] Final API URL:', apiUrl);
+      console.log('[CLIENT] Query params:', Object.fromEntries(params.entries()));
       
       // Fetch from API
       const response = await fetch(apiUrl);
       const result = await response.json();
       
       console.log('[CLIENT] API Response status:', response.status);
-      console.log('[CLIENT] API Response data:', result);
+      console.log('[CLIENT] API Response has items:', result.items ? result.items.length : 0, 'items');
+      if (result.error) {
+        console.error('[CLIENT] API Error:', result.error);
+      }
       
       if (!response.ok) {
         throw new Error(result.error || 'Failed to fetch suggestions');
       }
 
       const items = result.items || [];
+      console.log('[CLIENT] Items received from API:', items.length);
+      console.log('[CLIENT] ========== End of fetch ==========');
+      
+      if (items.length === 0) {
+        console.warn('[CLIENT] ⚠️ No items returned from API. This might be due to:');
+        console.warn('  - No content available for selected filters');
+        console.warn('  - Too restrictive filters (genre + year + platform)');
+        console.warn('  - API fallback should have been triggered');
+        console.warn('  - Check server logs for API fallback attempts');
+        setError('لم يتم العثور على نتائج. جرب تعديل الفلاتر أو اختيار منصة أخرى.');
+      } else {
+        console.log('[CLIENT] ✅ Successfully received', items.length, 'items');
+      }
+      
       const mapped = items.map((m: any) => ({
         id: String(m.tmdb_id),
         tmdb_id: m.tmdb_id,
@@ -167,10 +309,22 @@ function SuggestionsPageContent() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white">
-      <Header />
+    <div className="min-h-screen text-white relative overflow-hidden">
+      {/* Background Image with Netflix-style overlay */}
+      <div
+        className="fixed inset-0 bg-cover bg-center bg-no-repeat z-0"
+        style={{
+          backgroundImage: 'url(https://cdn.mos.cms.futurecdn.net/rDJegQJaCyGaYysj2g5XWY-1200-80.jpg)',
+        }}
+      />
+      {/* Dark gradient overlay for transparency (Netflix style) - reduced opacity */}
+      <div className="fixed inset-0 bg-gradient-to-b from-black/70 via-black/60 to-black/90 z-0" />
+      
+      {/* Content */}
+      <div className="relative z-10 min-h-screen">
+        <Header />
 
-      <div className="pt-24 pb-20 container mx-auto px-4">
+        <div className="pt-24 pb-20 container mx-auto px-4">
         <div className="max-w-7xl mx-auto">
           {/* Header Section */}
           <div className="text-center mb-12">
@@ -530,6 +684,7 @@ function SuggestionsPageContent() {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
       />
+      </div>
     </div>
   );
 }
@@ -538,17 +693,30 @@ function SuggestionsPageContent() {
 export default dynamic(() => Promise.resolve(SuggestionsPageContent), {
   ssr: false,
   loading: () => (
-    <div className="min-h-screen bg-slate-950 text-white">
-      <Header />
-      <div className="pt-24 pb-20 container mx-auto px-4">
-        <div className="text-center mb-12">
-          <div className="h-12 w-96 mx-auto bg-slate-800 rounded-xl animate-pulse mb-4"></div>
-          <div className="h-6 w-64 mx-auto bg-slate-700 rounded animate-pulse"></div>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {[...Array(3)].map((_, i) => (
-            <div key={i} className="bg-slate-800/50 rounded-2xl h-[700px] animate-pulse border border-slate-700" />
-          ))}
+    <div className="min-h-screen text-white relative overflow-hidden">
+      {/* Background Image with Netflix-style overlay */}
+      <div
+        className="fixed inset-0 bg-cover bg-center bg-no-repeat z-0"
+        style={{
+          backgroundImage: 'url(https://cdn.mos.cms.futurecdn.net/rDJegQJaCyGaYysj2g5XWY-1200-80.jpg)',
+        }}
+      />
+      {/* Dark gradient overlay for transparency (Netflix style) - reduced opacity */}
+      <div className="fixed inset-0 bg-gradient-to-b from-black/70 via-black/60 to-black/90 z-0" />
+      
+      {/* Content */}
+      <div className="relative z-10 min-h-screen">
+        <Header />
+        <div className="pt-24 pb-20 container mx-auto px-4">
+          <div className="text-center mb-12">
+            <div className="h-12 w-96 mx-auto bg-slate-800 rounded-xl animate-pulse mb-4"></div>
+            <div className="h-6 w-64 mx-auto bg-slate-700 rounded animate-pulse"></div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {[...Array(3)].map((_, i) => (
+              <div key={i} className="bg-slate-800/50 rounded-2xl h-[700px] animate-pulse border border-slate-700" />
+            ))}
+          </div>
         </div>
       </div>
     </div>
