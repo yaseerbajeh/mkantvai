@@ -102,7 +102,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST - Add subscription codes in bulk
+// POST - Add single subscription code
 export async function POST(request: NextRequest) {
   // Apply rate limiting for admin endpoints
   const rateLimitResult = await rateLimit(request, adminLimiter);
@@ -120,48 +120,75 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { product_code, codes, subscription_meta } = body;
+    const { product_code, subscription_code, subscription_meta } = body;
 
-    if (!product_code) {
+    // Validation
+    if (!product_code || !subscription_code) {
       return NextResponse.json(
-        { error: 'product_code مطلوب' },
+        { error: 'product_code و subscription_code مطلوبان' },
         { status: 400 }
       );
     }
 
-    if (!codes || !Array.isArray(codes) || codes.length === 0) {
+    if (typeof subscription_code !== 'string' || subscription_code.trim().length === 0) {
       return NextResponse.json(
-        { error: 'يجب إدخال رموز اشتراك واحدة على الأقل' },
+        { error: 'رمز الاشتراك يجب أن يكون نصاً غير فارغ' },
         { status: 400 }
       );
     }
 
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Prepare insert data
-    const insertData = codes.map((code: string) => ({
-      subscription_code: code.trim(),
-      product_code,
-      subscription_meta: subscription_meta || {},
-    }));
+    // Validate product_code exists in products table
+    const { data: product, error: productError } = await supabaseAdmin
+      .from('products')
+      .select('product_code')
+      .eq('product_code', product_code)
+      .single();
 
+    if (productError || !product) {
+      return NextResponse.json(
+        { error: 'رمز المنتج المحدد غير موجود' },
+        { status: 400 }
+      );
+    }
+
+    // Check if subscription_code already exists
+    const { data: existingSubscription } = await supabaseAdmin
+      .from('subscriptions')
+      .select('id')
+      .eq('subscription_code', subscription_code.trim())
+      .maybeSingle();
+
+    if (existingSubscription) {
+      return NextResponse.json(
+        { error: 'رمز الاشتراك موجود بالفعل' },
+        { status: 400 }
+      );
+    }
+
+    // Insert single subscription
     const { data, error } = await supabaseAdmin
       .from('subscriptions')
-      .insert(insertData)
-      .select();
+      .insert({
+        subscription_code: subscription_code.trim(),
+        product_code,
+        subscription_meta: subscription_meta || {},
+      })
+      .select()
+      .single();
 
     if (error) {
-      console.error('Error adding subscription codes:', error);
+      console.error('Error adding subscription code:', error);
       return NextResponse.json(
-        { error: error.message || 'فشل في إضافة رموز الاشتراكات' },
+        { error: error.message || 'فشل في إضافة رمز الاشتراك' },
         { status: 500 }
       );
     }
 
     return NextResponse.json({
       success: true,
-      added: data.length,
-      subscriptionCodes: data,
+      subscriptionCode: data,
     });
   } catch (error: any) {
     console.error('Unexpected error:', error);
