@@ -12,13 +12,60 @@ export async function GET(request: NextRequest) {
   try {
     const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-    // Fetch all active products, ordered by section and display_order
-    const { data, error } = await supabase
+    // Fetch all active products with category information
+    // First, get active categories to filter products
+    const { data: activeCategories } = await supabase
+      .from('categories')
+      .select('id')
+      .eq('is_active', true);
+
+    const activeCategoryIds = activeCategories?.map(c => c.id) || [];
+
+    // Fetch all active products with category information
+    let query = supabase
       .from('products')
-      .select('*')
-      .eq('is_active', true)
-      .order('section', { ascending: true })
-      .order('display_order', { ascending: true });
+      .select(`
+        *,
+        categories (
+          id,
+          name,
+          name_en,
+          display_order,
+          is_active
+        )
+      `)
+      .eq('is_active', true);
+
+    // Filter by active categories if categories exist, but also include products without category_id (backward compatibility)
+    // Note: We'll filter in memory to handle the OR condition properly
+
+    const { data: productsData, error } = await query;
+    
+    // Filter products: only show products with active categories or no category (backward compatibility)
+    let filteredProducts = (productsData || []).filter((product: any) => {
+      // If product has no category_id, include it (backward compatibility)
+      if (!product.category_id) {
+        return true;
+      }
+      // If product has a category, only include if category is active
+      if (product.categories) {
+        return product.categories.is_active !== false;
+      }
+      // If category data is missing but category_id exists, check if it's in active categories
+      return activeCategoryIds.includes(product.category_id);
+    });
+    
+    // Sort products by category display_order and product display_order
+    const data = filteredProducts.sort((a: any, b: any) => {
+      // First sort by category display_order
+      const aCategoryOrder = a.categories?.display_order || 999;
+      const bCategoryOrder = b.categories?.display_order || 999;
+      if (aCategoryOrder !== bCategoryOrder) {
+        return aCategoryOrder - bCategoryOrder;
+      }
+      // Then by product display_order
+      return (a.display_order || 0) - (b.display_order || 0);
+    });
 
     if (error) {
       console.error('Error fetching products:', error);
@@ -30,7 +77,7 @@ export async function GET(request: NextRequest) {
 
     // Calculate stock for each product
     // Get all product codes to fetch stock counts
-    const productCodes = data.map((p: any) => p.product_code).filter(Boolean);
+    const productCodes = (data || []).map((p: any) => p.product_code).filter(Boolean);
     
     // Count available subscriptions per product_code
     const stockCounts: { [key: string]: number } = {};
@@ -86,24 +133,45 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    // Group products by section
-    const productsBySection: { [key: number]: any[] } = {};
-    const sectionTitles: { [key: number]: string } = {};
+    // Group products by category
+    const productsByCategory: { [key: string]: any[] } = {};
+    const categoryTitles: { [key: string]: string } = {};
+    const categoryDisplayOrders: { [key: string]: number } = {};
 
     productsWithStock.forEach((product: any) => {
-      if (!productsBySection[product.section]) {
-        productsBySection[product.section] = [];
-        sectionTitles[product.section] = product.section_title;
+      // Use category_id if available, otherwise fall back to section for backward compatibility
+      const categoryId = product.category_id || `section-${product.section}`;
+      const categoryName = product.categories?.name || product.section_title || `القسم ${product.section}`;
+      const categoryDisplayOrder = product.categories?.display_order || product.section || 999;
+
+      if (!productsByCategory[categoryId]) {
+        productsByCategory[categoryId] = [];
+        categoryTitles[categoryId] = categoryName;
+        categoryDisplayOrders[categoryId] = categoryDisplayOrder;
       }
-      productsBySection[product.section].push(product);
+      productsByCategory[categoryId].push(product);
+    });
+
+    // Sort categories by display_order
+    const sortedCategoryIds = Object.keys(productsByCategory).sort((a, b) => {
+      return (categoryDisplayOrders[a] || 999) - (categoryDisplayOrders[b] || 999);
+    });
+
+    // Create ordered productsByCategory object
+    const orderedProductsByCategory: { [key: string]: any[] } = {};
+    sortedCategoryIds.forEach(categoryId => {
+      orderedProductsByCategory[categoryId] = productsByCategory[categoryId];
     });
 
     // Prevent caching - return fresh data every time
     return NextResponse.json(
       {
         products: productsWithStock,
-        productsBySection,
-        sectionTitles,
+        productsByCategory: orderedProductsByCategory,
+        categoryTitles,
+        // Keep backward compatibility
+        productsBySection: productsByCategory,
+        sectionTitles: categoryTitles,
       },
       {
         headers: {

@@ -1070,6 +1070,7 @@ export default function AdminOrdersPage() {
                                   <SortIcon field="status" />
                                 </div>
                               </TableHead>
+                              <TableHead className="text-white">طريقة الدفع</TableHead>
                               <TableHead className="text-white cursor-pointer" onClick={() => handleSort('created_at')}>
                                 <div className="flex items-center">
                                   التاريخ
@@ -1167,6 +1168,21 @@ export default function AdminOrdersPage() {
                                         {badgeText}
                                       </Badge>
                                     );
+                                  })()}
+                                </TableCell>
+                                <TableCell className="text-slate-300 text-sm">
+                                  {(() => {
+                                    if (!order.payment_method) return '-';
+                                    const method = order.payment_method.toLowerCase();
+                                    if (method === 'promo_code_100') {
+                                      return <Badge className="bg-purple-900/50 text-purple-400 border-purple-700">كود خصم 100%</Badge>;
+                                    } else if (method === 'manual') {
+                                      return <Badge className="bg-orange-900/50 text-orange-400 border-orange-700">يدوي</Badge>;
+                                    } else if (method.includes('paypal')) {
+                                      return <Badge className="bg-blue-900/50 text-blue-400 border-blue-700">PayPal</Badge>;
+                                    } else {
+                                      return <span className="text-slate-400">{order.payment_method}</span>;
+                                    }
                                   })()}
                                 </TableCell>
                                 <TableCell className="text-slate-400 text-xs">
