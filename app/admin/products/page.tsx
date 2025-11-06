@@ -34,7 +34,7 @@ import {
   ToggleLeft,
   ToggleRight,
   X,
-  Link as LinkIcon,
+  FolderTree,
 } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
 
@@ -47,6 +47,14 @@ interface Product {
   duration: string;
   section: number;
   section_title: string;
+  category_id?: string;
+  categories?: {
+    id: string;
+    name: string;
+    name_en?: string;
+    display_order: number;
+    is_active: boolean;
+  };
   image: string;
   image2?: string;
   logos?: string[];
@@ -59,6 +67,17 @@ interface Product {
   display_order: number;
 }
 
+interface Category {
+  id: string;
+  name: string;
+  name_en?: string;
+  description?: string;
+  display_order: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 interface SubscriptionCode {
   id: string;
   subscription_code: string;
@@ -67,25 +86,19 @@ interface SubscriptionCode {
   created_at: string;
 }
 
-interface PayPalPaymentLink {
-  id: string;
-  product_code: string;
-  payment_link_id: string;
-  environment: 'sandbox' | 'live';
-  created_at: string;
-  updated_at: string;
-}
-
 export default function AdminProductsPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loadingCategories, setLoadingCategories] = useState(false);
   const [subscriptionCodes, setSubscriptionCodes] = useState<SubscriptionCode[]>([]);
   const [subscriptionCounts, setSubscriptionCounts] = useState<{ [key: string]: number }>({});
   const [searchQuery, setSearchQuery] = useState('');
   const [sectionFilter, setSectionFilter] = useState<string>('all');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [activeFilter, setActiveFilter] = useState<string>('all');
   const [productDialogOpen, setProductDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -93,14 +106,11 @@ export default function AdminProductsPage() {
   const [subscriptionCodesDialogOpen, setSubscriptionCodesDialogOpen] = useState(false);
   const [selectedProductCode, setSelectedProductCode] = useState<string>('');
   const [bulkCodes, setBulkCodes] = useState<string>('');
-  const [paymentLinks, setPaymentLinks] = useState<PayPalPaymentLink[]>([]);
-  const [paymentLinkDialogOpen, setPaymentLinkDialogOpen] = useState(false);
-  const [editingPaymentLink, setEditingPaymentLink] = useState<PayPalPaymentLink | null>(null);
-  const [paymentLinkForm, setPaymentLinkForm] = useState({
-    product_code: '',
-    payment_link_id: '',
-    environment: 'live' as 'sandbox' | 'live',
-  });
+  
+  // Categories management
+  const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+  const [deletingCategoryId, setDeletingCategoryId] = useState<string | null>(null);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -150,7 +160,6 @@ export default function AdminProductsPage() {
         setUser(session.user);
         fetchProducts();
         fetchSubscriptionCodes();
-        fetchPaymentLinks();
       } catch (error: any) {
         console.error('Auth check error:', error);
         toast({
@@ -164,6 +173,45 @@ export default function AdminProductsPage() {
 
     checkAuth();
   }, [router, toast]);
+
+  // Fetch categories
+  const fetchCategories = async () => {
+    setLoadingCategories(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        return;
+      }
+
+      const response = await fetch('/api/admin/categories', {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('فشل في جلب التصنيفات');
+      }
+
+      const result = await response.json();
+      setCategories(result.categories || []);
+    } catch (error: any) {
+      console.error('Error fetching categories:', error);
+      toast({
+        title: 'خطأ',
+        description: error.message || 'فشل في جلب التصنيفات',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoadingCategories(false);
+    }
+  };
+
+  useEffect(() => {
+    if (user) {
+      fetchCategories();
+    }
+  }, [user]);
 
   const fetchProducts = async () => {
     try {
@@ -220,125 +268,6 @@ export default function AdminProductsPage() {
     }
   };
 
-  const fetchPaymentLinks = async () => {
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-
-      const response = await fetch('/api/admin/paypal-links', {
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-      });
-
-      const result = await response.json();
-      if (!response.ok) {
-        throw new Error(result.error || 'فشل في جلب روابط PayPal');
-      }
-
-      setPaymentLinks(result.paymentLinks || []);
-    } catch (error: any) {
-      console.error('Fetch payment links error:', error);
-    }
-  };
-
-  const handleCreatePaymentLink = () => {
-    setEditingPaymentLink(null);
-    setPaymentLinkForm({
-      product_code: '',
-      payment_link_id: '',
-      environment: 'live',
-    });
-    setPaymentLinkDialogOpen(true);
-  };
-
-  const handleEditPaymentLink = (link: PayPalPaymentLink) => {
-    setEditingPaymentLink(link);
-    setPaymentLinkForm({
-      product_code: link.product_code,
-      payment_link_id: link.payment_link_id,
-      environment: link.environment,
-    });
-    setPaymentLinkDialogOpen(true);
-  };
-
-  const handleSavePaymentLink = async () => {
-    if (!paymentLinkForm.product_code || !paymentLinkForm.payment_link_id) {
-      toast({
-        title: 'خطأ',
-        description: 'يرجى ملء جميع الحقول المطلوبة',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error('غير مصرح');
-
-      const response = await fetch('/api/admin/paypal-links', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify(paymentLinkForm),
-      });
-
-      const result = await response.json();
-      if (!response.ok) {
-        throw new Error(result.error || 'فشل في حفظ رابط PayPal');
-      }
-
-      toast({
-        title: 'نجح',
-        description: editingPaymentLink ? 'تم تحديث رابط PayPal بنجاح' : 'تم إضافة رابط PayPal بنجاح',
-      });
-
-      setPaymentLinkDialogOpen(false);
-      fetchPaymentLinks();
-    } catch (error: any) {
-      toast({
-        title: 'خطأ',
-        description: error.message || 'حدث خطأ',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  const handleDeletePaymentLink = async (productCode: string) => {
-    if (!confirm('هل أنت متأكد من حذف رابط PayPal لهذا المنتج؟')) return;
-
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error('غير مصرح');
-
-      const response = await fetch(`/api/admin/paypal-links?product_code=${productCode}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-      });
-
-      const result = await response.json();
-      if (!response.ok) {
-        throw new Error(result.error || 'فشل في حذف رابط PayPal');
-      }
-
-      toast({
-        title: 'نجح',
-        description: 'تم حذف رابط PayPal بنجاح',
-      });
-
-      fetchPaymentLinks();
-    } catch (error: any) {
-      toast({
-        title: 'خطأ',
-        description: error.message || 'حدث خطأ',
-        variant: 'destructive',
-      });
-    }
-  };
 
   const handleCreateProduct = () => {
     setEditingProduct(null);
@@ -516,6 +445,93 @@ export default function AdminProductsPage() {
     }
   };
 
+  // Category management handlers
+  const handleCreateCategory = () => {
+    setEditingCategory(null);
+    setCategoryDialogOpen(true);
+  };
+
+  const handleEditCategory = (category: Category) => {
+    setEditingCategory(category);
+    setCategoryDialogOpen(true);
+  };
+
+  const handleSaveCategory = async (formData: any) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('غير مصرح');
+
+      const url = editingCategory
+        ? `/api/admin/categories/${editingCategory.id}`
+        : '/api/admin/categories';
+      const method = editingCategory ? 'PUT' : 'POST';
+
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify(formData),
+      });
+
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || 'فشل في حفظ التصنيف');
+      }
+
+      toast({
+        title: 'نجح',
+        description: editingCategory ? 'تم تحديث التصنيف بنجاح' : 'تم إنشاء التصنيف بنجاح',
+      });
+
+      setCategoryDialogOpen(false);
+      setEditingCategory(null);
+      fetchCategories();
+    } catch (error: any) {
+      toast({
+        title: 'خطأ',
+        description: error.message || 'حدث خطأ أثناء حفظ التصنيف',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleDeleteCategory = async (categoryId: string) => {
+    setDeletingCategoryId(categoryId);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('غير مصرح');
+
+      const response = await fetch(`/api/admin/categories/${categoryId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      });
+
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || 'فشل في حذف التصنيف');
+      }
+
+      toast({
+        title: 'نجح',
+        description: 'تم حذف التصنيف بنجاح',
+      });
+
+      fetchCategories();
+    } catch (error: any) {
+      toast({
+        title: 'خطأ',
+        description: error.message || 'حدث خطأ أثناء حذف التصنيف',
+        variant: 'destructive',
+      });
+    } finally {
+      setDeletingCategoryId(null);
+    }
+  };
+
   const handleDeleteSubscriptionCode = async (codeId: string) => {
     if (!confirm('هل أنت متأكد من حذف هذا الرمز؟')) return;
 
@@ -554,11 +570,14 @@ export default function AdminProductsPage() {
     const matchesSearch = !searchQuery || 
       product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       product.product_code.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesSection = sectionFilter === 'all' || product.section.toString() === sectionFilter;
+    const matchesCategory = categoryFilter === 'all' || 
+      (product.category_id && product.category_id === categoryFilter) ||
+      (categoryFilter === 'all' && sectionFilter === 'all') ||
+      (sectionFilter !== 'all' && product.section.toString() === sectionFilter); // Backward compatibility
     const matchesActive = activeFilter === 'all' || 
       (activeFilter === 'active' && product.is_active) ||
       (activeFilter === 'inactive' && !product.is_active);
-    return matchesSearch && matchesSection && matchesActive;
+    return matchesSearch && matchesCategory && matchesActive;
   });
 
   if (loading) {
@@ -603,9 +622,9 @@ export default function AdminProductsPage() {
                 <Key className="h-4 w-4 ml-2" />
                 رموز الاشتراكات
               </TabsTrigger>
-              <TabsTrigger value="paypal-links" className="data-[state=active]:bg-slate-700">
-                <LinkIcon className="h-4 w-4 ml-2" />
-                روابط PayPal
+              <TabsTrigger value="categories" className="data-[state=active]:bg-slate-700">
+                <FolderTree className="h-4 w-4 ml-2" />
+                إدارة التصنيفات
               </TabsTrigger>
             </TabsList>
 
@@ -623,16 +642,20 @@ export default function AdminProductsPage() {
                         className="pr-10 bg-slate-900 border-slate-700 text-white"
                       />
                     </div>
-                    <Select value={sectionFilter} onValueChange={setSectionFilter}>
+                    <Select value={categoryFilter} onValueChange={setCategoryFilter}>
                       <SelectTrigger className="bg-slate-900 border-slate-700 text-white">
-                        <SelectValue placeholder="القسم" />
+                        <SelectValue placeholder="التصنيف" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">جميع الأقسام</SelectItem>
-                        <SelectItem value="1">القسم 1 - IPTV</SelectItem>
-                        <SelectItem value="2">القسم 2 - المميزة</SelectItem>
-                        <SelectItem value="3">القسم 3 - السنوية</SelectItem>
-                        <SelectItem value="4">القسم 4 - البكجات</SelectItem>
+                        <SelectItem value="all">جميع التصنيفات</SelectItem>
+                        {categories
+                          .filter(cat => cat.is_active)
+                          .sort((a, b) => a.display_order - b.display_order)
+                          .map(category => (
+                            <SelectItem key={category.id} value={category.id}>
+                              {category.name}
+                            </SelectItem>
+                          ))}
                       </SelectContent>
                     </Select>
                     <Select value={activeFilter} onValueChange={setActiveFilter}>
@@ -681,7 +704,9 @@ export default function AdminProductsPage() {
                               </TableCell>
                               <TableCell className="text-white">{product.name}</TableCell>
                               <TableCell className="text-white">{product.price} ريال</TableCell>
-                              <TableCell className="text-slate-300">{product.section_title}</TableCell>
+                              <TableCell className="text-slate-300">
+                                {product.categories?.name || product.section_title || 'غير محدد'}
+                              </TableCell>
                               <TableCell>
                                 <Badge
                                   className={
@@ -833,85 +858,93 @@ export default function AdminProductsPage() {
               </Card>
             </TabsContent>
 
-            <TabsContent value="paypal-links" className="mt-6">
-              <Card className="bg-slate-800/50 border-slate-700 mb-6">
+            <TabsContent value="categories" className="mt-6">
+              <Card className="bg-slate-800/50 border-slate-700">
                 <CardHeader>
                   <div className="flex justify-between items-center">
-                    <CardTitle className="text-2xl text-white">روابط PayPal للدفع</CardTitle>
-                    <Button
-                      onClick={handleCreatePaymentLink}
-                      className="bg-blue-600 hover:bg-blue-700"
-                    >
+                    <CardTitle className="text-2xl text-white">التصنيفات</CardTitle>
+                    <Button onClick={handleCreateCategory} className="bg-blue-600 hover:bg-blue-700">
                       <Plus className="h-4 w-4 ml-2" />
-                      إضافة رابط PayPal
+                      إضافة تصنيف جديد
                     </Button>
                   </div>
                 </CardHeader>
                 <CardContent>
-                  {paymentLinks.length === 0 ? (
-                    <p className="text-slate-300 text-center py-8">لا توجد روابط PayPal</p>
+                  {loadingCategories ? (
+                    <div className="text-center py-8">
+                      <Loader2 className="h-8 w-8 animate-spin text-white mx-auto" />
+                      <p className="text-slate-300 mt-4">جاري التحميل...</p>
+                    </div>
+                  ) : categories.length === 0 ? (
+                    <p className="text-slate-300 text-center py-8">لا توجد تصنيفات</p>
                   ) : (
                     <div className="overflow-x-auto">
                       <Table>
                         <TableHeader>
                           <TableRow className="border-slate-700">
-                            <TableHead className="text-white">رمز المنتج</TableHead>
-                            <TableHead className="text-white">رابط الدفع</TableHead>
-                            <TableHead className="text-white">البيئة</TableHead>
-                            <TableHead className="text-white">تاريخ الإنشاء</TableHead>
+                            <TableHead className="text-white">الاسم</TableHead>
+                            <TableHead className="text-white">الاسم (إنجليزي)</TableHead>
+                            <TableHead className="text-white">ترتيب العرض</TableHead>
+                            <TableHead className="text-white">الحالة</TableHead>
                             <TableHead className="text-white">الإجراءات</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {paymentLinks.map((link) => {
-                            const product = products.find(p => p.product_code === link.product_code);
-                            return (
-                              <TableRow key={link.id} className="border-slate-700">
-                                <TableCell className="font-mono text-sm text-white">
-                                  {link.product_code}
-                                  {product && (
-                                    <p className="text-xs text-slate-400 mt-1">{product.name}</p>
-                                  )}
+                          {categories
+                            .sort((a, b) => a.display_order - b.display_order)
+                            .map((category) => (
+                              <TableRow key={category.id} className="border-slate-700">
+                                <TableCell className="text-white font-medium">
+                                  {category.name}
                                 </TableCell>
-                                <TableCell className="text-white font-mono text-xs">
-                                  {link.payment_link_id}
+                                <TableCell className="text-slate-300">
+                                  {category.name_en || '-'}
+                                </TableCell>
+                                <TableCell className="text-slate-300">
+                                  {category.display_order}
                                 </TableCell>
                                 <TableCell>
                                   <Badge
                                     className={
-                                      link.environment === 'live'
-                                        ? 'bg-green-900/50 text-green-400 border-green-700'
-                                        : 'bg-yellow-900/50 text-yellow-400 border-yellow-700'
+                                      category.is_active
+                                        ? 'bg-green-900/50 text-green-500 border-green-700'
+                                        : 'bg-red-900/50 text-red-500 border-red-700'
                                     }
                                   >
-                                    {link.environment === 'live' ? 'Live' : 'Sandbox'}
+                                    {category.is_active ? 'نشط' : 'غير نشط'}
                                   </Badge>
-                                </TableCell>
-                                <TableCell className="text-slate-300 text-sm">
-                                  {new Date(link.created_at).toLocaleDateString('ar-SA')}
                                 </TableCell>
                                 <TableCell>
                                   <div className="flex gap-2">
                                     <Button
                                       size="sm"
-                                      variant="outline"
-                                      onClick={() => handleEditPaymentLink(link)}
-                                      className="bg-slate-800 border-slate-700 text-white"
+                                      variant="ghost"
+                                      onClick={() => handleEditCategory(category)}
+                                      className="text-blue-400 hover:text-blue-300"
                                     >
                                       <Edit className="h-4 w-4" />
                                     </Button>
                                     <Button
                                       size="sm"
-                                      variant="destructive"
-                                      onClick={() => handleDeletePaymentLink(link.product_code)}
+                                      variant="ghost"
+                                      onClick={() => {
+                                        if (confirm('هل أنت متأكد من حذف هذا التصنيف؟')) {
+                                          handleDeleteCategory(category.id);
+                                        }
+                                      }}
+                                      disabled={deletingCategoryId === category.id}
+                                      className="text-red-400 hover:text-red-300"
                                     >
-                                      <Trash2 className="h-4 w-4" />
+                                      {deletingCategoryId === category.id ? (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                      ) : (
+                                        <Trash2 className="h-4 w-4" />
+                                      )}
                                     </Button>
                                   </div>
                                 </TableCell>
                               </TableRow>
-                            );
-                          })}
+                            ))}
                         </TableBody>
                       </Table>
                     </div>
@@ -930,6 +963,7 @@ export default function AdminProductsPage() {
         onOpenChange={setProductDialogOpen}
         product={editingProduct}
         onSave={handleSaveProduct}
+        categories={categories}
       />
 
       {/* Subscription Codes Dialog */}
@@ -988,74 +1022,14 @@ export default function AdminProductsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* PayPal Payment Link Dialog */}
-      <Dialog open={paymentLinkDialogOpen} onOpenChange={setPaymentLinkDialogOpen}>
-        <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>{editingPaymentLink ? 'تعديل رابط PayPal' : 'إضافة رابط PayPal جديد'}</DialogTitle>
-            <DialogDescription className="text-slate-400">
-              {editingPaymentLink 
-                ? 'قم بتعديل رابط PayPal لهذا المنتج'
-                : 'أدخل رابط PayPal للدفع للمنتج'}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label>رمز المنتج *</Label>
-              <Input
-                value={paymentLinkForm.product_code}
-                onChange={(e) => setPaymentLinkForm({ ...paymentLinkForm, product_code: e.target.value })}
-                placeholder="SUB-BASIC-1M"
-                className="bg-slate-900 border-slate-700 text-white mt-2"
-                required
-                disabled={!!editingPaymentLink}
-              />
-              <p className="text-xs text-slate-400 mt-1">رمز المنتج الموجود في قاعدة البيانات</p>
-            </div>
-            <div>
-              <Label>معرّف رابط الدفع *</Label>
-              <Input
-                value={paymentLinkForm.payment_link_id}
-                onChange={(e) => setPaymentLinkForm({ ...paymentLinkForm, payment_link_id: e.target.value })}
-                placeholder="5ZMTA2LQS9UCN"
-                className="bg-slate-900 border-slate-700 text-white mt-2 font-mono"
-                required
-              />
-              <p className="text-xs text-slate-400 mt-1">معرّف رابط الدفع من PayPal (بدون الرابط الكامل)</p>
-            </div>
-            <div>
-              <Label>البيئة *</Label>
-              <Select
-                value={paymentLinkForm.environment}
-                onValueChange={(value: 'sandbox' | 'live') => 
-                  setPaymentLinkForm({ ...paymentLinkForm, environment: value })
-                }
-              >
-                <SelectTrigger className="bg-slate-900 border-slate-700 text-white mt-2">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="live">Live (الإنتاج)</SelectItem>
-                  <SelectItem value="sandbox">Sandbox (الاختبار)</SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-slate-400 mt-1">اختر البيئة المناسبة لنوع رابط PayPal</p>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setPaymentLinkDialogOpen(false)}
-              className="bg-slate-700 border-slate-600 text-white"
-            >
-              إلغاء
-            </Button>
-            <Button onClick={handleSavePaymentLink} className="bg-blue-600 hover:bg-blue-700">
-              {editingPaymentLink ? 'تحديث' : 'إضافة'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Category Form Dialog */}
+      <CategoryFormDialog
+        open={categoryDialogOpen}
+        onOpenChange={setCategoryDialogOpen}
+        category={editingCategory}
+        onSave={handleSaveCategory}
+      />
+
     </div>
   );
 }
@@ -1066,11 +1040,13 @@ function ProductFormDialog({
   onOpenChange,
   product,
   onSave,
+  categories = [],
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   product: Product | null;
   onSave: (data: any) => void;
+  categories?: Category[];
 }) {
   const [formData, setFormData] = useState({
     product_code: '',
@@ -1078,6 +1054,7 @@ function ProductFormDialog({
     description: '',
     price: '',
     duration: '',
+    category_id: '',
     section: '1',
     section_title: '',
     image: '',
@@ -1091,14 +1068,29 @@ function ProductFormDialog({
     display_order: '0',
   });
 
+  const [durationType, setDurationType] = useState<'predefined' | 'custom'>('predefined');
+  const [customDuration, setCustomDuration] = useState('');
+
+  const predefinedDurations = [
+    { value: '1 شهر', label: '1 شهر' },
+    { value: '3 أشهر', label: '3 أشهر' },
+    { value: '6 أشهر', label: '6 أشهر' },
+    { value: '12 شهر', label: '12 شهر' },
+    { value: 'مدى الحياة', label: 'مدى الحياة' },
+  ];
+
   useEffect(() => {
     if (product) {
+      const duration = product.duration || '';
+      const isPredefined = predefinedDurations.some(d => d.value === duration);
+      
       setFormData({
         product_code: product.product_code,
         name: product.name,
         description: product.description,
         price: product.price.toString(),
-        duration: product.duration,
+        duration: duration,
+        category_id: product.category_id || '',
         section: product.section.toString(),
         section_title: product.section_title,
         image: product.image,
@@ -1111,6 +1103,14 @@ function ProductFormDialog({
         is_active: product.is_active,
         display_order: product.display_order.toString(),
       });
+
+      if (isPredefined) {
+        setDurationType('predefined');
+        setCustomDuration('');
+      } else {
+        setDurationType('custom');
+        setCustomDuration(duration);
+      }
     } else {
       setFormData({
         product_code: '',
@@ -1118,6 +1118,7 @@ function ProductFormDialog({
         description: '',
         price: '',
         duration: '',
+        category_id: categories.length > 0 ? categories[0].id : '',
         section: '1',
         section_title: '',
         image: '',
@@ -1130,13 +1131,27 @@ function ProductFormDialog({
         is_active: true,
         display_order: '0',
       });
+      setDurationType('predefined');
+      setCustomDuration('');
     }
-  }, [product, open]);
+  }, [product, open, categories]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Get duration value based on type
+    const durationValue = durationType === 'predefined' 
+      ? formData.duration 
+      : customDuration;
+
+    if (!durationValue || durationValue.trim() === '') {
+      alert('يرجى إدخال المدة');
+      return;
+    }
+
     const submitData = {
       ...formData,
+      duration: durationValue,
       price: parseFloat(formData.price),
       section: parseInt(formData.section),
       display_order: parseInt(formData.display_order),
@@ -1147,19 +1162,6 @@ function ProductFormDialog({
     };
     onSave(submitData);
   };
-
-  const sectionTitles: { [key: string]: string } = {
-    '1': 'اشتراكات IPTV',
-    '2': 'الاشتراكات المميزة',
-    '3': 'الاشتراكات السنوية',
-    '4': 'البكجات',
-  };
-
-  useEffect(() => {
-    if (sectionTitles[formData.section]) {
-      setFormData(prev => ({ ...prev, section_title: sectionTitles[formData.section] }));
-    }
-  }, [formData.section]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -1193,7 +1195,9 @@ function ProductFormDialog({
               <Textarea
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                className="bg-slate-900 border-slate-700 text-white mt-2"
+                className="bg-slate-900 border-slate-700 text-white mt-2 min-h-[120px]"
+                rows={5}
+                placeholder="أدخل وصف المنتج... يمكنك استخدام أسطر متعددة"
               />
             </div>
             <div>
@@ -1207,24 +1211,64 @@ function ProductFormDialog({
               />
             </div>
             <div>
-              <Label>المدة</Label>
-              <Input
-                value={formData.duration}
-                onChange={(e) => setFormData({ ...formData, duration: e.target.value })}
-                className="bg-slate-900 border-slate-700 text-white mt-2"
-              />
-            </div>
-            <div>
-              <Label>القسم *</Label>
-              <Select value={formData.section} onValueChange={(value) => setFormData({ ...formData, section: value })}>
+              <Label>المدة *</Label>
+              <Select 
+                value={durationType === 'predefined' ? formData.duration : 'other'} 
+                onValueChange={(value) => {
+                  if (value === 'other') {
+                    setDurationType('custom');
+                    setFormData({ ...formData, duration: '' });
+                  } else {
+                    setDurationType('predefined');
+                    setFormData({ ...formData, duration: value });
+                    setCustomDuration('');
+                  }
+                }}
+              >
                 <SelectTrigger className="bg-slate-900 border-slate-700 text-white mt-2">
-                  <SelectValue />
+                  <SelectValue placeholder="اختر المدة" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="1">1 - IPTV</SelectItem>
-                  <SelectItem value="2">2 - المميزة</SelectItem>
-                  <SelectItem value="3">3 - السنوية</SelectItem>
-                  <SelectItem value="4">4 - البكجات</SelectItem>
+                  {predefinedDurations.map(d => (
+                    <SelectItem key={d.value} value={d.value}>
+                      {d.label}
+                    </SelectItem>
+                  ))}
+                  <SelectItem value="other">أخرى</SelectItem>
+                </SelectContent>
+              </Select>
+              {durationType === 'custom' && (
+                <Input
+                  value={customDuration}
+                  onChange={(e) => {
+                    setCustomDuration(e.target.value);
+                    setFormData({ ...formData, duration: e.target.value });
+                  }}
+                  placeholder="أدخل المدة (مثل: 2 شهر، 18 شهر)"
+                  className="bg-slate-900 border-slate-700 text-white mt-2"
+                  required
+                />
+              )}
+            </div>
+            <div>
+              <Label>التصنيف *</Label>
+              <Select 
+                value={formData.category_id} 
+                onValueChange={(value) => setFormData({ ...formData, category_id: value })}
+                required
+              >
+                <SelectTrigger className="bg-slate-900 border-slate-700 text-white mt-2">
+                  <SelectValue placeholder="اختر التصنيف" />
+                </SelectTrigger>
+                <SelectContent>
+                  {categories
+                    .filter(cat => cat.is_active)
+                    .sort((a, b) => a.display_order - b.display_order)
+                    .map(category => (
+                      <SelectItem key={category.id} value={category.id}>
+                        {category.name}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>
@@ -1305,6 +1349,130 @@ function ProductFormDialog({
                 />
                 <Label htmlFor="is_active">نشط (يظهر في صفحة الاشتراك)</Label>
               </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              className="bg-slate-700 border-slate-600 text-white"
+            >
+              إلغاء
+            </Button>
+            <Button type="submit" className="bg-blue-600 hover:bg-blue-700">
+              حفظ
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// Category Form Dialog Component
+function CategoryFormDialog({
+  open,
+  onOpenChange,
+  category,
+  onSave,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  category: Category | null;
+  onSave: (data: any) => void;
+}) {
+  const [formData, setFormData] = useState({
+    name: '',
+    name_en: '',
+    description: '',
+    display_order: '0',
+    is_active: true,
+  });
+
+  useEffect(() => {
+    if (category) {
+      setFormData({
+        name: category.name,
+        name_en: category.name_en || '',
+        description: category.description || '',
+        display_order: category.display_order.toString(),
+        is_active: category.is_active,
+      });
+    } else {
+      setFormData({
+        name: '',
+        name_en: '',
+        description: '',
+        display_order: '0',
+        is_active: true,
+      });
+    }
+  }, [category, open]);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const submitData = {
+      ...formData,
+      display_order: parseInt(formData.display_order),
+      name_en: formData.name_en || null,
+      description: formData.description || null,
+    };
+    onSave(submitData);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>{category ? 'تعديل التصنيف' : 'إضافة تصنيف جديد'}</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <Label>الاسم (عربي) *</Label>
+            <Input
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              required
+              className="bg-slate-900 border-slate-700 text-white mt-2"
+            />
+          </div>
+          <div>
+            <Label>الاسم (إنجليزي)</Label>
+            <Input
+              value={formData.name_en}
+              onChange={(e) => setFormData({ ...formData, name_en: e.target.value })}
+              className="bg-slate-900 border-slate-700 text-white mt-2"
+            />
+          </div>
+          <div>
+            <Label>الوصف</Label>
+            <Textarea
+              value={formData.description}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              className="bg-slate-900 border-slate-700 text-white mt-2"
+              rows={3}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label>ترتيب العرض</Label>
+              <Input
+                type="number"
+                value={formData.display_order}
+                onChange={(e) => setFormData({ ...formData, display_order: e.target.value })}
+                className="bg-slate-900 border-slate-700 text-white mt-2"
+              />
+            </div>
+            <div className="flex items-center space-x-2 space-x-reverse pt-8">
+              <input
+                type="checkbox"
+                id="is_active"
+                checked={formData.is_active}
+                onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
+                className="w-4 h-4"
+              />
+              <Label htmlFor="is_active">نشط</Label>
             </div>
           </div>
           <DialogFooter>

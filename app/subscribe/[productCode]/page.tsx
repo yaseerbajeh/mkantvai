@@ -439,8 +439,6 @@ export default function ProductDetailPage() {
   const productCode = params.productCode as string;
   const [product, setProduct] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [paymentLink, setPaymentLink] = useState<string | null>(null);
-  const [paymentLinkLoading, setPaymentLinkLoading] = useState(true);
   const [user, setUser] = useState<User | null>(null);
   const [authDialogOpen, setAuthDialogOpen] = useState(false);
   const [reviews, setReviews] = useState<any[]>([]);
@@ -463,47 +461,6 @@ export default function ProductDetailPage() {
 
     return () => subscription.unsubscribe();
   }, []);
-  
-  // Fetch payment link for this product
-  useEffect(() => {
-    const fetchPaymentLink = async () => {
-      try {
-        // Try live first (default), then sandbox if not found
-        let response = await fetch(`/api/products/payment-link?product_code=${productCode}&environment=live`, {
-          cache: 'no-store',
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          if (data.paymentLink) {
-            setPaymentLink(data.paymentLink);
-            setPaymentLinkLoading(false);
-            return;
-          }
-        }
-        
-        // Try sandbox if live not found
-        response = await fetch(`/api/products/payment-link?product_code=${productCode}&environment=sandbox`, {
-          cache: 'no-store',
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          if (data.paymentLink) {
-            setPaymentLink(data.paymentLink);
-          }
-        }
-      } catch (error) {
-        console.error('Error fetching payment link:', error);
-      } finally {
-        setPaymentLinkLoading(false);
-      }
-    };
-
-    if (productCode) {
-      fetchPaymentLink();
-    }
-  }, [productCode]);
   
   useEffect(() => {
     const fetchProduct = async () => {
@@ -734,9 +691,9 @@ export default function ProductDetailPage() {
                   <h1 className="text-4xl md:text-5xl font-extrabold text-white mb-4">
                     {product.name}
                   </h1>
-                  <p className="text-xl text-slate-300 mb-6">
+                  <div className="text-xl text-slate-300 mb-6 whitespace-pre-line leading-relaxed">
                     {product.description}
-                  </p>
+                  </div>
                 </div>
 
                 {/* Price */}
@@ -785,50 +742,32 @@ export default function ProductDetailPage() {
                   </div>
                 )}
 
-                {/* CTA Button - Always show PayPal payment button */}
-                {paymentLinkLoading ? (
-                  <Button 
-                    disabled
-                    className="w-full bg-slate-600 text-white font-bold py-7 text-xl opacity-50 cursor-not-allowed"
-                  >
-                    <Loader2 className="mr-2 h-6 w-6 animate-spin" />
-                    جاري تحميل رابط الدفع...
-                  </Button>
-                ) : !paymentLink ? (
-                  <div className="w-full p-4 bg-yellow-900/20 border border-yellow-700 rounded-lg text-center">
-                    <p className="text-yellow-400 text-sm mb-2">رابط الدفع غير متوفر حالياً</p>
-                    <p className="text-yellow-300/80 text-xs">سيتم إضافة رابط الدفع قريباً</p>
-                  </div>
-                ) : (
-                  <Button 
-                    disabled={!user || product.available_stock === 0}
-                    onClick={() => {
-                      if (!user) {
-                        setAuthDialogOpen(true);
-                        return;
-                      }
-                      if (product.available_stock > 0 && paymentLink) {
-                        // Save user info to sessionStorage before redirecting to PayPal
-                        if (typeof window !== 'undefined') {
-                          sessionStorage.setItem('pending_order', JSON.stringify({
-                            product_code: productCode,
-                            name: user.user_metadata?.full_name || user.email || '',
-                            email: user.email || '',
-                            whatsapp: '', // Will be collected on return if needed
-                          }));
-                          // Redirect to PayPal payment link
-                          window.location.href = paymentLink;
-                        }
-                      }
-                    }}
-                    className={`w-full bg-gradient-to-r ${product.gradient} hover:opacity-90 text-white font-bold py-7 text-xl shadow-2xl hover:shadow-3xl transition-all duration-300 hover:scale-105 ${!user || product.available_stock === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
-                  >
-                    <span>
-                      {!user ? 'يرجى تسجيل الدخول' : product.available_stock === 0 ? 'نفد المخزون' : 'ادفع الآن'}
-                    </span>
-                    {user && product.available_stock > 0 && <ArrowRight className="mr-2 h-6 w-6" />}
-                  </Button>
-                )}
+                {/* Order Now Button */}
+                <Button 
+                  disabled={!user || product.available_stock === 0}
+                  onClick={() => {
+                    if (!user) {
+                      setAuthDialogOpen(true);
+                      return;
+                    }
+                    if (product.available_stock > 0) {
+                      addItem({
+                        product_code: product.code,
+                        product_name: product.name,
+                        price: product.price,
+                        quantity: 1,
+                        image: product.image,
+                      });
+                      router.push('/cart');
+                    }
+                  }}
+                  className={`w-full bg-gradient-to-r ${product.gradient} hover:opacity-90 text-white font-bold py-7 text-xl shadow-2xl hover:shadow-3xl transition-all duration-300 hover:scale-105 ${!user || product.available_stock === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  <span>
+                    {!user ? 'يرجى تسجيل الدخول' : product.available_stock === 0 ? 'نفد المخزون' : 'اطلب الان'}
+                  </span>
+                  {user && product.available_stock > 0 && <ArrowRight className="mr-2 h-6 w-6" />}
+                </Button>
                 
                 {/* Add to Cart Button */}
                 <Button
@@ -857,60 +796,8 @@ export default function ProductDetailPage() {
             </div>
           </div>
 
-          {/* Product Description */}
-          <Card className="bg-gradient-to-br from-slate-800/90 to-slate-900/90 border border-slate-700/50 mb-8">
-            <CardHeader className="pb-4">
-              <div className="flex items-center gap-3">
-                <div className={`w-1 h-8 bg-gradient-to-b ${product.gradient} rounded-full`} />
-                <CardTitle className="text-3xl text-white">تفاصيل الباقة</CardTitle>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div 
-                className="text-slate-300 prose prose-invert max-w-none prose-headings:text-white prose-strong:text-white prose-ul:list-disc prose-ul:mr-6 prose-li:text-slate-300 prose-li:mb-2"
-                dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(product.fullDescription || '', {
-                  ALLOWED_TAGS: ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'ul', 'ol', 'li', 'strong', 'em', 'br', 'span'],
-                  ALLOWED_ATTR: ['class', 'style']
-                }) }}
-                style={{
-                  lineHeight: '2',
-                  fontSize: '1.1rem',
-                }}
-              />
-            </CardContent>
-          </Card>
-
-          {/* Features Highlight */}
-          <Card className="bg-gradient-to-br from-slate-800/90 to-slate-900/90 border border-slate-700/50 mb-8">
-            <CardContent className="pt-6">
-              <div className="grid md:grid-cols-3 gap-6">
-                <div className="text-center p-4">
-                  <div className={`w-12 h-12 mx-auto mb-3 rounded-full bg-gradient-to-br ${product.gradient} flex items-center justify-center`}>
-                    <CheckCircle2 className="w-6 h-6 text-white" />
-                  </div>
-                  <h3 className="text-white font-semibold mb-2">جودة عالية</h3>
-                  <p className="text-slate-400 text-sm">محتوى عالي الجودة</p>
-                </div>
-                <div className="text-center p-4">
-                  <div className={`w-12 h-12 mx-auto mb-3 rounded-full bg-gradient-to-br ${product.gradient} flex items-center justify-center`}>
-                    <CheckCircle2 className="w-6 h-6 text-white" />
-                  </div>
-                  <h3 className="text-white font-semibold mb-2">دعم فني</h3>
-                  <p className="text-slate-400 text-sm">دعم فني متواصل</p>
-                </div>
-                <div className="text-center p-4">
-                  <div className={`w-12 h-12 mx-auto mb-3 rounded-full bg-gradient-to-br ${product.gradient} flex items-center justify-center`}>
-                    <CheckCircle2 className="w-6 h-6 text-white" />
-                  </div>
-                  <h3 className="text-white font-semibold mb-2">محتوى حصري</h3>
-                  <p className="text-slate-400 text-sm">وصول فوري للمحتوى</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Reviews Section */}
-          <Card className="bg-gradient-to-br from-slate-800/90 to-slate-900/90 border border-slate-700/50">
+          {/* Reviews and Ratings Section */}
+          <Card className="bg-gradient-to-br from-slate-800/90 to-slate-900/90 border border-slate-700/50 mt-8">
             <CardHeader className="pb-4">
               <div className="flex items-center gap-3">
                 <div className={`w-1 h-8 bg-gradient-to-b ${product.gradient} rounded-full`} />
@@ -919,79 +806,101 @@ export default function ProductDetailPage() {
             </CardHeader>
             <CardContent>
               {reviewsLoading ? (
-                <div className="text-center py-8">
-                  <Loader2 className="h-6 w-6 animate-spin text-white mx-auto mb-2" />
-                  <p className="text-slate-400">جاري تحميل التقييمات...</p>
+                <div className="text-center py-12">
+                  <Loader2 className="h-8 w-8 animate-spin text-white mx-auto mb-4" />
+                  <p className="text-slate-300">جاري تحميل التقييمات...</p>
                 </div>
-              ) : totalReviews === 0 ? (
-                <div className="text-center py-8">
-                  <Star className="w-12 h-12 text-slate-600 mx-auto mb-4" />
-                  <p className="text-slate-400">لا توجد تقييمات بعد</p>
-                  <p className="text-slate-500 text-sm mt-2">كن أول من يقيّم هذا المنتج</p>
-                </div>
-              ) : (
-                <div className="space-y-6">
-                  {/* Average Rating */}
-                  <div className="flex items-center gap-4 p-6 bg-slate-800/50 rounded-lg border border-slate-700">
-                    <div className="text-center">
-                      <div className="flex items-center gap-1 mb-2">
-                        <span className="text-4xl font-bold text-white">{averageRating.toFixed(1)}</span>
-                        <Star className="w-6 h-6 fill-yellow-400 text-yellow-400" />
-                      </div>
-                      <p className="text-slate-400 text-sm">{totalReviews} {totalReviews === 1 ? 'تقييم' : 'تقييم'}</p>
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-1 mb-2">
-                        {[1, 2, 3, 4, 5].map((star) => (
-                          <Star
-                            key={star}
-                            className={`w-5 h-5 ${
-                              star <= Math.round(averageRating)
-                                ? 'fill-yellow-400 text-yellow-400'
-                                : 'text-slate-600'
-                            }`}
-                          />
-                        ))}
-                      </div>
-                      <p className="text-slate-300 text-sm">متوسط التقييم بناءً على {totalReviews} {totalReviews === 1 ? 'تقييم' : 'تقييم'}</p>
-                    </div>
-                  </div>
-
-                  {/* Reviews List */}
-                  <div className="space-y-4">
-                    <h3 className="text-xl font-bold text-white mb-4">جميع التقييمات ({totalReviews})</h3>
-                    {reviews.map((review) => (
-                      <div key={review.id} className="p-4 bg-slate-800/50 rounded-lg border border-slate-700">
-                        <div className="flex items-start justify-between mb-2">
-                          <div className="flex items-center gap-2">
+              ) : totalReviews > 0 ? (
+                <>
+                  {/* Average Rating Summary */}
+                  <div className="mb-8 p-6 bg-gradient-to-br from-slate-700/50 to-slate-800/50 rounded-2xl border border-slate-600/50">
+                    <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+                      <div className="text-center md:text-right">
+                        <div className="flex items-center justify-center md:justify-start gap-2 mb-2">
+                          <span className="text-5xl font-extrabold text-white">{averageRating.toFixed(1)}</span>
+                          <div className="flex flex-col">
                             <div className="flex items-center gap-1">
                               {[1, 2, 3, 4, 5].map((star) => (
                                 <Star
                                   key={star}
-                                  className={`w-4 h-4 ${
-                                    star <= review.rating
+                                  className={`w-5 h-5 ${
+                                    star <= Math.round(averageRating)
                                       ? 'fill-yellow-400 text-yellow-400'
                                       : 'text-slate-600'
                                   }`}
                                 />
                               ))}
                             </div>
-                            <span className="text-slate-400 text-sm">{review.user_email}</span>
+                            <p className="text-slate-400 text-sm mt-1">من {totalReviews} تقييم</p>
                           </div>
-                          <span className="text-slate-500 text-xs">
-                            {new Date(review.created_at).toLocaleDateString('ar-SA', {
-                              year: 'numeric',
-                              month: 'long',
-                              day: 'numeric',
-                            })}
-                          </span>
                         </div>
-                        {review.comment && (
-                          <p className="text-slate-300 mt-2 text-sm leading-relaxed">{review.comment}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Reviews List */}
+                  <div className="space-y-4">
+                    {reviews.map((review: any, idx: number) => (
+                      <div
+                        key={idx}
+                        className="p-6 bg-slate-800/50 rounded-xl border border-slate-700/50 hover:border-slate-600 transition-colors"
+                      >
+                        {/* Rating Stars */}
+                        <div className="flex items-center gap-2 mb-3">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <Star
+                              key={star}
+                              className={`w-4 h-4 ${
+                                star <= review.rating
+                                  ? 'fill-yellow-400 text-yellow-400'
+                                  : 'text-slate-600'
+                              }`}
+                            />
+                          ))}
+                        </div>
+
+                        {/* Review Comment */}
+                        {review.comment ? (
+                          <p className="text-slate-300 text-base mb-4 leading-relaxed">
+                            "{review.comment}"
+                          </p>
+                        ) : (
+                          <p className="text-slate-500 text-sm mb-4 italic">
+                            تقييم بدون تعليق
+                          </p>
                         )}
+
+                        {/* User Info and Date */}
+                        <div className="flex items-center justify-between pt-4 border-t border-slate-700/50">
+                          <div className="flex items-center gap-2">
+                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
+                              <span className="text-white font-bold text-sm">
+                                {review.user_email?.charAt(0).toUpperCase() || 'U'}
+                              </span>
+                            </div>
+                            <div>
+                              <p className="text-white font-semibold text-sm">{review.user_email || 'مستخدم'}</p>
+                            </div>
+                          </div>
+                          <p className="text-slate-500 text-xs">
+                            {review.created_at
+                              ? new Date(review.created_at).toLocaleDateString('ar-SA', {
+                                  year: 'numeric',
+                                  month: 'short',
+                                  day: 'numeric',
+                                })
+                              : ''}
+                          </p>
+                        </div>
                       </div>
                     ))}
                   </div>
+                </>
+              ) : (
+                <div className="text-center py-12">
+                  <Star className="w-12 h-12 text-slate-600 mx-auto mb-4" />
+                  <p className="text-slate-400 text-lg">لا توجد تقييمات بعد</p>
+                  <p className="text-slate-500 text-sm mt-2">كن أول من يقيم هذا المنتج</p>
                 </div>
               )}
             </CardContent>

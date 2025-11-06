@@ -89,7 +89,7 @@ export default function AdminPaymentsPage() {
 
         setUser(session.user);
 
-        // Fetch payments (PayPal and Manual - orders with payment_method = 'paypal', 'paypal_link', 'paypal_cart', or 'manual')
+        // Fetch payments (PayPal and Manual - orders with payment_method = 'paypal', 'paypal_cart', or 'manual')
         // Include order_items for cart orders
         let query = supabase
           .from('orders')
@@ -119,11 +119,10 @@ export default function AdminPaymentsPage() {
             }
             
             // Filter client-side for payments (PayPal and Manual)
-            // Include 'paypal', 'paypal_link', 'paypal_cart', and 'manual' payment methods
+            // Include 'paypal', 'paypal_cart', and 'manual' payment methods
             const filteredData = (fallbackData || []).filter((order: any) => 
               !order.payment_method || 
               order.payment_method === 'paypal' || 
-              order.payment_method === 'paypal_link' ||
               order.payment_method === 'paypal_cart' ||
               order.payment_method === 'manual'
             ) as PaymentOrder[];
@@ -136,11 +135,10 @@ export default function AdminPaymentsPage() {
         }
 
         // Filter for payments (PayPal and Manual)
-        // Include 'paypal', 'paypal_link', 'paypal_cart', and 'manual' payment methods
+        // Include 'paypal', 'paypal_cart', and 'manual' payment methods
         const filteredPayments = (data || []).filter((order: any) => 
           !order.payment_method || 
           order.payment_method === 'paypal' || 
-          order.payment_method === 'paypal_link' ||
           order.payment_method === 'paypal_cart' ||
           order.payment_method === 'manual'
         ) as PaymentOrder[];
@@ -198,9 +196,6 @@ export default function AdminPaymentsPage() {
     if (!paymentMethod) return <span className="text-slate-500">-</span>;
     if (paymentMethod === 'paypal_cart') {
       return <Badge className="bg-indigo-900/20 text-indigo-400 border-indigo-700">PayPal Cart</Badge>;
-    }
-    if (paymentMethod === 'paypal_link') {
-      return <Badge className="bg-purple-900/20 text-purple-400 border-purple-700">PayPal Link</Badge>;
     }
     if (paymentMethod === 'paypal') {
       return <Badge className="bg-blue-900/20 text-blue-400 border-blue-700">PayPal</Badge>;

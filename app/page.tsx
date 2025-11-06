@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Clapperboard, Target, Sparkles, ChevronLeft, ChevronRight, Film, ArrowLeft, ShoppingCart, Tv, Smartphone, Monitor, Laptop, CheckCircle2, Shield, Zap, Bot, TrendingUp } from 'lucide-react';
+import { Clapperboard, Target, Sparkles, ChevronLeft, ChevronRight, Film, ArrowLeft, ShoppingCart, Tv, Smartphone, Monitor, Laptop, CheckCircle2, Shield, Zap, Bot, TrendingUp, Star } from 'lucide-react';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import Header from '@/components/Header';
@@ -24,6 +24,8 @@ export default function Home() {
   const [topRatedTab, setTopRatedTab] = useState<'movies' | 'series'>('movies');
   const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [reviews, setReviews] = useState<any[]>([]);
+  const [reviewsLoading, setReviewsLoading] = useState(true);
   
   const topRatedScrollRef = useRef<HTMLDivElement>(null);
   const trendingScrollRef = useRef<HTMLDivElement>(null);
@@ -201,6 +203,31 @@ export default function Home() {
     };
 
     fetchLatestContent();
+  }, []);
+
+  // Fetch latest reviews from all products
+  useEffect(() => {
+    const fetchReviews = async () => {
+      setReviewsLoading(true);
+      try {
+        const response = await fetch('/api/reviews?limit=12');
+        const result = await response.json();
+        
+        if (response.ok) {
+          setReviews(result.reviews || []);
+        } else {
+          console.error('Error fetching reviews:', result.error);
+          setReviews([]);
+        }
+      } catch (error) {
+        console.error('Error fetching reviews:', error);
+        setReviews([]);
+      } finally {
+        setReviewsLoading(false);
+      }
+    };
+
+    fetchReviews();
   }, []);
 
   const scroll = (ref: React.RefObject<HTMLDivElement>, direction: 'left' | 'right') => {
@@ -906,55 +933,101 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Customer Satisfaction Carousel Section */}
+      {/* Customer Reviews Carousel Section */}
       <section className="py-20 bg-black relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-b from-slate-900/50 to-black"></div>
         
         <div className="container mx-auto px-4 relative z-10">
-          <div className="max-w-6xl mx-auto">
+          <div className="max-w-7xl mx-auto">
             <div className="text-center mb-12">
               <h2 className="text-4xl md:text-5xl font-bold text-white mb-4" style={{ fontFamily: 'var(--font-arabic)' }}>
-                رضا العملاء
+                تقييمات العملاء
               </h2>
               <p className="text-xl text-slate-400" style={{ fontFamily: 'var(--font-arabic)' }}>
                 شاهد ما يقوله عملاؤنا عن خدماتنا
               </p>
             </div>
             
-            <Carousel
-              opts={{
-                align: "start",
-                loop: true,
-              }}
-              className="w-full"
-            >
-              <CarouselContent className="-ml-2 md:-ml-4">
-                {/* Placeholder for customer images - replace with actual images later */}
-                {[1, 2, 3, 4, 5].map((index) => (
-                  <CarouselItem key={index} className="pl-2 md:pl-4 md:basis-1/2 lg:basis-1/3">
-                    <div className="group relative bg-gradient-to-br from-slate-800/80 to-slate-900/80 border border-slate-700/50 rounded-2xl overflow-hidden hover:border-blue-500/50 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-blue-500/20">
-                      <div className="aspect-[4/3] relative overflow-hidden bg-slate-800">
-                        {/* Placeholder for customer satisfaction image */}
-                        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-slate-700 to-slate-800">
-                          <div className="text-center p-4">
-                            <CheckCircle2 className="w-16 h-16 text-blue-400 mx-auto mb-4 opacity-50" />
-                            <p className="text-slate-500 text-sm" style={{ fontFamily: 'var(--font-arabic)' }}>
-                              صورة رضا العملاء {index}
+            {reviewsLoading ? (
+              <div className="text-center py-12">
+                <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+                <p className="text-slate-400 mt-4" style={{ fontFamily: 'var(--font-arabic)' }}>جاري تحميل التقييمات...</p>
+              </div>
+            ) : reviews.length === 0 ? (
+              <div className="text-center py-12">
+                <Star className="w-16 h-16 text-slate-600 mx-auto mb-4" />
+                <p className="text-slate-400 text-lg" style={{ fontFamily: 'var(--font-arabic)' }}>لا توجد تقييمات بعد</p>
+              </div>
+            ) : (
+              <Carousel
+                opts={{
+                  align: "start",
+                  loop: true,
+                  slidesToScroll: 1,
+                }}
+                className="w-full"
+              >
+                <CarouselContent className="-ml-2 md:-ml-4">
+                  {reviews.map((review) => (
+                    <CarouselItem key={review.id} className="pl-2 md:pl-4 basis-[85%] sm:basis-1/2 lg:basis-1/3">
+                      <div className="group relative bg-gradient-to-br from-slate-800/90 to-slate-900/90 border border-slate-700/50 rounded-2xl p-4 md:p-6 h-full hover:border-blue-500/50 transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl hover:shadow-blue-500/20 flex flex-col min-h-[200px]">
+                        {/* Rating Stars */}
+                        <div className="flex items-center gap-1 mb-4">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <Star
+                              key={star}
+                              className={`w-5 h-5 ${
+                                star <= review.rating
+                                  ? 'fill-yellow-400 text-yellow-400'
+                                  : 'text-slate-600'
+                              }`}
+                            />
+                          ))}
+                        </div>
+
+                        {/* Review Comment */}
+                        {review.comment ? (
+                          <p className="text-slate-300 text-sm md:text-base mb-4 flex-grow leading-relaxed line-clamp-4" style={{ fontFamily: 'var(--font-arabic)' }}>
+                            "{review.comment}"
+                          </p>
+                        ) : (
+                          <p className="text-slate-500 text-sm mb-4 flex-grow italic" style={{ fontFamily: 'var(--font-arabic)' }}>
+                            تقييم بدون تعليق
+                          </p>
+                        )}
+
+                        {/* User Info and Date */}
+                        <div className="mt-auto pt-4 border-t border-slate-700/50">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
+                                <span className="text-white font-bold text-sm">
+                                  {review.user_email.charAt(0).toUpperCase()}
+                                </span>
+                              </div>
+                              <div>
+                                <p className="text-white font-semibold text-sm">{review.user_email}</p>
+                              </div>
+                            </div>
+                            <p className="text-slate-500 text-xs">
+                              {new Date(review.created_at).toLocaleDateString('ar-SA', {
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric',
+                              })}
                             </p>
                           </div>
                         </div>
-                        {/* When images are uploaded, replace the div above with: */}
-                        {/* <img src={`/customer-satisfaction/${index}.jpg`} alt={`Customer Satisfaction ${index}`} className="w-full h-full object-cover" /> */}
                       </div>
-                    </div>
-                  </CarouselItem>
-                ))}
-              </CarouselContent>
-              
-              {/* Navigation Buttons */}
-              <CarouselPrevious className="left-0 md:-left-12 bg-slate-800/90 hover:bg-slate-700 border-slate-700 text-white hover:text-blue-400 transition-all duration-200 shadow-xl" />
-              <CarouselNext className="right-0 md:-right-12 bg-slate-800/90 hover:bg-slate-700 border-slate-700 text-white hover:text-blue-400 transition-all duration-200 shadow-xl" />
-            </Carousel>
+                    </CarouselItem>
+                  ))}
+                </CarouselContent>
+                
+                {/* Navigation Buttons */}
+                <CarouselPrevious className="left-2 md:-left-12 bg-slate-800/90 hover:bg-slate-700 border-slate-700 text-white hover:text-blue-400 transition-all duration-200 shadow-xl z-10 hidden sm:flex" />
+                <CarouselNext className="right-2 md:-right-12 bg-slate-800/90 hover:bg-slate-700 border-slate-700 text-white hover:text-blue-400 transition-all duration-200 shadow-xl z-10 hidden sm:flex" />
+              </Carousel>
+            )}
           </div>
         </div>
       </section>

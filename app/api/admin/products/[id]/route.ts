@@ -61,8 +61,9 @@ export async function PUT(
       description,
       price,
       duration,
-      section,
-      section_title,
+      category_id,
+      section, // Keep for backward compatibility
+      section_title, // Keep for backward compatibility
       image,
       image2,
       logos,
@@ -78,11 +79,36 @@ export async function PUT(
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
     const updateData: any = {};
+
+    // If category_id is being updated, validate it exists
+    if (category_id !== undefined) {
+      const { data: category, error: categoryError } = await supabaseAdmin
+        .from('categories')
+        .select('id, name, display_order')
+        .eq('id', category_id)
+        .single();
+
+      if (categoryError || !category) {
+        return NextResponse.json(
+          { error: 'التصنيف المحدد غير موجود' },
+          { status: 400 }
+        );
+      }
+
+      // Update section and section_title for backward compatibility
+      if (!section) {
+        updateData.section = category.display_order || 1;
+      }
+      if (!section_title) {
+        updateData.section_title = category.name;
+      }
+    }
     if (product_code !== undefined) updateData.product_code = product_code;
     if (name !== undefined) updateData.name = name;
     if (description !== undefined) updateData.description = description;
     if (price !== undefined) updateData.price = parseFloat(price);
     if (duration !== undefined) updateData.duration = duration;
+    if (category_id !== undefined) updateData.category_id = category_id;
     if (section !== undefined) updateData.section = parseInt(section);
     if (section_title !== undefined) updateData.section_title = section_title;
     if (image !== undefined) updateData.image = image;
@@ -100,7 +126,16 @@ export async function PUT(
       .from('products')
       .update(updateData)
       .eq('id', params.id)
-      .select()
+      .select(`
+        *,
+        categories (
+          id,
+          name,
+          name_en,
+          display_order,
+          is_active
+        )
+      `)
       .single();
 
     if (error) {
