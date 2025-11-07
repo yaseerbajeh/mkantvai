@@ -64,11 +64,10 @@ export async function POST(request: NextRequest) {
       product = productData;
     }
 
-    // Determine subscription type
-    const subType = subscriptionType || determineSubscriptionType(
-      order.product_code,
-      order.product_name
-    );
+    // Determine subscription type - use provided type or let database function determine from category
+    // The database function will automatically determine subscription_type from product category
+    // if p_subscription_type is null
+    const subType = subscriptionType || null;
 
     // Get subscription code
     let subscriptionCode = 'SUB-' + Math.random().toString(36).substr(2, 8).toUpperCase();
@@ -89,11 +88,12 @@ export async function POST(request: NextRequest) {
     const expirationDate = calculateExpirationDate(startDate, durationText);
 
     // Create subscription using database function
+    // Pass null for p_subscription_type to let function determine from product category
     const { data: subscriptionId, error: createError } = await supabaseAdmin.rpc(
       'auto_create_subscription_from_order',
       {
         p_order_id: orderId,
-        p_subscription_type: subType,
+        p_subscription_type: subType, // null will trigger category-based determination
       }
     );
 

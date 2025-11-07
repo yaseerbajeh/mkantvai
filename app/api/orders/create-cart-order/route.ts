@@ -50,6 +50,12 @@ export async function POST(request: NextRequest) {
     // Find cart session for this user (if exists) to mark it as converted
     // Note: We'll update it after order is created successfully
 
+    // Check if this is a 100% discount order (free order) before creating
+    const isFreeOrder = totalAmount === 0 || totalAmount <= 0.01;
+    
+    // Calculate original subtotal before discount for order price
+    const originalSubtotal = items.reduce((sum: number, item: any) => sum + (item.price * item.quantity), 0);
+
     const { data: order, error: orderError } = await supabaseAdmin
       .from('orders')
       .insert({
@@ -58,13 +64,13 @@ export async function POST(request: NextRequest) {
         whatsapp: customerInfo.whatsapp || null,
         product_name: productName,
         product_code: items[0].product_code, // Primary product code for compatibility
-        price: totalAmount,
-        total_amount: totalAmount,
+        price: originalSubtotal, // Store original price before discount
+        total_amount: totalAmount, // Store final amount after discount (can be 0 for 100% discount)
         discount_amount: discountAmount || 0,
         promo_code_id: promoCodeId || null,
-        status: 'pending', // Will be updated to 'paid' after PayPal approval
-        payment_method: 'paypal_cart',
-        payment_status: 'PENDING',
+        status: isFreeOrder ? 'paid' : 'pending', // Set to 'paid' immediately for free orders
+        payment_method: isFreeOrder ? 'promo_code_100' : 'paypal_cart',
+        payment_status: isFreeOrder ? 'COMPLETED' : 'PENDING',
         is_cart_order: true,
       })
       .select()
@@ -121,32 +127,72 @@ export async function POST(request: NextRequest) {
 
     // Check if this is a 100% discount order (totalAmount = 0)
     // If so, skip PayPal and auto-complete the order
-    if (totalAmount === 0 || totalAmount <= 0.01) {
-      // Auto-complete order for 100% discount
-      const { data: updatedOrder, error: updateError } = await supabaseAdmin
-        .from('orders')
-        .update({
-          status: 'paid',
-          payment_status: 'COMPLETED',
-          payment_method: 'promo_code_100',
-        })
-        .eq('id', order.id)
-        .select()
-        .single();
+    if (isFreeOrder) {
+      console.log('🎁 Processing 100% discount order (free order)');
+      console.log('Order details:', {
+        orderId: order.id,
+        customerEmail: order.email,
+        productName: order.product_name,
+        totalAmount,
+        originalSubtotal,
+        discountAmount,
+        promoCodeId,
+        itemsCount: orderItems.length,
+        orderStatus: order.status,
+        paymentMethod: order.payment_method,
+      });
 
-      if (updateError) {
-        console.error('Error updating order status:', updateError);
-        return NextResponse.json(
-          { error: 'فشل تحديث حالة الطلب' },
-          { status: 500 }
-        );
+      // Order is already set to 'paid' status and 'promo_code_100' payment_method during creation
+      // But we should verify it's correct
+      if (order.status !== 'paid' || order.payment_method !== 'promo_code_100') {
+        console.warn('⚠ Order status or payment_method not set correctly, updating...');
+        const { data: updatedOrder, error: updateError } = await supabaseAdmin
+          .from('orders')
+          .update({
+            status: 'paid',
+            payment_status: 'COMPLETED',
+            payment_method: 'promo_code_100',
+          })
+          .eq('id', order.id)
+          .select()
+          .single();
+
+        if (updateError) {
+          console.error('✗ Error updating order status to paid:', updateError);
+          return NextResponse.json(
+            { error: 'فشل تحديث حالة الطلب' },
+            { status: 500 }
+          );
+        }
+
+        console.log('✓ Order status updated to paid:', {
+          orderId: updatedOrder?.id,
+          status: updatedOrder?.status,
+          payment_method: updatedOrder?.payment_method,
+        });
+      } else {
+        console.log('✓ Order already has correct status (paid) and payment_method (promo_code_100)');
       }
 
       // Assign subscriptions for each item
+      // For cart orders, we need to update the order's product_code for each item
+      // so that assign_subscription_to_order can find the correct subscription
       const assignedSubscriptions: any[] = [];
+      let hasSubscriptionAssignmentErrors = false;
+
       for (const item of orderItems) {
         for (let i = 0; i < item.quantity; i++) {
           try {
+            // Update order's product_code to match current item before calling assign_subscription_to_order
+            // This ensures the function finds subscriptions for the correct product
+            await supabaseAdmin
+              .from('orders')
+              .update({ product_code: item.product_code })
+              .eq('id', order.id);
+
+            console.log(`🔄 Temporarily setting order product_code to ${item.product_code} for subscription assignment`);
+
+            // Now assign subscription - it will use the updated product_code
             const { data: assigned, error: assignError } = await supabaseAdmin.rpc(
               'assign_subscription_to_order',
               {
@@ -161,45 +207,54 @@ export async function POST(request: NextRequest) {
                 product_name: item.product_name,
                 subscription: assigned,
               });
+              console.log(`✓ Successfully assigned subscription for ${item.product_code}:`, assigned.code);
             } else if (assignError) {
-              console.error(`Error assigning subscription for ${item.product_code}:`, assignError);
+              console.error(`✗ Error assigning subscription for ${item.product_code}:`, assignError);
+              hasSubscriptionAssignmentErrors = true;
+              // Continue processing other items even if one fails
             }
-          } catch (err) {
-            console.error(`Error assigning subscription for ${item.product_code}:`, err);
+          } catch (err: any) {
+            console.error(`✗ Exception assigning subscription for ${item.product_code}:`, err);
+            hasSubscriptionAssignmentErrors = true;
           }
         }
       }
 
+      // Restore order's product_code to first item (for compatibility)
       // Update order status back to 'paid' (assign_subscription_to_order sets it to 'approved')
       // Also ensure assigned_subscription is properly set
+      const updateData: any = {
+        status: 'paid',
+        payment_status: 'COMPLETED',
+        payment_method: 'promo_code_100',
+        product_code: items[0].product_code, // Restore to first item's product_code
+      };
+
       if (assignedSubscriptions.length > 0) {
         const firstSubscription = assignedSubscriptions[0].subscription;
-        await supabaseAdmin
-          .from('orders')
-          .update({
-            status: 'paid',
-            assigned_subscription: firstSubscription,
-          })
-          .eq('id', order.id);
+        updateData.assigned_subscription = firstSubscription;
+        console.log('✓ Setting assigned_subscription on order:', firstSubscription.code);
+      } else {
+        console.warn('⚠ No subscriptions were assigned, but order will still be created as paid');
+      }
+
+      const { error: updateStatusError } = await supabaseAdmin
+        .from('orders')
+        .update(updateData)
+        .eq('id', order.id);
+
+      if (updateStatusError) {
+        console.error('✗ Error updating order status:', updateStatusError);
+        // Continue anyway - order is already created
+      } else {
+        console.log('✓ Order status updated to paid with payment_method: promo_code_100');
       }
 
       // Create active subscriptions for each assigned subscription
       for (const assignedSub of assignedSubscriptions) {
         try {
-          // Determine subscription type from product code or product name
-          let subscriptionType = 'iptv'; // default
-          const productCode = assignedSub.product_code || '';
-          const productName = assignedSub.product_name || '';
-          
-          if (productCode.includes('NETFLIX') || productName.toLowerCase().includes('netflix')) {
-            subscriptionType = 'netflix';
-          } else if (productCode.includes('SHAHID') || productName.toLowerCase().includes('shahid')) {
-            subscriptionType = 'shahid';
-          } else if (productCode.includes('PACKAGE') || productName.toLowerCase().includes('باقة')) {
-            subscriptionType = 'package';
-          }
-
           // Call auto_create_subscription_from_order function
+          // Pass null for p_subscription_type to let the function determine it from product category
           // First, temporarily set status to 'approved' for the function to work
           await supabaseAdmin
             .from('orders')
@@ -210,7 +265,7 @@ export async function POST(request: NextRequest) {
             'auto_create_subscription_from_order',
             {
               p_order_id: order.id,
-              p_subscription_type: subscriptionType,
+              p_subscription_type: null, // Let function determine from product category
             }
           );
 
@@ -273,25 +328,79 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // Fetch final order with subscription
-      const { data: finalOrder } = await supabaseAdmin
+      // Fetch final order with subscription to ensure we have the latest data
+      const { data: finalOrder, error: fetchError } = await supabaseAdmin
         .from('orders')
         .select('*')
         .eq('id', order.id)
         .single();
 
-      // Send emails
+      if (fetchError) {
+        console.error('✗ Error fetching final order:', fetchError);
+      } else {
+        console.log('✓ Final order fetched:', {
+          id: finalOrder?.id,
+          status: finalOrder?.status,
+          payment_method: finalOrder?.payment_method,
+          has_subscription: !!finalOrder?.assigned_subscription,
+        });
+      }
+
+      // Send emails - ensure emails are sent even if subscription assignment had errors
+      const orderDisplayId = (finalOrder as any)?.order_number || order.id.slice(0, 8).toUpperCase();
+      
+      // Get subscription code from finalOrder or assignedSubscriptions
+      const subscriptionCode = (finalOrder as any)?.assigned_subscription?.code || 
+                               (assignedSubscriptions.length > 0 ? assignedSubscriptions[0].subscription.code : undefined);
+      const subscriptionMeta = (finalOrder as any)?.assigned_subscription?.meta || 
+                               (assignedSubscriptions.length > 0 ? assignedSubscriptions[0].subscription.meta : undefined);
+      
+      console.log('Email sending preparation:', {
+        orderDisplayId,
+        hasSubscriptionCode: !!subscriptionCode,
+        subscriptionCode: subscriptionCode?.substring(0, 20) + '...',
+        customerEmail: order.email,
+      });
+
+      // Send admin notification email (always send, even if no subscription)
       try {
-        const orderDisplayId = (finalOrder as any)?.order_number || order.id.slice(0, 8).toUpperCase();
-        
-        // Get subscription code from finalOrder or assignedSubscriptions
-        const subscriptionCode = (finalOrder as any)?.assigned_subscription?.code || 
-                                 (assignedSubscriptions.length > 0 ? assignedSubscriptions[0].subscription.code : undefined);
-        const subscriptionMeta = (finalOrder as any)?.assigned_subscription?.meta || 
-                                 (assignedSubscriptions.length > 0 ? assignedSubscriptions[0].subscription.meta : undefined);
-        
-        // Send admin notification
+        console.log('📧 Sending admin notification email...');
+        await sendNewOrderEmail({
+          orderId: orderDisplayId,
+          name: order.name,
+          email: order.email,
+          whatsapp: order.whatsapp || undefined,
+          productName: order.product_name,
+          price: totalAmount || 0,
+          createdAt: order.created_at,
+        });
+        console.log('✓ Admin notification email sent successfully');
+      } catch (adminEmailError: any) {
+        console.error('✗ Error sending admin notification email:', adminEmailError?.message || adminEmailError);
+        // Don't fail the request if email fails, but log it
+      }
+
+      // Send customer approval email with subscription details (only if subscription exists)
+      if (subscriptionCode) {
         try {
+          console.log('📧 Sending customer approval email with subscription...');
+          await sendApprovalEmail({
+            orderId: orderDisplayId,
+            name: order.name,
+            email: order.email,
+            subscriptionCode: subscriptionCode,
+            subscriptionMeta: subscriptionMeta,
+          });
+          console.log('✓ Customer approval email sent successfully');
+        } catch (customerEmailError: any) {
+          console.error('✗ Error sending customer approval email:', customerEmailError?.message || customerEmailError);
+          // Don't fail the request if email fails, but log it
+        }
+      } else {
+        console.warn('⚠ No subscription code available - customer approval email not sent');
+        // Still send a basic confirmation email if possible
+        try {
+          console.log('📧 Sending basic order confirmation email...');
           await sendNewOrderEmail({
             orderId: orderDisplayId,
             name: order.name,
@@ -301,28 +410,37 @@ export async function POST(request: NextRequest) {
             price: totalAmount || 0,
             createdAt: order.created_at,
           });
-        } catch (adminEmailError) {
-          console.error('Error sending admin notification email:', adminEmailError);
+          console.log('✓ Basic order confirmation email sent');
+        } catch (basicEmailError: any) {
+          console.error('✗ Error sending basic confirmation email:', basicEmailError?.message || basicEmailError);
         }
+      }
 
-        // Send customer approval email with subscription details
-        if (subscriptionCode) {
-          try {
-            await sendApprovalEmail({
-              orderId: orderDisplayId,
-              name: order.name,
-              email: order.email,
-              subscriptionCode: subscriptionCode,
-              subscriptionMeta: subscriptionMeta,
-            });
-          } catch (customerEmailError) {
-            console.error('Error sending customer approval email:', customerEmailError);
-          }
-        } else {
-          console.warn('No subscription code available to send in approval email');
-        }
-      } catch (emailError) {
-        console.error('Error sending emails:', emailError);
+      // Log final order status for debugging - verify order was created correctly
+      const { data: verifyOrder } = await supabaseAdmin
+        .from('orders')
+        .select('id, status, payment_method, payment_status, assigned_subscription, order_number')
+        .eq('id', order.id)
+        .single();
+
+      console.log('📦 Final order verification:', {
+        orderId: verifyOrder?.id,
+        orderNumber: verifyOrder?.order_number,
+        status: verifyOrder?.status,
+        payment_method: verifyOrder?.payment_method,
+        payment_status: verifyOrder?.payment_status,
+        has_assigned_subscription: !!verifyOrder?.assigned_subscription,
+        subscription_code: verifyOrder?.assigned_subscription?.code,
+      });
+
+      if (!verifyOrder) {
+        console.error('✗ CRITICAL: Order was not found in database after creation!');
+      } else if (verifyOrder.status !== 'paid') {
+        console.warn('⚠ WARNING: Order status is not "paid":', verifyOrder.status);
+      } else if (verifyOrder.payment_method !== 'promo_code_100') {
+        console.warn('⚠ WARNING: Order payment_method is not "promo_code_100":', verifyOrder.payment_method);
+      } else {
+        console.log('✓ Order verified: Status=paid, Payment Method=promo_code_100');
       }
 
       return NextResponse.json({
@@ -331,6 +449,9 @@ export async function POST(request: NextRequest) {
         success: true,
         isFreeOrder: true,
         subscriptions: assignedSubscriptions,
+        orderStatus: verifyOrder?.status,
+        paymentMethod: verifyOrder?.payment_method,
+        hasSubscription: !!verifyOrder?.assigned_subscription,
       });
     }
 

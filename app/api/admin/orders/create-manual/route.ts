@@ -262,7 +262,7 @@ export async function POST(request: NextRequest) {
             'auto_create_subscription_from_order',
             {
               p_order_id: order.id,
-              p_subscription_type: null, // Will be determined by product_code
+              p_subscription_type: null, // Will be determined by product category
             }
           );
 
