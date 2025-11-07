@@ -281,9 +281,26 @@ export async function POST(request: NextRequest) {
             try {
               const { data: product } = await supabaseAdmin
                 .from('products')
-                .select('duration')
+                .select('duration, category_id')
                 .eq('product_code', assignedSub.product_code)
                 .single();
+
+              // Get category to determine subscription type
+              let subscriptionType = null;
+              if (product?.category_id) {
+                const { data: category } = await supabaseAdmin
+                  .from('categories')
+                  .select('name')
+                  .eq('id', product.category_id)
+                  .single();
+                // Use category name as subscription type, or map it appropriately
+                subscriptionType = category?.name || null;
+              }
+              
+              // Fallback to subscription metadata if available
+              if (!subscriptionType && assignedSub.subscription?.meta?.type) {
+                subscriptionType = assignedSub.subscription.meta.type;
+              }
 
               const durationText = product?.duration || assignedSub.subscription.meta?.duration || '1 شهر';
               const startDate = new Date(order.created_at);
