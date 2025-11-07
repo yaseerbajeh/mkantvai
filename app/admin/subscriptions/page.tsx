@@ -45,7 +45,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
-import { getSubscriptionTypeLabel, calculateExpirationDate, parseDurationToDays } from '@/lib/subscription-utils';
+import { calculateExpirationDate, parseDurationToDays } from '@/lib/subscription-utils';
 
 interface ActiveSubscription {
   id: string;
@@ -54,7 +54,7 @@ interface ActiveSubscription {
   customer_email: string;
   customer_phone: string | null;
   subscription_code: string;
-  subscription_type: 'iptv' | 'shahid' | 'netflix' | 'package';
+  subscription_type: string; // Now accepts any string (category name)
   subscription_duration: string;
   expiration_date: string;
   due_days: number;
@@ -77,6 +77,7 @@ export default function AdminSubscriptionsPage() {
   const [loading, setLoading] = useState(true);
   const [subscriptions, setSubscriptions] = useState<ActiveSubscription[]>([]);
   const [filteredSubscriptions, setFilteredSubscriptions] = useState<ActiveSubscription[]>([]);
+  const [categories, setCategories] = useState<Array<{ id: string; name: string; name_en?: string }>>([]);
   
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
@@ -93,13 +94,17 @@ export default function AdminSubscriptionsPage() {
   const [refreshDialogOpen, setRefreshDialogOpen] = useState(false);
   const [refreshingSubscription, setRefreshingSubscription] = useState(false);
   
+  // Subscription code view dialog
+  const [viewCodeDialogOpen, setViewCodeDialogOpen] = useState(false);
+  const [viewingSubscriptionCode, setViewingSubscriptionCode] = useState<string>('');
+  
   // Manual entry form
   const [manualForm, setManualForm] = useState({
     customer_name: '',
     customer_email: '',
     customer_phone: '',
     subscription_code: '',
-    subscription_type: 'iptv' as 'iptv' | 'shahid' | 'netflix' | 'package',
+    subscription_type: '', // Now accepts any category name
     subscription_duration: '1 شهر',
     start_date: new Date(),
     expiration_date: new Date(),
@@ -160,6 +165,7 @@ export default function AdminSubscriptionsPage() {
 
         setUser(session.user);
         fetchSubscriptions();
+        fetchCategories();
       } catch (error: any) {
         console.error('Auth check error:', error);
         toast({
@@ -178,7 +184,7 @@ export default function AdminSubscriptionsPage() {
   useEffect(() => {
     let filtered = [...subscriptions];
 
-    // Filter by type
+    // Filter by type (category name exact match)
     if (typeFilter !== 'all') {
       filtered = filtered.filter(sub => sub.subscription_type === typeFilter);
     }
@@ -212,28 +218,231 @@ export default function AdminSubscriptionsPage() {
     return Math.max(0, diffDays);
   };
 
-  const fetchSubscriptions = async () => {
+  // Fetch categories for manual entry form
+  const fetchCategories = async () => {
     try {
       const { data, error } = await supabase
+        .from('categories')
+        .select('id, name, name_en')
+        .eq('is_active', true)
+        .order('display_order', { ascending: true });
+
+      if (error) {
+        console.error('Error fetching categories:', error);
+        return;
+      }
+
+      setCategories(data || []);
+      
+      // Set default category if form is empty (only if form hasn't been initialized yet)
+      if (data && data.length > 0) {
+        setManualForm(prev => {
+          // Only set default if subscription_type is empty
+          if (!prev.subscription_type) {
+            return { ...prev, subscription_type: data[0].name };
+          }
+          return prev;
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching categories:', error);
+    }
+  };
+
+  // Fetch product details by product_code to get duration
+  const fetchProductByCode = async (productCode: string) => {
+    if (!productCode || productCode.trim() === '') {
+      return null;
+    }
+    
+    try {
+      const response = await fetch('/api/admin/products');
+      if (!response.ok) throw new Error('Failed to fetch products');
+      const { products, error } = await response.json();
+      if (error) {
+        console.error('Error fetching products:', error);
+        return null;
+      }
+
+      // Find product by product_code
+      const product = (products || []).find((p: any) => p.product_code === productCode.trim());
+      return product || null;
+    } catch (error) {
+      console.error('Error fetching product:', error);
+      return null;
+    }
+  };
+
+  // Helper function to get subscription type from category name
+  // Use category name directly as subscription_type (no mapping)
+  const getSubscriptionTypeFromCategory = (
+    categoryName: string | null | undefined,
+    productCode: string | null | undefined
+  ): string => {
+    // Use category name directly if available
+    if (categoryName) {
+      return categoryName;
+    }
+    
+    // Fallback: if no category, use a default based on product code
+    // This should rarely happen if products are properly categorized
+    if (productCode) {
+      const productCodeUpper = productCode.toUpperCase();
+      if (productCodeUpper.startsWith('SUB-PREMIUM-')) {
+        return 'الاشتراكات المميزة'; // Default category name
+      }
+      if (productCodeUpper.includes('PACKAGE')) {
+        return 'البكجات'; // Default category name
+      }
+      if (productCodeUpper.includes('SHAHID')) {
+        return 'شاهد'; // Default category name
+      }
+      if (productCodeUpper.includes('BASIC') || productCodeUpper.includes('ANNUAL')) {
+        return 'اشتراكات IPTV'; // Default category name
+      }
+    }
+    
+    // Final fallback
+    return 'اشتراكات IPTV';
+  };
+
+  const fetchSubscriptions = async () => {
+    try {
+      // Fetch subscriptions
+      const { data: subscriptionsData, error: subscriptionsError } = await supabase
         .from('active_subscriptions')
         .select('*')
         .order('expiration_date', { ascending: true });
 
-      if (error) {
-        console.error('Error fetching subscriptions:', error);
+      if (subscriptionsError) {
+        console.error('Error fetching subscriptions:', subscriptionsError);
         toast({
           title: 'خطأ',
-          description: error.message || 'حدث خطأ أثناء جلب الاشتراكات',
+          description: subscriptionsError.message || 'حدث خطأ أثناء جلب الاشتراكات',
           variant: 'destructive',
         });
         return;
       }
 
-      // Calculate due_days for each subscription
-      const subscriptionsWithDueDays = (data || []).map((sub: any) => ({
-        ...sub,
-        due_days: calculateDueDays(sub.expiration_date),
-      }));
+      // Get unique product codes from subscriptions
+      const productCodes = [...new Set((subscriptionsData || [])
+        .map((sub: any) => sub.product_code)
+        .filter(Boolean))];
+
+      // Fetch products with categories and durations for those product codes
+      let productsMap: { [key: string]: any } = {};
+      let productsDurationMap: { [key: string]: string } = {};
+      if (productCodes.length > 0) {
+        const { data: productsData } = await supabase
+          .from('products')
+          .select(`
+            product_code,
+            duration,
+            category_id,
+            categories:category_id (
+              name,
+              name_en
+            )
+          `)
+          .in('product_code', productCodes);
+
+        // Create maps of product_code -> category and product_code -> duration
+        if (productsData) {
+          productsData.forEach((product: any) => {
+            productsMap[product.product_code] = product.categories;
+            if (product.duration) {
+              productsDurationMap[product.product_code] = product.duration;
+            }
+          });
+        }
+      }
+
+      // Process subscriptions: calculate due_days, fix expiration_date if needed, and override subscription_type from category
+      const subscriptionsToUpdate: Array<{ id: string; expiration_date: string; subscription_duration: string }> = [];
+      
+      const subscriptionsWithDueDays = (subscriptionsData || []).map((sub: any) => {
+        // Get category from products map (fetched from categories table)
+        const category = productsMap[sub.product_code] || null;
+        // Priority: use Arabic name first, then English name
+        const categoryName = category?.name || category?.name_en || null;
+        
+        // Determine subscription type from category name (from categories table) and product code
+        // Category name is the primary source of truth
+        const correctSubscriptionType = getSubscriptionTypeFromCategory(
+          categoryName,
+          sub.product_code
+        );
+        
+        // Check if expiration_date needs to be recalculated based on product duration
+        let expirationDate = sub.expiration_date;
+        
+        if (sub.product_code && productsDurationMap[sub.product_code] && sub.start_date) {
+          // Get product duration
+          const productDuration = productsDurationMap[sub.product_code];
+          
+          // Calculate correct expiration date based on start_date + product duration
+          const correctExpirationDate = calculateExpirationDate(sub.start_date, productDuration);
+          const currentExpirationDate = new Date(sub.expiration_date);
+          const correctExpirationDateObj = new Date(correctExpirationDate);
+          
+          // Check if expiration date is incorrect (more than 2 days difference)
+          const daysDifference = Math.abs((correctExpirationDateObj.getTime() - currentExpirationDate.getTime()) / (1000 * 60 * 60 * 24));
+          
+          if (daysDifference > 2) {
+            // Expiration date is incorrect, mark for update
+            expirationDate = correctExpirationDate.toISOString();
+            subscriptionsToUpdate.push({
+              id: sub.id,
+              expiration_date: expirationDate,
+              subscription_duration: productDuration
+            });
+            
+            console.log(`Subscription ${sub.id} expiration date needs update:`, {
+              productCode: sub.product_code,
+              currentExpiration: sub.expiration_date,
+              correctExpiration: expirationDate,
+              productDuration: productDuration,
+              daysDifference: daysDifference.toFixed(1)
+            });
+          }
+        }
+        
+        // Debug logging (can be removed in production)
+        if (sub.product_code && categoryName) {
+          console.log('Subscription type determination:', {
+            productCode: sub.product_code,
+            categoryName: categoryName,
+            determinedType: correctSubscriptionType,
+            oldType: sub.subscription_type
+          });
+        }
+        
+        return {
+          ...sub,
+          expiration_date: expirationDate,
+          due_days: calculateDueDays(expirationDate),
+          subscription_type: correctSubscriptionType, // Override with category-based type from categories table
+        };
+      });
+
+      // Update subscriptions with corrected expiration dates
+      if (subscriptionsToUpdate.length > 0) {
+        console.log(`Updating ${subscriptionsToUpdate.length} subscriptions with corrected expiration dates...`);
+        for (const update of subscriptionsToUpdate) {
+          const { error: updateError } = await supabase
+            .from('active_subscriptions')
+            .update({ 
+              expiration_date: update.expiration_date,
+              subscription_duration: update.subscription_duration
+            })
+            .eq('id', update.id);
+          
+          if (updateError) {
+            console.error(`Error updating subscription ${update.id}:`, updateError);
+          }
+        }
+        console.log(`Updated ${subscriptionsToUpdate.length} subscriptions.`);
+      }
 
       setSubscriptions(subscriptionsWithDueDays);
     } catch (error: any) {
@@ -277,7 +486,7 @@ export default function AdminSubscriptionsPage() {
         customer_email: '',
         customer_phone: '',
         subscription_code: '',
-        subscription_type: 'iptv',
+        subscription_type: categories.length > 0 ? categories[0].name : '',
         subscription_duration: '1 شهر',
         start_date: new Date(),
         expiration_date: new Date(),
@@ -309,12 +518,13 @@ export default function AdminSubscriptionsPage() {
     ];
     
     // Example data row
+    // Note: If product_code (SUB-BASIC-3M) is provided, duration and expiration_date will be auto-calculated
     const exampleRow = [
       'محمد أحمد',
       'email@example.com',
       '966501234567',
       'SUB-001',
-      'iptv',
+      'اشتراكات IPTV',
       '3 أشهر',
       '2025-04-15',
       '2025-01-15',
@@ -328,9 +538,14 @@ export default function AdminSubscriptionsPage() {
       '', // Empty row for clarity
       '# ملاحظات:',
       '# - customer_phone و product_code حقول اختيارية',
-      '# - subscription_type يجب أن يكون: iptv, shahid, netflix, أو package',
-      '# - subscription_duration مثال: "1 شهر", "3 أشهر", "6 أشهر", "12 شهر"',
-      '# - التواريخ بصيغة: YYYY-MM-DD (مثال: 2025-04-15)'
+      '# - product_code: إذا تم إدخاله، سيتم جلب المدة من جدول المنتجات تلقائياً',
+      '# - product_code: عند استخدامه، سيتم حساب expiration_date تلقائياً بناءً على start_date والمدة',
+      '# - subscription_type: يمكن أن يكون اسم التصنيف (مثل "اشتراكات IPTV" أو "نتـFlix") أو الأنواع القديمة (iptv, shahid, netflix, package)',
+      '# - subscription_duration: مثال: "1 شهر", "3 أشهر", "6 أشهر", "12 شهر", "مدى الحياة"',
+      '# - subscription_duration: إذا تم إدخال product_code، سيتم استبدال هذا الحقل تلقائياً بالمدة من المنتج',
+      '# - expiration_date: سيتم إعادة حسابه تلقائياً إذا تم إدخال product_code',
+      '# - التواريخ بصيغة: YYYY-MM-DD (مثال: 2025-04-15)',
+      '# - يُنصح بإدخال product_code لتحديث المدة والتواريخ تلقائياً'
     ].join('\n');
     
     // Create blob with UTF-8 BOM for Excel compatibility
@@ -684,10 +899,24 @@ export default function AdminSubscriptionsPage() {
     const expiringSoon = subscriptions.filter(s => s.due_days <= 4 && s.due_days > 0).length;
     const expired = subscriptions.filter(s => s.due_days <= 0).length;
     const byType = {
-      iptv: subscriptions.filter(s => s.subscription_type === 'iptv').length,
-      shahid: subscriptions.filter(s => s.subscription_type === 'shahid').length,
-      netflix: subscriptions.filter(s => s.subscription_type === 'netflix').length,
-      package: subscriptions.filter(s => s.subscription_type === 'package').length,
+      // Count subscriptions by category name (dynamic based on actual category names)
+      iptv: subscriptions.filter(s => 
+        s.subscription_type?.includes('IPTV') || s.subscription_type?.includes('iptv') || 
+        s.subscription_type === 'اشتراكات IPTV'
+      ).length,
+      shahid: subscriptions.filter(s => 
+        s.subscription_type?.includes('شاهد') || s.subscription_type?.includes('Shahid') || 
+        s.subscription_type?.includes('shahid')
+      ).length,
+      netflix: subscriptions.filter(s => 
+        s.subscription_type?.includes('نتـFlix') || s.subscription_type?.includes('نتفليكس') || 
+        s.subscription_type?.includes('Netflix') || s.subscription_type?.includes('netflix') ||
+        s.subscription_type?.includes('مميزة') || s.subscription_type === 'الاشتراكات المميزة'
+      ).length,
+      package: subscriptions.filter(s => 
+        s.subscription_type?.includes('باقة') || s.subscription_type?.includes('package') || 
+        s.subscription_type?.includes('بكجات') || s.subscription_type === 'البكجات'
+      ).length,
     };
     const renewed = subscriptions.filter(s => (s.renewal_count || 0) > 0).length;
     const renewalRate = total > 0 ? ((renewed / total) * 100).toFixed(1) : '0';
@@ -809,7 +1038,7 @@ export default function AdminSubscriptionsPage() {
                         <div className="text-white font-medium">{sub.customer_name}</div>
                         <div className="text-sm text-slate-300">{sub.customer_email}</div>
                         <div className="text-xs text-slate-400">
-                          {getSubscriptionTypeLabel(sub.subscription_type)} • ينتهي في {sub.due_days} يوم
+                          {sub.subscription_type || 'غير محدد'} • ينتهي في {sub.due_days} يوم
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
@@ -873,10 +1102,12 @@ export default function AdminSubscriptionsPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">جميع الأنواع</SelectItem>
-                <SelectItem value="iptv">IPTV</SelectItem>
-                <SelectItem value="shahid">Shahid</SelectItem>
-                <SelectItem value="netflix">Netflix</SelectItem>
-                <SelectItem value="package">باقة</SelectItem>
+                {/* Show unique category names from subscriptions */}
+                {Array.from(new Set(subscriptions.map(s => s.subscription_type).filter(Boolean))).map((type) => (
+                  <SelectItem key={type} value={type}>
+                    {type}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
             <Button
@@ -952,20 +1183,34 @@ export default function AdminSubscriptionsPage() {
                             <Badge
                               variant="outline"
                               className={
-                                sub.subscription_type === 'iptv'
+                                // Dynamic badge styling based on category name content
+                                sub.subscription_type?.includes('IPTV') || sub.subscription_type?.includes('iptv')
                                   ? 'border-purple-500 text-purple-400'
-                                  : sub.subscription_type === 'netflix'
+                                  : sub.subscription_type?.includes('نتـFlix') || sub.subscription_type?.includes('نتفليكس') || sub.subscription_type?.includes('Netflix') || sub.subscription_type?.includes('netflix') || sub.subscription_type?.includes('مميزة')
                                   ? 'border-red-500 text-red-400'
-                                  : sub.subscription_type === 'shahid'
+                                  : sub.subscription_type?.includes('شاهد') || sub.subscription_type?.includes('Shahid') || sub.subscription_type?.includes('shahid')
                                   ? 'border-blue-500 text-blue-400'
-                                  : 'border-green-500 text-green-400'
+                                  : sub.subscription_type?.includes('باقة') || sub.subscription_type?.includes('package') || sub.subscription_type?.includes('بكجات')
+                                  ? 'border-green-500 text-green-400'
+                                  : 'border-gray-500 text-gray-400' // Default for unknown categories
                               }
                             >
-                              {getSubscriptionTypeLabel(sub.subscription_type)}
+                              {sub.subscription_type || 'غير محدد'}
                             </Badge>
                           </TableCell>
-                          <TableCell className="text-slate-300 font-mono text-sm">
-                            {sub.subscription_code}
+                          <TableCell className="text-slate-300">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-xs h-7 text-slate-400 hover:text-white"
+                              onClick={() => {
+                                setViewingSubscriptionCode(sub.subscription_code);
+                                setViewCodeDialogOpen(true);
+                              }}
+                            >
+                              <FileText className="h-3 w-3 mr-1" />
+                              عرض
+                            </Button>
                           </TableCell>
                           <TableCell className="text-slate-300">
                             {format(new Date(sub.start_date), 'yyyy-MM-dd', { locale: ar })}
@@ -1140,21 +1385,26 @@ export default function AdminSubscriptionsPage() {
               />
             </div>
             <div>
-              <Label>نوع الاشتراك *</Label>
+              <Label>نوع الاشتراك (التصنيف) *</Label>
               <Select
                 value={manualForm.subscription_type}
-                onValueChange={(value: any) =>
+                onValueChange={(value: string) =>
                   setManualForm({ ...manualForm, subscription_type: value })
                 }
               >
                 <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
-                  <SelectValue />
+                  <SelectValue placeholder="اختر التصنيف" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="iptv">IPTV</SelectItem>
-                  <SelectItem value="shahid">Shahid</SelectItem>
-                  <SelectItem value="netflix">Netflix</SelectItem>
-                  <SelectItem value="package">باقة</SelectItem>
+                  {categories && categories.length > 0 ? (
+                    categories.map((category) => (
+                      <SelectItem key={category.id} value={category.name}>
+                        {category.name}
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <SelectItem value="" disabled>جاري تحميل التصنيفات...</SelectItem>
+                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -1232,8 +1482,33 @@ export default function AdminSubscriptionsPage() {
               <Label>رمز المنتج (اختياري)</Label>
               <Input
                 value={manualForm.product_code}
-                onChange={(e) => setManualForm({ ...manualForm, product_code: e.target.value })}
+                onChange={async (e) => {
+                  const productCode = e.target.value;
+                  setManualForm({ ...manualForm, product_code: productCode });
+                  
+                  // Fetch product and update duration if found
+                  if (productCode && productCode.trim() !== '') {
+                    const product = await fetchProductByCode(productCode);
+                    if (product && product.duration) {
+                      // Update duration and recalculate expiration date
+                      const newDuration = product.duration;
+                      const newExpirationDate = calculateExpirationDate(manualForm.start_date, newDuration);
+                      setManualForm(prev => ({
+                        ...prev,
+                        product_code: productCode,
+                        subscription_duration: newDuration,
+                        expiration_date: newExpirationDate,
+                      }));
+                      
+                      toast({
+                        title: 'تم تحديث المدة',
+                        description: `تم تعيين المدة من المنتج: ${newDuration}`,
+                      });
+                    }
+                  }
+                }}
                 className="bg-slate-700 border-slate-600 text-white"
+                placeholder="أدخل رمز المنتج للحصول على المدة تلقائياً"
               />
             </div>
           </div>
@@ -1377,12 +1652,12 @@ export default function AdminSubscriptionsPage() {
                   <span className="text-slate-400">العميل:</span>{' '}
                   <span className="text-white">{selectedSubscription.customer_name}</span>
                 </div>
-                <div>
-                  <span className="text-slate-400">نوع الاشتراك:</span>{' '}
-                  <span className="text-white">
-                    {getSubscriptionTypeLabel(selectedSubscription.subscription_type)}
-                  </span>
-                </div>
+                        <div>
+                          <span className="text-slate-400">نوع الاشتراك:</span>{' '}
+                          <span className="text-white">
+                            {selectedSubscription.subscription_type || 'غير محدد'}
+                          </span>
+                        </div>
                 <div>
                   <span className="text-slate-400">المدة الحالية:</span>{' '}
                   <span className="text-white">{selectedSubscription.subscription_duration}</span>
@@ -1528,6 +1803,47 @@ export default function AdminSubscriptionsPage() {
                   إرسال اشتراك محدث
                 </>
               )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* View Subscription Code Dialog */}
+      <Dialog open={viewCodeDialogOpen} onOpenChange={setViewCodeDialogOpen}>
+        <DialogContent className="bg-slate-800 border-slate-700 max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-white">رمز الاشتراك</DialogTitle>
+            <DialogDescription className="text-slate-400">
+              رمز الاشتراك الكامل
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-700">
+              <pre className="text-white font-mono text-sm whitespace-pre-wrap break-words overflow-x-auto max-h-[400px] overflow-y-auto">
+                {viewingSubscriptionCode}
+              </pre>
+            </div>
+            <Button
+              variant="outline"
+              onClick={() => {
+                navigator.clipboard.writeText(viewingSubscriptionCode);
+                toast({
+                  title: 'تم النسخ',
+                  description: 'تم نسخ رمز الاشتراك إلى الحافظة',
+                });
+              }}
+              className="w-full border-slate-600 text-slate-300 hover:bg-slate-700"
+            >
+              نسخ إلى الحافظة
+            </Button>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setViewCodeDialogOpen(false)}
+              className="border-slate-600 text-slate-300"
+            >
+              إغلاق
             </Button>
           </DialogFooter>
         </DialogContent>

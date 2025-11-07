@@ -142,3 +142,47 @@ export async function updatePassword(newPassword: string): Promise<AuthResult> {
   }
 }
 
+/**
+ * Sign in with Google OAuth
+ */
+export async function signInWithGoogle(): Promise<AuthResult> {
+  try {
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+      },
+    });
+
+    if (error) {
+      return { error: { message: error.message, code: error.status?.toString() || error.name } };
+    }
+
+    return { error: null, data };
+  } catch (err) {
+    return { error: { message: 'حدث خطأ غير متوقع' } };
+  }
+}
+
+/**
+ * Sign in with X (Twitter) OAuth
+ */
+export async function signInWithTwitter(): Promise<AuthResult> {
+  try {
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'twitter',
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+      },
+    });
+
+    if (error) {
+      return { error: { message: error.message, code: error.status?.toString() || error.name } };
+    }
+
+    return { error: null, data };
+  } catch (err) {
+    return { error: { message: 'حدث خطأ غير متوقع' } };
+  }
+}
+

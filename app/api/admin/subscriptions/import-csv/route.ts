@@ -91,36 +91,87 @@ export async function POST(request: NextRequest) {
     const subscriptions = [];
     const errors = [];
 
+    // Fetch all products to get durations (for product_code lookup)
+    const { data: productsData } = await supabaseAdmin
+      .from('products')
+      .select('product_code, duration, category_id, categories(name, name_en)');
+    
+    const productsMap = new Map();
+    (productsData || []).forEach((product: any) => {
+      productsMap.set(product.product_code, product);
+    });
+
+    // Fetch categories for subscription_type validation
+    const { data: categoriesData } = await supabaseAdmin
+      .from('categories')
+      .select('id, name, name_en')
+      .eq('is_active', true);
+    
+    const categoryNames = new Set<string>();
+    (categoriesData || []).forEach((cat: any) => {
+      if (cat.name) categoryNames.add(cat.name);
+      if (cat.name_en) categoryNames.add(cat.name_en);
+    });
+
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
       try {
-        // Validate subscription type
-        const validTypes = ['iptv', 'shahid', 'netflix', 'package'];
-        if (!validTypes.includes(row.subscription_type.toLowerCase())) {
-          throw new Error(`Invalid subscription_type: ${row.subscription_type}`);
+        let subscriptionDuration = row.subscription_duration;
+        let subscriptionType = row.subscription_type;
+        let startDate: Date;
+        let expirationDate: Date;
+
+        // If product_code is provided, try to fetch product details
+        if (row.product_code && row.product_code.trim() !== '') {
+          const product = productsMap.get(row.product_code.trim());
+          if (product) {
+            // Use product duration if available
+            if (product.duration) {
+              subscriptionDuration = product.duration;
+            }
+            
+            // Use category name as subscription_type if product has category
+            if (product.categories) {
+              subscriptionType = product.categories.name || product.categories.name_en || subscriptionType;
+            }
+          }
         }
 
         // Parse dates
-        const startDate = new Date(row.start_date);
-        const expirationDate = new Date(row.expiration_date);
-
-        if (isNaN(startDate.getTime()) || isNaN(expirationDate.getTime())) {
-          throw new Error('Invalid date format');
+        // If product_code was used and duration changed, recalculate expiration_date
+        if (row.product_code && row.product_code.trim() !== '' && productsMap.has(row.product_code.trim())) {
+          startDate = new Date(row.start_date);
+          if (isNaN(startDate.getTime())) {
+            throw new Error('Invalid start_date format');
+          }
+          // Recalculate expiration_date based on product duration
+          expirationDate = calculateExpirationDate(startDate, subscriptionDuration);
+        } else {
+          // Use provided dates
+          startDate = new Date(row.start_date);
+          expirationDate = new Date(row.expiration_date);
+          if (isNaN(startDate.getTime()) || isNaN(expirationDate.getTime())) {
+            throw new Error('Invalid date format');
+          }
         }
 
-        // Determine subscription type if not provided correctly
-        const subType = determineSubscriptionType(
-          row.product_code,
-          row.subscription_type
-        );
+        // Validate subscription type (now accepts category names or legacy types)
+        const validLegacyTypes = ['iptv', 'shahid', 'netflix', 'package'];
+        const isValidLegacyType = validLegacyTypes.includes(subscriptionType.toLowerCase());
+        const isValidCategoryName = categoryNames.has(subscriptionType);
+        
+        if (!isValidLegacyType && !isValidCategoryName && subscriptionType) {
+          // If not a valid category name or legacy type, use it anyway (might be a new category)
+          console.warn(`Subscription type "${subscriptionType}" not found in categories, using as-is`);
+        }
 
         subscriptions.push({
           customer_name: row.customer_name,
           customer_email: row.customer_email,
           customer_phone: row.customer_phone || null,
           subscription_code: row.subscription_code,
-          subscription_type: subType,
-          subscription_duration: row.subscription_duration,
+          subscription_type: subscriptionType,
+          subscription_duration: subscriptionDuration,
           expiration_date: expirationDate.toISOString(),
           start_date: startDate.toISOString(),
           product_code: row.product_code || null,

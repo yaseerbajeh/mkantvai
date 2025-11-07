@@ -339,8 +339,15 @@ export default function AdminOrdersPage() {
           return false;
         }
         
-        // Must have a valid price
-        if (!order.price || order.price <= 0) {
+        // Must have a valid price (allow 0 for 100% discount promo code orders)
+        // Check total_amount if available, otherwise check price
+        const orderPrice = order.total_amount !== undefined ? order.total_amount : order.price;
+        if (orderPrice === null || orderPrice === undefined || orderPrice < 0) {
+          return false;
+        }
+        // Allow price = 0 only if it's a promo code order (100% discount)
+        if (orderPrice === 0 && order.payment_method !== 'promo_code_100' && !order.promo_code_id) {
+          // Price is 0 but not a promo code order - might be an invalid order
           return false;
         }
         

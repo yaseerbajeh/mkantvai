@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Clapperboard, Target, Sparkles, ChevronLeft, ChevronRight, Film, ArrowLeft, ShoppingCart, Tv, Smartphone, Monitor, Laptop, CheckCircle2, Shield, Zap, Bot, TrendingUp, Star } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import Header from '@/components/Header';
@@ -15,6 +16,7 @@ import { type Movie } from '@/lib/supabase';
 
 export default function Home() {
   const router = useRouter();
+  const { toast } = useToast();
   const [latestMovies, setLatestMovies] = useState<Movie[]>([]);
   const [latestSeries, setLatestSeries] = useState<Movie[]>([]);
   const [topRatedMovies, setTopRatedMovies] = useState<Movie[]>([]);
@@ -272,7 +274,7 @@ export default function Home() {
         <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/60 to-black" />
 
         <div className="relative z-10 container mx-auto px-4">
-          <div className="flex flex-col md:flex-row md:flex-row-reverse items-center md:items-center md:justify-between gap-8 max-w-7xl mx-auto">
+          <div className="flex flex-col md:flex-row md:flex-row-reverse items-center md:items-center md:justify-between gap-8 max-w-7xl mx-auto pt-12 md:pt-16">
             {/* Text Content - Right Side on Desktop, Top on Mobile */}
             <div className="flex-1 text-center md:text-right w-full md:w-auto">
               <h1 className="text-5xl md:text-7xl font-bold mb-6 leading-tight">
@@ -283,13 +285,58 @@ export default function Home() {
               </p>
             </div>
             
-            {/* Button - Left Side on Desktop, Bottom on Mobile */}
+            {/* Buttons - Left Side on Desktop, Bottom on Mobile */}
             <div className="flex-shrink-0 w-full md:w-auto">
-              <Link href="/browse" className="block w-full md:w-auto">
-                <Button size="lg" className="bg-blue-600 hover:bg-blue-700 text-lg px-8 py-6 w-full md:w-auto">
-                  ابحث عن فيلم الآن
-                </Button>
-              </Link>
+              {/* Mobile: Side by side - subscription on left, search on right | Desktop: stacked - search top, subscription bottom */}
+              <div className="flex flex-row gap-3 md:flex-col md:gap-4 w-full md:w-auto">
+                {/* Search Button - Right on mobile (first in RTL), Top on desktop */}
+                <Link href="/browse" className="block flex-1 md:w-auto md:flex-none order-2 md:order-1">
+                  <Button size="lg" className="bg-blue-600 hover:bg-blue-700 text-lg px-6 md:px-8 py-6 w-full md:w-auto">
+                    ابحث عن فيلم الآن
+                  </Button>
+                </Link>
+                
+                {/* Subscription Button - Left on mobile (second in RTL), Bottom on desktop */}
+                <div className="flex-1 md:w-auto md:flex-none order-1 md:order-2 flex flex-col gap-3">
+                  <Link href="/subscribe" className="block w-full">
+                    <Button size="lg" className="bg-emerald-600 hover:bg-emerald-700 text-lg px-6 md:px-8 py-6 w-full md:w-auto flex items-center justify-center gap-2">
+                      <ShoppingCart className="h-5 w-5" />
+                      أبي إشتراك
+                    </Button>
+                  </Link>
+                  
+                  {/* Elegant Discount Code Banner */}
+                  <div className="bg-gradient-to-r from-purple-600/20 to-pink-600/20 backdrop-blur-sm rounded-lg border border-purple-500/30 px-4 py-2.5 w-full">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="w-4 h-4 text-purple-300" />
+                        <div className="text-right">
+                          <p className="text-white/80 text-xs mb-0.5">مناسبة إفتتاح المنصة</p>
+                          <p className="text-white/60 text-[10px]">خصم 20% - استخدم كود الخصم</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 bg-white/10 rounded-md px-3 py-1.5 border border-white/20">
+                        <span className="text-white font-bold text-sm font-mono">20OFF</span>
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText('20OFF');
+                            toast({
+                              title: 'تم النسخ!',
+                              description: 'تم نسخ كود الخصم 20OFF بنجاح',
+                            });
+                          }}
+                          className="p-1 hover:bg-white/20 rounded transition-colors"
+                          title="نسخ الكود"
+                        >
+                          <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
