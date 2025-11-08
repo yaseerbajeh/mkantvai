@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Clapperboard, Target, Sparkles, ChevronLeft, ChevronRight, Film, ArrowLeft, ShoppingCart, Tv, Smartphone, Monitor, Laptop, CheckCircle2, Shield, Zap, Bot, TrendingUp, Star } from 'lucide-react';
+import { Clapperboard, Target, Sparkles, ChevronLeft, ChevronRight, Film, ArrowLeft, ShoppingCart, Tv, Smartphone, Monitor, Laptop, CheckCircle2, Shield, Zap, Bot, TrendingUp, Star, Languages, Download } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -842,10 +842,10 @@ export default function Home() {
                 </div>
               </div>
               <div className="text-5xl md:text-6xl font-bold text-white mb-2" style={{ fontFamily: 'var(--font-arabic)' }}>
-                9000+
+                18000+
               </div>
               <p className="text-xl md:text-2xl text-slate-300" style={{ fontFamily: 'var(--font-arabic)' }}>
-                مكتبة أفلام فوق ال 9000 فلم
+                مكتبة أفلام فوق ال 18000 فلم
               </p>
             </div>
 
@@ -857,10 +857,10 @@ export default function Home() {
                 </div>
               </div>
               <div className="text-5xl md:text-6xl font-bold text-white mb-2" style={{ fontFamily: 'var(--font-arabic)' }}>
-                5000+
+                9000+
               </div>
               <p className="text-xl md:text-2xl text-slate-300" style={{ fontFamily: 'var(--font-arabic)' }}>
-                مكتبة مسلسلات فوق ال5000 مسلسل
+                مكتبة مسلسلات فوق 9000 مسلسل
               </p>
             </div>
           </div>
@@ -1021,7 +1021,7 @@ export default function Home() {
                     <Smartphone className="w-8 h-8 text-white" />
                   </div>
                   <p className="text-xl md:text-2xl text-white font-semibold text-center" style={{ fontFamily: 'var(--font-arabic)' }}>
-                    وتقدر تركبه على جميع أجهزتك
+                    تقدر تركبه على جميع أجهزتك
                   </p>
                 </div>
               </div>
@@ -1045,7 +1045,34 @@ export default function Home() {
                     <Zap className="w-8 h-8 text-white" />
                   </div>
                   <p className="text-xl md:text-2xl text-white font-semibold text-center" style={{ fontFamily: 'var(--font-arabic)' }}>
-                    وتسليم فوري خلال دقائق
+                    تسليم فوري خلال دقائق
+                  </p>
+                </div>
+              </div>
+            </div>
+            
+            {/* App Features Section */}
+            <div className="grid md:grid-cols-2 gap-6 mb-12">
+              <div className="group relative bg-gradient-to-br from-cyan-600/20 to-teal-600/20 border border-cyan-500/30 rounded-2xl p-8 hover:border-cyan-400/50 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-cyan-500/20">
+                <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/10 to-transparent rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                <div className="relative z-10">
+                  <div className="w-16 h-16 bg-gradient-to-br from-cyan-500 to-teal-600 rounded-xl flex items-center justify-center mb-6 mx-auto shadow-lg shadow-cyan-500/30">
+                    <Languages className="w-8 h-8 text-white" />
+                  </div>
+                  <p className="text-xl md:text-2xl text-white font-semibold text-center" style={{ fontFamily: 'var(--font-arabic)' }}>
+                    واجهة التطبيق عربية
+                  </p>
+                </div>
+              </div>
+              
+              <div className="group relative bg-gradient-to-br from-orange-600/20 to-amber-600/20 border border-orange-500/30 rounded-2xl p-8 hover:border-orange-400/50 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-orange-500/20">
+                <div className="absolute inset-0 bg-gradient-to-br from-orange-500/10 to-transparent rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                <div className="relative z-10">
+                  <div className="w-16 h-16 bg-gradient-to-br from-orange-500 to-amber-600 rounded-xl flex items-center justify-center mb-6 mx-auto shadow-lg shadow-orange-500/30">
+                    <Download className="w-8 h-8 text-white" />
+                  </div>
+                  <p className="text-xl md:text-2xl text-white font-semibold text-center" style={{ fontFamily: 'var(--font-arabic)' }}>
+                    امكانية تنزيل وتحميل المسلسلات والافلام والمتابعة بدون انترنت
                   </p>
                 </div>
               </div>
@@ -1290,13 +1317,7 @@ export default function Home() {
                 <AccordionContent className="text-slate-300 text-base md:text-lg pb-6 text-right" style={{ fontFamily: 'var(--font-arabic)' }}>
                   تطبيقنا ييشتغل على جميع الأجهزة الذكية وأجهزة الكمبيوتر والشاشات، يمكنك تحميل التطبيق من المتجر المناسب لجهازك.
                   <div className="mt-4">
-                    <Link href="/#devices" onClick={(e) => {
-                      e.preventDefault();
-                      const devicesSection = document.getElementById('devices-section');
-                      if (devicesSection) {
-                        devicesSection.scrollIntoView({ behavior: 'smooth' });
-                      }
-                    }}>
+                    <Link href="/tarkeeb">
                       <Button
                         variant="outline"
                         className="border-blue-500 text-blue-400 hover:bg-blue-500 hover:text-white"
