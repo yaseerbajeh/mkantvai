@@ -20,6 +20,9 @@ function TrialPageContent() {
   const [loading, setLoading] = useState(true);
   const [trialCode, setTrialCode] = useState<string | null>(null);
   const [expiresAt, setExpiresAt] = useState<string | null>(null);
+  const [username, setUsername] = useState<string | null>(null);
+  const [password, setPassword] = useState<string | null>(null);
+  const [link, setLink] = useState<string | null>(null);
   const [fetching, setFetching] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -69,6 +72,9 @@ function TrialPageContent() {
       if (response.ok && result.trial_code) {
         setTrialCode(result.trial_code);
         setExpiresAt(result.expires_at);
+        setUsername(result.username || null);
+        setPassword(result.password || null);
+        setLink(result.link || null);
       }
     } catch (error) {
       console.error('Error checking existing trial:', error);
@@ -116,6 +122,9 @@ function TrialPageContent() {
 
       setTrialCode(result.trial_code);
       setExpiresAt(result.expires_at);
+      setUsername(result.username || null);
+      setPassword(result.password || null);
+      setLink(result.link || null);
       toast({
         title: 'تم بنجاح!',
         description: 'تم جلب رمز التجربة بنجاح وتم إرساله إلى بريدك الإلكتروني',
@@ -153,6 +162,43 @@ function TrialPageContent() {
       return `متبقي ${diffHours} ساعة و ${diffMinutes} دقيقة`;
     }
     return `متبقي ${diffMinutes} دقيقة`;
+  };
+
+  const calculateTrialDuration = (dateString: string | null) => {
+    if (!dateString) return '3 ساعات';
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = date.getTime() - now.getTime();
+    const diffHours = Math.round(diffMs / (1000 * 60 * 60));
+    
+    if (diffMs < 0) {
+      return 'انتهت';
+    }
+    
+    if (diffHours === 1) {
+      return 'ساعة واحدة';
+    } else if (diffHours < 24) {
+      return `${diffHours} ساعات`;
+    } else {
+      const days = Math.floor(diffHours / 24);
+      const hours = diffHours % 24;
+      if (hours === 0) {
+        return `${days} يوم`;
+      }
+      return `${days} يوم و ${hours} ساعة`;
+    }
+  };
+
+  const formatExpiresAtDate = (dateString: string | null) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    return date.toLocaleString('ar-SA', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
   };
 
   if (loading) {
@@ -242,7 +288,7 @@ function TrialPageContent() {
               اطلب تجربة مجانية
             </h1>
             <p className="text-xl md:text-2xl text-slate-300 max-w-2xl mx-auto">
-              جرب خدمتنا مجاناً لمدة 3 ساعات
+              جرب خدمتنا مجاناً
             </p>
           </div>
 
@@ -277,7 +323,7 @@ function TrialPageContent() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => copyToClipboard(trialCode)}
+                      onClick={() => copyToClipboard(trialCode || '')}
                       className="flex-shrink-0"
                     >
                       <Copy className="h-4 w-4 ml-2" />
@@ -285,11 +331,84 @@ function TrialPageContent() {
                     </Button>
                   </div>
                 </div>
+                
+                {/* Credentials Section */}
+                {(username || password || link) && (
+                  <div className="bg-gradient-to-br from-blue-900/30 to-cyan-900/30 rounded-lg p-6 mb-4 border border-blue-500/30">
+                    <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                      <LogIn className="h-5 w-5 text-blue-400" />
+                      معلومات الدخول:
+                    </h3>
+                    <div className="space-y-4">
+                      {username && (
+                        <div>
+                          <label className="text-sm text-slate-400 mb-1 block">اسم المستخدم:</label>
+                          <div className="flex items-center justify-between gap-4 bg-slate-900/50 rounded-lg p-3 border border-slate-700">
+                            <code className="text-lg font-mono font-bold text-blue-400 break-all flex-1">
+                              {username}
+                            </code>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => copyToClipboard(username)}
+                              className="flex-shrink-0"
+                            >
+                              <Copy className="h-4 w-4 text-slate-400" />
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                      {password && (
+                        <div>
+                          <label className="text-sm text-slate-400 mb-1 block">كلمة المرور:</label>
+                          <div className="flex items-center justify-between gap-4 bg-slate-900/50 rounded-lg p-3 border border-slate-700">
+                            <code className="text-lg font-mono font-bold text-blue-400 break-all flex-1">
+                              {password}
+                            </code>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => copyToClipboard(password)}
+                              className="flex-shrink-0"
+                            >
+                              <Copy className="h-4 w-4 text-slate-400" />
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                      {link && (
+                        <div>
+                          <label className="text-sm text-slate-400 mb-1 block">الرابط:</label>
+                          <div className="flex items-center justify-between gap-4 bg-slate-900/50 rounded-lg p-3 border border-slate-700">
+                            <a
+                              href={link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-lg font-medium text-blue-400 hover:text-blue-300 break-all flex-1 underline"
+                            >
+                              {link}
+                            </a>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => copyToClipboard(link)}
+                              className="flex-shrink-0"
+                            >
+                              <Copy className="h-4 w-4 text-slate-400" />
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+                
                 <div className="flex items-start gap-3 p-4 bg-blue-900/20 rounded-lg border border-blue-500/30 mb-4">
                   <Clock className="h-5 w-5 text-blue-400 mt-0.5 flex-shrink-0" />
                   <div className="text-sm text-slate-300">
-                    <p className="font-semibold mb-1">مدة التجربة: 3 ساعات</p>
-                    <p>يمكنك استخدام هذا الرمز لمدة 3 ساعات من تاريخ الطلب</p>
+                    <p className="font-semibold mb-1">مدة التجربة: {calculateTrialDuration(expiresAt)}</p>
+                    <p className="mb-1">تاريخ الانتهاء: {formatExpiresAtDate(expiresAt)}</p>
+                    <p className="text-slate-400 text-xs mt-2">{formatExpiresAt(expiresAt)}</p>
                   </div>
                 </div>
                 
@@ -333,7 +452,7 @@ function TrialPageContent() {
                   <CardTitle className="text-2xl text-white">احصل على رمز التجربة</CardTitle>
                 </div>
                 <CardDescription className="text-slate-300">
-                  اضغط على الزر أدناه للحصول على رمز تجربة مجاني لمدة 3 ساعات
+                  اضغط على الزر أدناه للحصول على رمز تجربة مجاني
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -343,7 +462,7 @@ function TrialPageContent() {
                     <div className="text-sm text-slate-300">
                       <p className="font-semibold mb-1">مميزات التجربة:</p>
                       <ul className="list-disc list-inside space-y-1 text-slate-400">
-                        <li>تجربة مجانية لمدة 3 ساعات</li>
+                        <li>تجربة مجانية محدودة المدة</li>
                         <li>وصول كامل لجميع الميزات</li>
                         <li>جودة فائقة</li>
                         <li>تجربة واحدة فقط لكل مستخدم</li>

@@ -283,6 +283,28 @@ export async function sendRejectionEmail(rejectionData: RejectionEmailData): Pro
  */
 export async function sendTrialCodeEmail(trialData: TrialCodeEmailData): Promise<void> {
   const expiresAtDate = new Date(trialData.expiresAt);
+  const now = new Date();
+  const diffMs = expiresAtDate.getTime() - now.getTime();
+  const diffHours = Math.round(diffMs / (1000 * 60 * 60));
+  
+  // Calculate trial duration dynamically
+  let trialDuration = '3 ساعات';
+  if (diffMs > 0) {
+    if (diffHours === 1) {
+      trialDuration = 'ساعة واحدة';
+    } else if (diffHours < 24) {
+      trialDuration = `${diffHours} ساعات`;
+    } else {
+      const days = Math.floor(diffHours / 24);
+      const hours = diffHours % 24;
+      if (hours === 0) {
+        trialDuration = `${days} يوم`;
+      } else {
+        trialDuration = `${days} يوم و ${hours} ساعة`;
+      }
+    }
+  }
+  
   const formattedExpiresAt = expiresAtDate.toLocaleString('ar-SA', {
     year: 'numeric',
     month: 'long',
@@ -352,7 +374,7 @@ export async function sendTrialCodeEmail(trialData: TrialCodeEmailData): Promise
             
             <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #dee2e6;">
               <div style="margin-bottom: 10px;">
-                <strong>مدة التجربة:</strong> 3 ساعات
+                <strong>مدة التجربة:</strong> ${escapeHtml(trialDuration)}
               </div>
               <div style="margin-bottom: 10px;">
                 <strong>تاريخ الانتهاء:</strong> ${escapeHtml(formattedExpiresAt)}
@@ -364,7 +386,7 @@ export async function sendTrialCodeEmail(trialData: TrialCodeEmailData): Promise
           
           <div style="background-color: #fff3cd; padding: 15px; border-radius: 8px; margin: 20px 0; border-right: 4px solid #ffc107;">
             <p style="color: #856404; margin: 0; font-size: 14px;">
-              <strong>ملاحظة مهمة:</strong> يمكنك استخدام هذا الرمز لمدة 3 ساعات من تاريخ الطلب. بعد انتهاء المدة، لن يكون الرمز صالحاً للاستخدام.
+              <strong>ملاحظة مهمة:</strong> يمكنك استخدام هذا الرمز لمدة ${escapeHtml(trialDuration)} من تاريخ الطلب. بعد انتهاء المدة، لن يكون الرمز صالحاً للاستخدام.
             </p>
           </div>
           
