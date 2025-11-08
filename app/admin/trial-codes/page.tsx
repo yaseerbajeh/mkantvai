@@ -75,6 +75,7 @@ interface TrialUser {
 }
 
 type SortField = 'trial_code' | 'expires_at' | 'created_at' | 'status';
+type UserSortField = 'trial_code' | 'expires_at' | 'assigned_at' | 'status';
 type SortDirection = 'asc' | 'desc';
 
 export default function AdminTrialCodesPage() {
@@ -111,7 +112,7 @@ export default function AdminTrialCodesPage() {
   const [usersLoading, setUsersLoading] = useState(false);
   const [userSearchQuery, setUserSearchQuery] = useState('');
   const [userStatusFilter, setUserStatusFilter] = useState<string>('all');
-  const [userSortField, setUserSortField] = useState<SortField>('assigned_at');
+  const [userSortField, setUserSortField] = useState<UserSortField>('assigned_at');
   const [userSortDirection, setUserSortDirection] = useState<SortDirection>('desc');
   const [userCounts, setUserCounts] = useState({
     total: 0,
@@ -423,7 +424,7 @@ export default function AdminTrialCodesPage() {
     }
   };
 
-  const handleSortUsers = (field: SortField) => {
+  const handleSortUsers = (field: UserSortField) => {
     if (userSortField === field) {
       setUserSortDirection(userSortDirection === 'asc' ? 'desc' : 'asc');
     } else {
