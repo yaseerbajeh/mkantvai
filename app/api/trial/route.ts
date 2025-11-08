@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
 
     const { data: existingTrial, error: fetchError } = await supabaseAdmin
       .from('user_trial_assignments')
-      .select('trial_code, expires_at, assigned_at')
+      .select('trial_code, expires_at, assigned_at, username, password, link')
       .eq('user_id', user.id)
       .maybeSingle();
 
@@ -93,6 +93,9 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({
           trial_code: existingTrial.trial_code,
           expires_at: existingTrial.expires_at,
+          username: existingTrial.username || null,
+          password: existingTrial.password || null,
+          link: existingTrial.link || null,
         });
       }
     }
@@ -296,14 +299,20 @@ export async function POST(request: NextRequest) {
 
     const trialCode = codeData.trial_code;
     const expiresAt = codeData.expires_at;
+    const username = codeData.username || null;
+    const password = codeData.password || null;
+    const link = codeData.link || null;
 
-    // Send email to user with trial code
+    // Send email to user with trial code and credentials
     if (!user.email) {
       console.error('User email is missing, cannot send trial code email');
       // Still return the code, but log the issue
       return NextResponse.json({
         trial_code: trialCode,
         expires_at: expiresAt,
+        username,
+        password,
+        link,
         warning: 'Trial code assigned but email notification failed (no email address)',
       });
     }
@@ -313,6 +322,9 @@ export async function POST(request: NextRequest) {
         email: user.email,
         trialCode: trialCode,
         expiresAt: expiresAt,
+        username,
+        password,
+        link,
       });
       console.log(`Trial code email sent successfully to ${user.email}`);
     } catch (emailError: any) {
@@ -327,6 +339,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         trial_code: trialCode,
         expires_at: expiresAt,
+        username,
+        password,
+        link,
         warning: 'Trial code assigned but email notification may have failed',
       });
     }
@@ -334,6 +349,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       trial_code: trialCode,
       expires_at: expiresAt,
+      username,
+      password,
+      link,
     });
   } catch (error: any) {
     console.error('Error in POST /api/trial:', error);

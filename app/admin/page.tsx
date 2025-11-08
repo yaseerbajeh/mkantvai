@@ -10,7 +10,7 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/lib/supabase';
-import { Loader2, Package, ShoppingCart, ArrowLeft, CreditCard, Trash2, Tag, Calendar, MessageCircle } from 'lucide-react';
+import { Loader2, Package, ShoppingCart, ArrowLeft, CreditCard, Trash2, Tag, Calendar, MessageCircle, Key } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
 
 function AdminDashboardPageContent() {
@@ -225,6 +225,29 @@ function AdminDashboardPageContent() {
                   </p>
                   <div className="flex items-center text-yellow-400 font-semibold">
                     الانتقال إلى رموز الخصم
+                    <ArrowLeft className="h-4 w-4 mr-2" />
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
+
+            {/* Trial Codes Card */}
+            <Link href="/admin/trial-codes">
+              <Card className="bg-slate-800/50 border-slate-700 hover:border-teal-500 transition-all duration-300 hover:shadow-xl hover:shadow-teal-500/20 cursor-pointer h-full">
+                <CardHeader>
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 bg-teal-500/20 rounded-lg">
+                      <Key className="h-8 w-8 text-teal-400" />
+                    </div>
+                    <CardTitle className="text-2xl text-white">رموز التجربة</CardTitle>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-slate-300 mb-4">
+                    إدارة رموز التجربة المجانية. إضافة رموز التجربة مع بيانات الدخول ومتابعة طلبات المستخدمين والتحليلات.
+                  </p>
+                  <div className="flex items-center text-teal-400 font-semibold">
+                    الانتقال إلى رموز التجربة
                     <ArrowLeft className="h-4 w-4 mr-2" />
                   </div>
                 </CardContent>

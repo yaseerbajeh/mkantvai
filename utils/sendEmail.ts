@@ -55,6 +55,9 @@ export interface TrialCodeEmailData {
   email: string;
   trialCode: string;
   expiresAt: string;
+  username?: string | null;
+  password?: string | null;
+  link?: string | null;
 }
 
 export interface AbandonedCartReminderData {
@@ -288,6 +291,40 @@ export async function sendTrialCodeEmail(trialData: TrialCodeEmailData): Promise
     minute: '2-digit',
   });
 
+  // Build credentials section if available
+  let credentialsSection = '';
+  if (trialData.username || trialData.password || trialData.link) {
+    credentialsSection = `
+      <div style="background-color: #e7f3ff; padding: 20px; border-radius: 8px; margin: 20px 0; border-right: 4px solid #2196F3;">
+        <h3 style="color: #1976D2; margin-top: 0; margin-bottom: 15px;">معلومات الدخول:</h3>
+        ${trialData.username ? `
+          <div style="margin-bottom: 12px;">
+            <strong style="color: #333; display: block; margin-bottom: 5px;">اسم المستخدم:</strong>
+            <span style="font-family: monospace; font-size: 16px; background-color: white; padding: 8px 12px; border-radius: 4px; display: inline-block; color: #1976D2;">
+              ${escapeHtml(trialData.username)}
+            </span>
+          </div>
+        ` : ''}
+        ${trialData.password ? `
+          <div style="margin-bottom: 12px;">
+            <strong style="color: #333; display: block; margin-bottom: 5px;">كلمة المرور:</strong>
+            <span style="font-family: monospace; font-size: 16px; background-color: white; padding: 8px 12px; border-radius: 4px; display: inline-block; color: #1976D2;">
+              ${escapeHtml(trialData.password)}
+            </span>
+          </div>
+        ` : ''}
+        ${trialData.link ? `
+          <div style="margin-bottom: 12px;">
+            <strong style="color: #333; display: block; margin-bottom: 5px;">الرابط:</strong>
+            <a href="${escapeHtml(trialData.link)}" style="font-size: 16px; color: #1976D2; text-decoration: underline; word-break: break-all;">
+              ${escapeHtml(trialData.link)}
+            </a>
+          </div>
+        ` : ''}
+      </div>
+    `;
+  }
+
   const mailOptions = {
     from: `"مكان TV" <${emailConfig.auth.user}>`,
     to: trialData.email,
@@ -322,6 +359,8 @@ export async function sendTrialCodeEmail(trialData: TrialCodeEmailData): Promise
               </div>
             </div>
           </div>
+          
+          ${credentialsSection}
           
           <div style="background-color: #fff3cd; padding: 15px; border-radius: 8px; margin: 20px 0; border-right: 4px solid #ffc107;">
             <p style="color: #856404; margin: 0; font-size: 14px;">
