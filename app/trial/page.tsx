@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { supabase } from '@/lib/supabase';
-import { Sparkles, Clock, AlertCircle, CheckCircle2, Loader2, Copy, ArrowRight, LogIn } from 'lucide-react';
+import { Sparkles, Clock, AlertCircle, CheckCircle2, Loader2, Copy, ArrowRight, LogIn, Wrench } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 
@@ -291,6 +291,20 @@ function TrialPageContent() {
                     <p className="font-semibold mb-1">مدة التجربة: 3 ساعات</p>
                     <p>يمكنك استخدام هذا الرمز لمدة 3 ساعات من تاريخ الطلب</p>
                   </div>
+                </div>
+                
+                {/* Installation Method CTA */}
+                <div className="mb-6">
+                  <Link href="/tarkeeb" className="block">
+                    <Button
+                      size="lg"
+                      className="w-full bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white font-bold py-6 text-lg"
+                    >
+                      <Wrench className="h-5 w-5 ml-2" />
+                      طريقة التركيب
+                      <ArrowRight className="h-5 w-5 mr-2" />
+                    </Button>
+                  </Link>
                 </div>
                 
                 {/* Subscribe CTA */}
