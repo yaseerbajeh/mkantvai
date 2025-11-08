@@ -1090,10 +1090,10 @@ export default function MyOrdersPage() {
 
       {/* Ticket Dialog */}
       <Dialog open={ticketDialogOpen} onOpenChange={setTicketDialogOpen}>
-        <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-4xl max-h-[85vh] sm:max-h-[90vh] flex flex-col p-0 overflow-hidden">
-          <DialogHeader className="px-4 sm:px-6 pt-4 pb-3 border-b border-slate-700 flex-shrink-0">
-            <DialogTitle className="text-lg sm:text-xl">تذكرة الدعم</DialogTitle>
-            <DialogDescription className="text-slate-400 text-sm">
+        <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-4xl max-h-[90vh] sm:max-h-[95vh] flex flex-col p-0 overflow-hidden">
+          <DialogHeader className="px-4 sm:px-6 pt-3 pb-2 border-b border-slate-700 flex-shrink-0">
+            <DialogTitle className="text-base sm:text-lg">تذكرة الدعم</DialogTitle>
+            <DialogDescription className="text-slate-400 text-xs sm:text-sm">
               {selectedOrderForTicket 
                 ? `طلب: ${selectedOrderForTicket.product_name}`
                 : currentTicket 
@@ -1111,7 +1111,7 @@ export default function MyOrdersPage() {
             // Existing ticket - show messages
             <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
               {/* Ticket Header */}
-              <div className="px-4 sm:px-6 py-2.5 sm:py-3 bg-slate-900/50 border-b border-slate-700 flex-shrink-0">
+              <div className="px-4 sm:px-6 py-2 bg-slate-900/50 border-b border-slate-700 flex-shrink-0">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-blue-500/20 rounded-lg">
@@ -1266,10 +1266,10 @@ export default function MyOrdersPage() {
               
               {/* Input Area */}
               {currentTicket.status === 'open' && (
-                <div className="px-4 sm:px-6 py-3 bg-slate-900/50 border-t border-slate-700 flex-shrink-0">
+                <div className="px-4 sm:px-6 py-2 sm:py-2.5 bg-slate-900/50 border-t border-slate-700 flex-shrink-0">
                   {/* Image File Name Display */}
                   {selectedImage && (
-                    <div className="mb-3 flex items-center gap-2 p-2 bg-slate-800 border border-slate-600 rounded-lg">
+                    <div className="mb-2 flex items-center gap-2 p-2 bg-slate-800 border border-slate-600 rounded-lg">
                       <ImageIcon className="w-4 h-4 text-slate-400 flex-shrink-0" />
                       <span className="text-sm text-slate-300 flex-1 truncate">{selectedImage.name}</span>
                       <button
@@ -1283,13 +1283,13 @@ export default function MyOrdersPage() {
                     </div>
                   )}
                   
-                  <div className="flex gap-3 items-end">
+                  <div className="flex gap-2 items-end">
                     <div className="flex-1 relative">
                       <Textarea
                         value={newMessage}
                         onChange={(e) => setNewMessage(e.target.value)}
-                        placeholder="اكتب رسالتك هنا... (Ctrl+Enter للإرسال)"
-                        className="bg-slate-800 border-slate-600 text-white min-h-[100px] resize-none pr-12 focus:ring-2 focus:ring-blue-500"
+                        placeholder="اكتب رسالتك هنا..."
+                        className="bg-slate-800 border-slate-600 text-white min-h-[60px] sm:min-h-[80px] resize-none focus:ring-2 focus:ring-blue-500"
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' && e.ctrlKey) {
                             e.preventDefault();
@@ -1297,9 +1297,6 @@ export default function MyOrdersPage() {
                           }
                         }}
                       />
-                      <div className="absolute bottom-2 left-2 text-xs text-slate-500">
-                        Ctrl + Enter
-                      </div>
                     </div>
                     <div className="flex gap-2 items-end">
                       <input
@@ -1312,7 +1309,7 @@ export default function MyOrdersPage() {
                       <Button
                         type="button"
                         variant="outline"
-                        className="border-slate-600 text-slate-300 hover:bg-slate-700 hover:border-slate-500 h-[100px] px-4 flex flex-col items-center justify-center gap-1.5"
+                        className="border-slate-600 text-black hover:bg-slate-700 hover:border-slate-500 h-10 sm:h-12 px-3 flex items-center gap-1.5"
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
@@ -1322,20 +1319,20 @@ export default function MyOrdersPage() {
                           }
                         }}
                       >
-                        <ImageIcon className="w-5 h-5" />
-                        <span className="text-xs">ارفع صورة</span>
+                        <ImageIcon className="w-4 h-4 text-black" />
+                        <span className="text-xs text-black">ارفع صورة</span>
                       </Button>
                       <Button
                         onClick={handleSendMessage}
                         disabled={sendingMessage || (!newMessage.trim() && !selectedImage)}
-                        className="bg-blue-600 hover:bg-blue-700 h-[100px] px-6"
+                        className="bg-blue-600 hover:bg-blue-700 h-10 sm:h-12 px-4"
                         size="lg"
                       >
                         {sendingMessage ? (
-                          <Loader2 className="w-5 h-5 animate-spin" />
+                          <Loader2 className="w-4 h-4 animate-spin" />
                         ) : (
                           <>
-                            <Send className="w-5 h-5 ml-2" />
+                            <Send className="w-4 h-4 ml-2" />
                             إرسال
                           </>
                         )}
@@ -1443,9 +1440,10 @@ export default function MyOrdersPage() {
             </div>
           )}
           
-          <DialogFooter className="px-4 sm:px-6 pb-3 sm:pb-4 pt-3 border-t border-slate-700 flex-shrink-0 gap-2">
+          <DialogFooter className="px-3 sm:px-4 pb-2 sm:pb-3 pt-2 border-t border-slate-700 flex-shrink-0 gap-2 justify-start">
             <Button
-              variant="outline"
+              variant="ghost"
+              size="sm"
               onClick={async () => {
                 setTicketDialogOpen(false);
                 setCurrentTicket(null);
@@ -1457,7 +1455,7 @@ export default function MyOrdersPage() {
                 // Refresh tickets list when closing dialog
                 await fetchUserTickets();
               }}
-              className="border-slate-600 text-slate-300"
+              className="text-black hover:text-slate-900 hover:bg-slate-700/50 h-7 px-2.5 text-xs"
             >
               إغلاق
             </Button>
@@ -1465,7 +1463,8 @@ export default function MyOrdersPage() {
               <Button
                 onClick={handleCreateTicket}
                 disabled={creatingTicket || !ticketSubject.trim() || !ticketMessage.trim()}
-                className="bg-blue-600 hover:bg-blue-700"
+                className="bg-blue-600 hover:bg-blue-700 h-7 px-3 text-xs sm:text-sm ml-auto"
+                size="sm"
               >
                 {creatingTicket ? 'جاري الإنشاء...' : 'إنشاء التذكرة'}
               </Button>
