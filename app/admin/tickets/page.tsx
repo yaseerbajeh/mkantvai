@@ -714,10 +714,10 @@ export default function AdminTicketsPage() {
               
               {/* Input Area */}
               {selectedTicket.status === 'open' && (
-                <div className="px-6 py-4 bg-slate-900/50 border-t border-slate-700">
+                <div className="px-4 sm:px-6 py-2 sm:py-2.5 bg-slate-900/50 border-t border-slate-700 flex-shrink-0">
                   {/* Image File Name Display */}
                   {selectedImage && (
-                    <div className="mb-3 flex items-center gap-2 p-2 bg-slate-800 border border-slate-600 rounded-lg">
+                    <div className="mb-2 flex items-center gap-2 p-2 bg-slate-800 border border-slate-600 rounded-lg">
                       <ImageIcon className="w-4 h-4 text-slate-400 flex-shrink-0" />
                       <span className="text-sm text-slate-300 flex-1 truncate">{selectedImage.name}</span>
                       <button
@@ -731,14 +731,14 @@ export default function AdminTicketsPage() {
                     </div>
                   )}
                   
-                  <div className="space-y-3">
-                    <div className="flex gap-3 items-end">
+                  <div className="space-y-2">
+                    <div className="flex gap-2 items-end">
                       <div className="flex-1 relative">
                         <Textarea
                           value={newMessage}
                           onChange={(e) => setNewMessage(e.target.value)}
-                          placeholder="اكتب ردك هنا... (Ctrl+Enter للإرسال)"
-                          className="bg-slate-800 border-slate-600 text-white min-h-[120px] resize-none pr-12 focus:ring-2 focus:ring-blue-500"
+                          placeholder="اكتب ردك هنا..."
+                          className="bg-slate-800 border-slate-600 text-white min-h-[60px] sm:min-h-[80px] resize-none focus:ring-2 focus:ring-blue-500"
                           onKeyDown={(e) => {
                             if (e.key === 'Enter' && e.ctrlKey) {
                               e.preventDefault();
@@ -746,12 +746,9 @@ export default function AdminTicketsPage() {
                             }
                           }}
                         />
-                        <div className="absolute bottom-2 left-2 text-xs text-slate-500">
-                          Ctrl + Enter
-                        </div>
                       </div>
                     </div>
-                    <div className="flex gap-3 items-center">
+                    <div className="flex gap-2 items-center">
                       <input
                         type="file"
                         accept="image/*"
@@ -762,7 +759,7 @@ export default function AdminTicketsPage() {
                       <Button
                         type="button"
                         variant="outline"
-                        className="border-slate-600 text-slate-300 hover:bg-slate-700 hover:border-slate-500 h-12 px-4 flex items-center gap-2"
+                        className="border-slate-600 text-black hover:bg-slate-700 hover:border-slate-500 h-10 sm:h-12 px-3 flex items-center gap-1.5"
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
@@ -772,23 +769,23 @@ export default function AdminTicketsPage() {
                           }
                         }}
                       >
-                        <ImageIcon className="w-5 h-5" />
-                        <span className="text-sm">ارفع صورة</span>
+                        <ImageIcon className="w-4 h-4 text-black" />
+                        <span className="text-sm text-black">ارفع صورة</span>
                       </Button>
                       <Button
                         onClick={handleSendMessage}
                         disabled={sendingMessage || (!newMessage.trim() && !selectedImage)}
-                        className="bg-blue-600 hover:bg-blue-700 flex-1 h-12"
+                        className="bg-blue-600 hover:bg-blue-700 flex-1 h-10 sm:h-12"
                         size="lg"
                       >
                         {sendingMessage ? (
                           <>
-                            <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                             جاري الإرسال...
                           </>
                         ) : (
                           <>
-                            <Send className="h-5 w-5 mr-2" />
+                            <Send className="h-4 w-4 mr-2" />
                             إرسال الرد
                           </>
                         )}
@@ -797,13 +794,13 @@ export default function AdminTicketsPage() {
                         onClick={handleCloseTicket}
                         disabled={closingTicket}
                         variant="outline"
-                        className="border-red-600 text-red-400 hover:bg-red-600/10 h-12 px-6"
+                        className="border-red-600 text-red-400 hover:bg-red-600/10 h-10 sm:h-12 px-4"
                       >
                         {closingTicket ? (
-                          <Loader2 className="h-5 w-5 animate-spin" />
+                          <Loader2 className="h-4 w-4 animate-spin" />
                         ) : (
                           <>
-                            <XCircle className="h-5 w-5 mr-2" />
+                            <XCircle className="h-4 w-4 mr-2" />
                             إغلاق التذكرة
                           </>
                         )}

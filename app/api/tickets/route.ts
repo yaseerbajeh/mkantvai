@@ -209,6 +209,8 @@ export async function POST(request: NextRequest) {
 
     // Send email notification to admin
     try {
+      console.log('Attempting to send new ticket email notification to admin...');
+      
       // Get order details if order_id exists
       let orderName = user.email;
       let orderDisplayId = '';
@@ -226,16 +228,36 @@ export async function POST(request: NextRequest) {
         }
       }
 
+      const adminEmail = process.env.ADMIN_EMAIL || process.env.NEXT_PUBLIC_ADMIN_EMAIL || 'maakantv@gmail.com';
+      console.log('=== NEW TICKET EMAIL DEBUG ===');
+      console.log('Admin email configured:', adminEmail);
+      console.log('SMTP_USER configured:', process.env.SMTP_USER ? 'Yes' : 'No');
+      console.log('SMTP_PASSWORD configured:', process.env.SMTP_PASSWORD ? 'Yes' : 'No');
+      console.log('Sending email for ticket:', ticket.id);
+      console.log('Subject:', subject);
+      console.log('User email:', user.email);
+      console.log('Message length:', message?.length || 0);
+
       await sendNewTicketEmail({
         ticketId: ticket.id,
         orderId: orderDisplayId || ticket.id, // Use ticket ID as fallback
         userName: orderName,
         userEmail: user.email,
         subject,
-        message,
+        message: message || '', // Ensure message is not undefined
       });
-    } catch (emailError) {
+      
+      console.log('New ticket email sent successfully to admin:', adminEmail);
+      console.log('=== END EMAIL DEBUG ===');
+    } catch (emailError: any) {
+      console.error('=== EMAIL ERROR ===');
       console.error('Error sending ticket notification email:', emailError);
+      console.error('Error message:', emailError?.message);
+      console.error('Error stack:', emailError?.stack);
+      if (emailError?.response) {
+        console.error('SMTP response:', emailError.response);
+      }
+      console.error('=== END EMAIL ERROR ===');
       // Don't fail the request if email fails
     }
 

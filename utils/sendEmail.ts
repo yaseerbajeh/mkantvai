@@ -392,7 +392,20 @@ export async function sendAbandonedCartReminderEmail(data: AbandonedCartReminder
  * Send email notification to admin when a new ticket is created
  */
 export async function sendNewTicketEmail(data: NewTicketEmailData): Promise<void> {
-  const adminEmail = process.env.ADMIN_EMAIL || 'maakantv@gmail.com';
+  const adminEmail = process.env.ADMIN_EMAIL || process.env.NEXT_PUBLIC_ADMIN_EMAIL || 'maakantv@gmail.com';
+  
+  console.log('[sendNewTicketEmail] Starting email send...');
+  console.log('[sendNewTicketEmail] Admin email:', adminEmail);
+  console.log('[sendNewTicketEmail] SMTP_USER:', emailConfig.auth.user ? 'Set' : 'NOT SET');
+  console.log('[sendNewTicketEmail] SMTP_PASSWORD:', emailConfig.auth.pass ? 'Set' : 'NOT SET');
+  console.log('[sendNewTicketEmail] SMTP_HOST:', emailConfig.host);
+  console.log('[sendNewTicketEmail] SMTP_PORT:', emailConfig.port);
+
+  if (!emailConfig.auth.user || !emailConfig.auth.pass) {
+    const error = new Error('SMTP credentials not configured. Please set SMTP_USER and SMTP_PASSWORD environment variables.');
+    console.error('[sendNewTicketEmail] Configuration error:', error.message);
+    throw error;
+  }
 
   const mailOptions = {
     from: `"مكان TV" <${emailConfig.auth.user}>`,
@@ -425,7 +438,7 @@ export async function sendNewTicketEmail(data: NewTicketEmailData): Promise<void
           
           <div style="margin-bottom: 20px; padding: 15px; background-color: #f8f9fa; border-radius: 8px; border-right: 4px solid #007bff;">
             <strong>الرسالة:</strong>
-            <p style="margin-top: 10px; color: #333; white-space: pre-wrap;">${escapeHtml(data.message)}</p>
+            <p style="margin-top: 10px; color: #333; white-space: pre-wrap;">${escapeHtml(data.message || 'لا توجد رسالة نصية')}</p>
           </div>
           
           <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; color: #666; font-size: 14px;">
@@ -437,10 +450,16 @@ export async function sendNewTicketEmail(data: NewTicketEmailData): Promise<void
   };
 
   try {
-    await transporter.sendMail(mailOptions);
-    console.log(`New ticket email sent to admin for ticket ${data.ticketId}`);
-  } catch (error) {
-    console.error('Error sending new ticket email:', error);
+    console.log('[sendNewTicketEmail] Attempting to send email...');
+    const result = await transporter.sendMail(mailOptions);
+    console.log('[sendNewTicketEmail] Email sent successfully!');
+    console.log('[sendNewTicketEmail] Message ID:', result.messageId);
+    console.log(`[sendNewTicketEmail] New ticket email sent to admin (${adminEmail}) for ticket ${data.ticketId}`);
+  } catch (error: any) {
+    console.error('[sendNewTicketEmail] Error sending email:', error);
+    console.error('[sendNewTicketEmail] Error code:', error.code);
+    console.error('[sendNewTicketEmail] Error response:', error.response);
+    console.error('[sendNewTicketEmail] Error command:', error.command);
     throw error;
   }
 }
