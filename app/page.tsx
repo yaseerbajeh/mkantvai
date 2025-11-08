@@ -28,9 +28,68 @@ export default function Home() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [reviews, setReviews] = useState<any[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(true);
+  const [countdown, setCountdown] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+  const [promotionalBanner, setPromotionalBanner] = useState<{
+    id: string;
+    title: string;
+    subtitle: string;
+    discount_percentage: number;
+    expiration_date: string;
+    cta_link: string;
+  } | null>(null);
+  const [bannerLoading, setBannerLoading] = useState(true);
   
   const topRatedScrollRef = useRef<HTMLDivElement>(null);
   const trendingScrollRef = useRef<HTMLDivElement>(null);
+  
+  // Fetch promotional banner
+  useEffect(() => {
+    const fetchBanner = async () => {
+      try {
+        const response = await fetch('/api/promotional-banner');
+        const result = await response.json();
+        if (result.banner) {
+          setPromotionalBanner(result.banner);
+        }
+      } catch (error) {
+        console.error('Error fetching promotional banner:', error);
+      } finally {
+        setBannerLoading(false);
+      }
+    };
+    
+    fetchBanner();
+  }, []);
+  
+  // Countdown timer for promotion
+  useEffect(() => {
+    if (!promotionalBanner) return;
+    
+    const targetDate = new Date(promotionalBanner.expiration_date).getTime();
+    
+    const updateCountdown = () => {
+      const now = new Date().getTime();
+      const distance = targetDate - now;
+      
+      if (distance > 0) {
+        setCountdown({
+          days: Math.floor(distance / (1000 * 60 * 60 * 24)),
+          hours: Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
+          minutes: Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60)),
+          seconds: Math.floor((distance % (1000 * 60)) / 1000),
+        });
+      } else {
+        setCountdown({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+        // Banner expired, remove it
+        setPromotionalBanner(null);
+      }
+    };
+    
+    updateCountdown();
+    const interval = setInterval(updateCountdown, 1000);
+    
+    return () => clearInterval(interval);
+  }, [promotionalBanner]);
 
   useEffect(() => {
     const fetchLatestContent = async () => {
@@ -297,50 +356,89 @@ export default function Home() {
                 </Link>
                 
                 {/* Subscription Button - Left on mobile (second in RTL), Bottom on desktop */}
-                <div className="flex-1 md:w-auto md:flex-none order-1 md:order-2 flex flex-col gap-3">
-                  <Link href="/subscribe" className="block w-full">
-                    <Button size="lg" className="bg-emerald-600 hover:bg-emerald-700 text-lg px-6 md:px-8 py-6 w-full md:w-auto flex items-center justify-center gap-2">
-                      <ShoppingCart className="h-5 w-5" />
-                      أبي إشتراك
-                    </Button>
-                  </Link>
-                  
-                  {/* Elegant Discount Code Banner */}
-                  <div className="bg-gradient-to-r from-purple-600/20 to-pink-600/20 backdrop-blur-sm rounded-lg border border-purple-500/30 px-4 py-2.5 w-full">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-2">
-                        <Sparkles className="w-4 h-4 text-purple-300" />
-                        <div className="text-right">
-                          <p className="text-white/80 text-xs mb-0.5">مناسبة إفتتاح المنصة</p>
-                          <p className="text-white/60 text-[10px]">خصم 20% - استخدم كود الخصم</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 bg-white/10 rounded-md px-3 py-1.5 border border-white/20">
-                        <span className="text-white font-bold text-sm font-mono">20OFF</span>
-                        <button
-                          onClick={() => {
-                            navigator.clipboard.writeText('20OFF');
-                            toast({
-                              title: 'تم النسخ!',
-                              description: 'تم نسخ كود الخصم 20OFF بنجاح',
-                            });
-                          }}
-                          className="p-1 hover:bg-white/20 rounded transition-colors"
-                          title="نسخ الكود"
-                        >
-                          <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                          </svg>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                <Link href="/subscribe" className="block flex-1 md:w-auto md:flex-none order-1 md:order-2">
+                  <Button size="lg" className="bg-emerald-600 hover:bg-emerald-700 text-lg px-6 md:px-8 py-6 w-full md:w-auto flex items-center justify-center gap-2">
+                    <ShoppingCart className="h-5 w-5" />
+                    أبي إشتراك
+                  </Button>
+                </Link>
               </div>
             </div>
           </div>
         </div>
       </section>
+
+      {/* Promotional Banner with Countdown */}
+      {promotionalBanner && !bannerLoading && (
+        <section className="py-8 md:py-12 bg-black">
+          <div className="container mx-auto px-4">
+            <div className="black-friday-component">
+              <div className="coupon">
+                <div className="box">
+                  <span>{promotionalBanner.discount_percentage}%</span>
+                  <span>OFF</span>
+                </div>
+                <div className="diver"></div>
+                <div className="content">
+                  <h3 className="arabic-title">
+                    {promotionalBanner.title}
+                  </h3>
+                  <p>
+                    {promotionalBanner.subtitle}
+                    <Link href={promotionalBanner.cta_link || '/subscribe'}> اضغط هنا</Link>
+                    {' '}واطلب الان
+                  </p>
+                </div>
+              </div>
+              <div className="timer">
+                <div className="item">
+                  <div className="days">
+                    <div className="day" style={{ '--days': countdown.days } as React.CSSProperties}>
+                      {Array.from({ length: 32 }, (_, i) => (
+                        <span key={i}>{String(i).padStart(2, '0')}</span>
+                      ))}
+                    </div>
+                  </div>
+                  <p>يوم</p>
+                </div>
+                <span className="colon">:</span>
+                <div className="item">
+                  <div className="hours">
+                    <div className="hour" style={{ '--hours': countdown.hours } as React.CSSProperties}>
+                      {Array.from({ length: 24 }, (_, i) => (
+                        <span key={i}>{String(i).padStart(2, '0')}</span>
+                      ))}
+                    </div>
+                  </div>
+                  <p>ساعة</p>
+                </div>
+                <span className="colon">:</span>
+                <div className="item">
+                  <div className="minutes">
+                    <div className="min" style={{ '--minutes': countdown.minutes } as React.CSSProperties}>
+                      {Array.from({ length: 60 }, (_, i) => (
+                        <span key={i}>{String(i).padStart(2, '0')}</span>
+                      ))}
+                    </div>
+                  </div>
+                  <p>دقيقة</p>
+                </div>
+                <span className="colon">:</span>
+                <div className="item">
+                  <div className="seconds">
+                    <div className="sec" style={{ '--seconds': countdown.seconds } as React.CSSProperties}>
+                      {Array.from({ length: 60 }, (_, i) => (
+                        <span key={i}>{String(i).padStart(2, '0')}</span>
+                      ))}
+                    </div>
+                  </div>
+                  <p>ثانية</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
 
       <section id="how-it-works" className="py-20 bg-black/50">
         <div className="container mx-auto px-4">

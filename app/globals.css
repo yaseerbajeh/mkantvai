@@ -352,3 +352,246 @@
     }
   }
 }
+
+/* Promotional Banner Styles */
+.black-friday-component {
+  flex-direction: column;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  width: -moz-fit-content;
+  width: fit-content;
+  margin: auto;
+  padding: 0 40px;
+}
+
+.black-friday-component .coupon {
+  border-radius: 12px;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  border: 1px solid #654bff;
+  transform: scale(0.85);
+  transform-origin: center;
+  background: rgba(0, 0, 0, 0.9);
+  overflow: hidden;
+}
+
+
+.black-friday-component .coupon .box {
+  height: 100%;
+  width: 130px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  color: #fff;
+  padding: 1rem;
+  background: linear-gradient(135deg, #654bff 0%, #8b5cf6 100%);
+  border-radius: 12px 0 0 12px;
+}
+
+.black-friday-component .coupon .box span {
+  display: block;
+  font-weight: bold;
+  font-size: 1.8rem;
+}
+
+.black-friday-component .coupon .diver {
+  display: block;
+  width: 0px;
+  height: 160px;
+  border: 3px dashed transparent;
+  border-right-color: #654bff;
+}
+
+.black-friday-component .coupon .content {
+  padding: 1rem;
+  flex: 1;
+  color: #fff;
+  width: 330px;
+  min-height: 160px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.black-friday-component .coupon .content h3.arabic-title {
+  font-weight: 700;
+  font-size: 2rem;
+  min-height: 34px;
+  margin-bottom: 1rem;
+  font-family: 'Cairo', 'Amiri', 'Segoe UI', 'Tahoma', 'Arial Unicode MS', 'Arial', sans-serif;
+  direction: rtl;
+  text-align: right;
+  letter-spacing: 0;
+  word-spacing: normal;
+}
+
+.black-friday-component .coupon:hover .content h3.arabic-title {
+  animation: titlePulse 0.5s ease-in-out;
+}
+
+.black-friday-component .coupon .content p {
+  font-weight: 400;
+  font-style: normal;
+  color: #959595;
+  font-size: 1rem;
+  line-height: 1.25rem;
+  font-family: 'Cairo', 'Amiri', 'Segoe UI', 'Tahoma', 'Arial Unicode MS', 'Arial', sans-serif;
+  direction: rtl;
+  text-align: right;
+}
+
+.black-friday-component .coupon .content p a {
+  font-style: italic;
+  color: #654bff;
+  text-transform: capitalize;
+  word-spacing: 0.03rem;
+  font-weight: bolder;
+  text-decoration: underline;
+  text-underline-offset: 0.05rem;
+  text-decoration-color: #654bff;
+}
+
+.black-friday-component .coupon .content p strong {
+  color: #654bff;
+  font-weight: bold;
+}
+
+.black-friday-component .timer {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  gap: 0rem;
+  overflow: hidden;
+  width: calc(244px + 0rem);
+  text-align: center;
+}
+
+.black-friday-component .timer .colon {
+  width: 8px;
+  color: #fff;
+  font-size: 2rem;
+}
+
+.black-friday-component .timer .item {
+  text-align: center;
+  width: 55px;
+  height: fit-content;
+}
+
+.black-friday-component .timer .item .days,
+.black-friday-component .timer .item .hours,
+.black-friday-component .timer .item .minutes,
+.black-friday-component .timer .item .seconds {
+  text-align: center;
+  width: 55px;
+  overflow: hidden;
+  height: 40px;
+}
+
+.black-friday-component .timer .item .day,
+.black-friday-component .timer .item .hour,
+.black-friday-component .timer .item .min,
+.black-friday-component .timer .item .sec {
+  text-align: center;
+  height: fit-content;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: center;
+  transition: transform 0.3s ease;
+}
+
+.black-friday-component .timer .item .day span,
+.black-friday-component .timer .item .hour span,
+.black-friday-component .timer .item .min span,
+.black-friday-component .timer .item .sec span {
+  height: 40px;
+  color: #fff;
+  font-size: 2rem;
+  display: inline-block;
+  line-height: 40px;
+}
+
+.black-friday-component .timer .item .day {
+  transform: translateY(calc(-40px * var(--days, 0)));
+}
+
+.black-friday-component .timer .item .hour {
+  transform: translateY(calc(-40px * var(--hours, 0)));
+}
+
+.black-friday-component .timer .item .min {
+  transform: translateY(calc(-40px * var(--minutes, 0)));
+}
+
+.black-friday-component .timer .item .sec {
+  transform: translateY(calc(-40px * var(--seconds, 0)));
+}
+
+.black-friday-component .timer .item p {
+  text-align: center;
+  color: #fff;
+  font-size: 1.2rem;
+  font-weight: 400;
+  margin-top: 0.5rem;
+}
+
+@keyframes slide {
+  0% {
+    transform: translateY(calc(-40px * var(--count)));
+  }
+  99.6% {
+    transform: translateY(0);
+  }
+  100% {
+    transform: translateY(calc(-40px * var(--count)));
+  }
+}
+
+@keyframes titlePulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+@media (max-width: 768px) {
+  .black-friday-component .coupon {
+    transform: scale(0.7);
+    flex-direction: column;
+  }
+  
+  .black-friday-component .coupon .diver {
+    width: 100%;
+    height: 0;
+    border-right: none;
+    border-bottom: 3px dashed #654bff;
+    border-top: none;
+  }
+  
+  .black-friday-component .coupon .box {
+    border-radius: 12px 12px 0 0;
+    width: 100%;
+  }
+  
+  .black-friday-component .coupon .content {
+    width: 100%;
+  }
+  
+  .black-friday-component {
+    padding: 0 20px;
+  }
+  
+  .black-friday-component .timer {
+    width: 100%;
+    max-width: 300px;
+    justify-content: center;
+  }
+}
