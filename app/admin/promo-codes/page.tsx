@@ -31,10 +31,12 @@ import {
   Tag,
   ToggleLeft,
   ToggleRight,
+  Megaphone,
 } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
+import { Switch } from '@/components/ui/switch';
 
 interface PromoCode {
   id: string;
@@ -54,6 +56,18 @@ interface PromoCode {
   effective_is_active?: boolean;
   is_expired?: boolean;
   is_not_yet_valid?: boolean;
+}
+
+interface PromotionalBanner {
+  id: string;
+  is_enabled: boolean;
+  title: string;
+  subtitle: string;
+  discount_percentage: number;
+  expiration_date: string;
+  cta_link: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export default function AdminPromoCodesPage() {
@@ -78,6 +92,19 @@ export default function AdminPromoCodesPage() {
     is_active: true,
     valid_from: '',
     valid_until: '',
+  });
+  
+  // Promotional Banner State
+  const [promotionalBanner, setPromotionalBanner] = useState<PromotionalBanner | null>(null);
+  const [bannerLoading, setBannerLoading] = useState(false);
+  const [bannerDialogOpen, setBannerDialogOpen] = useState(false);
+  const [bannerForm, setBannerForm] = useState({
+    is_enabled: false,
+    title: '',
+    subtitle: '',
+    discount_percentage: 20,
+    expiration_date: '',
+    cta_link: '/subscribe',
   });
 
   useEffect(() => {
@@ -144,6 +171,7 @@ export default function AdminPromoCodesPage() {
   useEffect(() => {
     if (user) {
       fetchPromoCodes();
+      fetchPromotionalBanner();
     }
   }, [user]);
 
@@ -171,6 +199,197 @@ export default function AdminPromoCodesPage() {
         description: error.message || 'فشل في جلب رموز الخصم',
         variant: 'destructive',
       });
+    }
+  };
+
+  const fetchPromotionalBanner = async () => {
+    try {
+      setBannerLoading(true);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const response = await fetch('/api/admin/promotional-banner', {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      });
+
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || 'فشل في جلب البانر الترويجي');
+      }
+
+      setPromotionalBanner(result.banner);
+      if (result.banner) {
+        setBannerForm({
+          is_enabled: result.banner.is_enabled,
+          title: result.banner.title,
+          subtitle: result.banner.subtitle,
+          discount_percentage: result.banner.discount_percentage,
+          expiration_date: result.banner.expiration_date ? new Date(result.banner.expiration_date).toISOString().split('T')[0] : '',
+          cta_link: result.banner.cta_link,
+        });
+      }
+    } catch (error: any) {
+      console.error('Fetch promotional banner error:', error);
+      toast({
+        title: 'خطأ',
+        description: error.message || 'فشل في جلب البانر الترويجي',
+        variant: 'destructive',
+      });
+    } finally {
+      setBannerLoading(false);
+    }
+  };
+
+  const handleSaveBanner = async () => {
+    if (bannerForm.is_enabled) {
+      if (!bannerForm.title || !bannerForm.subtitle) {
+        toast({
+          title: 'خطأ',
+          description: 'يرجى ملء العنوان والوصف',
+          variant: 'destructive',
+        });
+        return;
+      }
+      if (bannerForm.discount_percentage < 0 || bannerForm.discount_percentage > 100) {
+        toast({
+          title: 'خطأ',
+          description: 'نسبة الخصم يجب أن تكون بين 0 و 100',
+          variant: 'destructive',
+        });
+        return;
+      }
+      if (!bannerForm.expiration_date) {
+        toast({
+          title: 'خطأ',
+          description: 'يرجى تحديد تاريخ الانتهاء',
+          variant: 'destructive',
+        });
+        return;
+      }
+    }
+
+    try {
+      setBannerLoading(true);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('غير مصرح');
+
+      const payload = {
+        id: promotionalBanner?.id || null,
+        ...bannerForm,
+        expiration_date: bannerForm.expiration_date ? new Date(bannerForm.expiration_date).toISOString() : new Date().toISOString(),
+      };
+
+      const response = await fetch('/api/admin/promotional-banner', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || 'فشل في حفظ البانر الترويجي');
+      }
+
+      toast({
+        title: 'نجح',
+        description: 'تم حفظ البانر الترويجي بنجاح',
+      });
+
+      setBannerDialogOpen(false);
+      fetchPromotionalBanner();
+    } catch (error: any) {
+      toast({
+        title: 'خطأ',
+        description: error.message || 'فشل في حفظ البانر الترويجي',
+        variant: 'destructive',
+      });
+    } finally {
+      setBannerLoading(false);
+    }
+  };
+
+  const handleToggleBanner = async (enabled: boolean) => {
+    const previousState = bannerForm.is_enabled;
+    setBannerForm({ ...bannerForm, is_enabled: enabled });
+    
+    try {
+      setBannerLoading(true);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('غير مصرح');
+
+      // If enabling and form is empty or no banner exists, use defaults
+      let payload: any = {
+        id: promotionalBanner?.id || null,
+        is_enabled: enabled,
+        title: bannerForm.title || '',
+        subtitle: bannerForm.subtitle || '',
+        discount_percentage: bannerForm.discount_percentage || 20,
+        cta_link: bannerForm.cta_link || '/subscribe',
+      };
+
+      if (enabled) {
+        // If enabling, ensure we have valid data
+        if (!payload.title) {
+          payload.title = 'خصم 20% بمناسبة افتتاح المنصة 🎉';
+        }
+        if (!payload.subtitle) {
+          payload.subtitle = 'خصم 20% على جميع المنتجات بمناسبة افتتاح المنصة استخدم كود 20A على جميع المنتجات';
+        }
+        if (!bannerForm.expiration_date) {
+          // Default to 30 days from now
+          const defaultDate = new Date();
+          defaultDate.setDate(defaultDate.getDate() + 30);
+          payload.expiration_date = defaultDate.toISOString();
+        } else {
+          // Ensure expiration_date is in ISO format
+          payload.expiration_date = bannerForm.expiration_date.includes('T')
+            ? bannerForm.expiration_date
+            : new Date(bannerForm.expiration_date).toISOString();
+        }
+      } else {
+        // If disabling, keep existing expiration_date or set a default
+        payload.expiration_date = bannerForm.expiration_date
+          ? (bannerForm.expiration_date.includes('T')
+              ? bannerForm.expiration_date
+              : new Date(bannerForm.expiration_date).toISOString())
+          : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+      }
+
+      const response = await fetch('/api/admin/promotional-banner', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || 'فشل في تحديث حالة البانر');
+      }
+
+      toast({
+        title: 'نجح',
+        description: enabled ? 'تم تفعيل البانر الترويجي' : 'تم تعطيل البانر الترويجي',
+      });
+
+      fetchPromotionalBanner();
+    } catch (error: any) {
+      toast({
+        title: 'خطأ',
+        description: error.message || 'فشل في تحديث حالة البانر',
+        variant: 'destructive',
+      });
+      // Revert the toggle on error
+      setBannerForm({ ...bannerForm, is_enabled: previousState });
+    } finally {
+      setBannerLoading(false);
     }
   };
 
@@ -393,6 +612,78 @@ export default function AdminPromoCodesPage() {
               إضافة رمز خصم جديد
             </Button>
           </div>
+
+          {/* Promotional Banner Management */}
+          <Card className="bg-slate-800/50 border-slate-700 mb-6">
+            <CardHeader>
+              <CardTitle className="text-white flex items-center gap-2">
+                <Megaphone className="h-5 w-5" />
+                إدارة البانر الترويجي
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {bannerLoading && !promotionalBanner ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <Label htmlFor="banner-toggle" className="text-white cursor-pointer">
+                        تفعيل البانر الترويجي
+                      </Label>
+                      <Switch
+                        id="banner-toggle"
+                        checked={bannerForm.is_enabled}
+                        onCheckedChange={handleToggleBanner}
+                        disabled={bannerLoading}
+                      />
+                    </div>
+                    <Button
+                      onClick={() => setBannerDialogOpen(true)}
+                      variant="outline"
+                      className="border-slate-600 text-slate-300 hover:bg-slate-700"
+                    >
+                      <Edit className="h-4 w-4 ml-2" />
+                      تعديل
+                    </Button>
+                  </div>
+
+                  {promotionalBanner && (
+                    <div className="bg-slate-900/50 rounded-lg p-4 space-y-2 border border-slate-700">
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-400">الحالة:</span>
+                        <Badge className={bannerForm.is_enabled ? 'bg-green-600' : 'bg-slate-600'}>
+                          {bannerForm.is_enabled ? 'مفعّل' : 'معطّل'}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-400">العنوان:</span>
+                        <span className="text-white text-sm">{promotionalBanner.title || '-'}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-400">نسبة الخصم:</span>
+                        <span className="text-white font-semibold">{promotionalBanner.discount_percentage}%</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-400">تاريخ الانتهاء:</span>
+                        <span className="text-white text-sm">
+                          {promotionalBanner.expiration_date
+                            ? format(new Date(promotionalBanner.expiration_date), 'yyyy-MM-dd', { locale: ar })
+                            : '-'}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-400">رابط الزر:</span>
+                        <span className="text-white text-sm">{promotionalBanner.cta_link || '/subscribe'}</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
           {/* Filters */}
           <Card className="bg-slate-800/50 border-slate-700 mb-6">
@@ -728,6 +1019,112 @@ export default function AdminPromoCodesPage() {
                   className="bg-red-600 hover:bg-red-700"
                 >
                   حذف
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          {/* Promotional Banner Edit Dialog */}
+          <Dialog open={bannerDialogOpen} onOpenChange={setBannerDialogOpen}>
+            <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle className="text-2xl">تعديل البانر الترويجي</DialogTitle>
+                <DialogDescription className="text-slate-400">
+                  قم بتعديل إعدادات البانر الترويجي المعروض على الصفحة الرئيسية
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="banner-enabled" className="text-white">
+                    تفعيل البانر
+                  </Label>
+                  <Switch
+                    id="banner-enabled"
+                    checked={bannerForm.is_enabled}
+                    onCheckedChange={(checked) => setBannerForm({ ...bannerForm, is_enabled: checked })}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="banner-title">العنوان *</Label>
+                  <Input
+                    id="banner-title"
+                    value={bannerForm.title}
+                    onChange={(e) => setBannerForm({ ...bannerForm, title: e.target.value })}
+                    className="bg-slate-700 border-slate-600 text-white mt-1"
+                    placeholder="خصم 20% بمناسبة افتتاح المنصة 🎉"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="banner-subtitle">الوصف *</Label>
+                  <Textarea
+                    id="banner-subtitle"
+                    value={bannerForm.subtitle}
+                    onChange={(e) => setBannerForm({ ...bannerForm, subtitle: e.target.value })}
+                    className="bg-slate-700 border-slate-600 text-white mt-1"
+                    placeholder="خصم 20% على جميع المنتجات بمناسبة افتتاح المنصة استخدم كود 20A على جميع المنتجات"
+                    rows={3}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="banner-discount">نسبة الخصم (%) *</Label>
+                    <Input
+                      id="banner-discount"
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={bannerForm.discount_percentage}
+                      onChange={(e) => setBannerForm({ ...bannerForm, discount_percentage: parseInt(e.target.value) || 0 })}
+                      className="bg-slate-700 border-slate-600 text-white mt-1"
+                      placeholder="20"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="banner-expiration">تاريخ الانتهاء *</Label>
+                    <Input
+                      id="banner-expiration"
+                      type="date"
+                      value={bannerForm.expiration_date}
+                      onChange={(e) => setBannerForm({ ...bannerForm, expiration_date: e.target.value })}
+                      className="bg-slate-700 border-slate-600 text-white mt-1"
+                      min={new Date().toISOString().split('T')[0]}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <Label htmlFor="banner-cta-link">رابط الزر (CTA)</Label>
+                  <Input
+                    id="banner-cta-link"
+                    value={bannerForm.cta_link}
+                    onChange={(e) => setBannerForm({ ...bannerForm, cta_link: e.target.value })}
+                    className="bg-slate-700 border-slate-600 text-white mt-1"
+                    placeholder="/subscribe"
+                  />
+                  <p className="text-xs text-slate-400 mt-1">مثال: /subscribe أو /browse</p>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => setBannerDialogOpen(false)}
+                  className="border-slate-600 text-slate-300"
+                  disabled={bannerLoading}
+                >
+                  إلغاء
+                </Button>
+                <Button
+                  onClick={handleSaveBanner}
+                  className="bg-blue-600 hover:bg-blue-700"
+                  disabled={bannerLoading}
+                >
+                  {bannerLoading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 ml-2 animate-spin" />
+                      جاري الحفظ...
+                    </>
+                  ) : (
+                    'حفظ'
+                  )}
                 </Button>
               </DialogFooter>
             </DialogContent>
