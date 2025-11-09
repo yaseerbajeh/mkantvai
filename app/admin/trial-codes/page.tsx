@@ -43,6 +43,7 @@ import {
 import type { User } from '@supabase/supabase-js';
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
+import { PieChart, Pie, Cell, BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Legend, ResponsiveContainer, Tooltip } from 'recharts';
 
 interface TrialCode {
   id: string;
@@ -274,6 +275,7 @@ export default function AdminTrialCodesPage() {
         throw new Error(result.error || 'فشل في جلب بيانات التحليلات');
       }
 
+      console.log('Analytics data:', result);
       setAnalytics(result);
     } catch (error: any) {
       console.error('Fetch analytics error:', error);
@@ -891,41 +893,209 @@ export default function AdminTrialCodesPage() {
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <Card className="bg-slate-800/50 border-slate-700">
                       <CardContent className="pt-6">
-                        <div className="text-3xl font-bold text-white">{analytics.summary.totalRequests}</div>
+                        <div className="text-3xl font-bold text-white">{analytics.summary?.totalRequests || 0}</div>
                         <p className="text-slate-400 text-sm">إجمالي الطلبات</p>
                       </CardContent>
                     </Card>
                     <Card className="bg-green-900/30 border-green-700">
                       <CardContent className="pt-6">
-                        <div className="text-3xl font-bold text-green-400">{analytics.summary.purchasedCount}</div>
+                        <div className="text-3xl font-bold text-green-400">{analytics.summary?.purchasedCount || 0}</div>
                         <p className="text-slate-400 text-sm">اشتروا</p>
                       </CardContent>
                     </Card>
                     <Card className="bg-red-900/30 border-red-700">
                       <CardContent className="pt-6">
-                        <div className="text-3xl font-bold text-red-400">{analytics.summary.notPurchasedCount}</div>
+                        <div className="text-3xl font-bold text-red-400">{analytics.summary?.notPurchasedCount || 0}</div>
                         <p className="text-slate-400 text-sm">لم يشتروا</p>
                       </CardContent>
                     </Card>
                     <Card className="bg-blue-900/30 border-blue-700">
                       <CardContent className="pt-6">
-                        <div className="text-3xl font-bold text-blue-400">{analytics.summary.conversionRate.toFixed(1)}%</div>
+                        <div className="text-3xl font-bold text-blue-400">{(analytics.summary?.conversionRate || 0).toFixed(1)}%</div>
                         <p className="text-slate-400 text-sm">معدل التحويل</p>
                       </CardContent>
                     </Card>
                   </div>
 
-                  {/* Charts Placeholder */}
+                  {/* Charts */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Pie Chart - Purchased vs Not Purchased */}
+                    <Card className="bg-slate-800/50 border-slate-700">
+                      <CardHeader>
+                        <CardTitle className="text-white">توزيع المشترين</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        {(() => {
+                          const pieData = analytics.charts?.pieChart?.filter((item: any) => item.value > 0) || [];
+                          const totalValue = analytics.charts?.pieChart?.reduce((sum: number, item: any) => sum + item.value, 0) || 0;
+                          
+                          if (pieData.length > 0 && totalValue > 0) {
+                            return (
+                              <div className="h-[300px] w-full">
+                                <ResponsiveContainer width="100%" height="100%">
+                                  <PieChart>
+                                    <Pie
+                                      data={pieData}
+                                      dataKey="value"
+                                      nameKey="name"
+                                      cx="50%"
+                                      cy="50%"
+                                      outerRadius={80}
+                                      label={({ name, value, percent }) => `${name}: ${value} (${(percent * 100).toFixed(0)}%)`}
+                                      labelLine={false}
+                                    >
+                                      {pieData.map((entry: any, index: number) => (
+                                        <Cell key={`cell-${index}`} fill={entry.color} />
+                                      ))}
+                                    </Pie>
+                                    <Tooltip 
+                                      formatter={(value: number, name: string) => [value, name]}
+                                      contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '8px', color: '#fff' }}
+                                    />
+                                    <Legend wrapperStyle={{ color: '#9ca3af', fontSize: '14px' }} />
+                                  </PieChart>
+                                </ResponsiveContainer>
+                              </div>
+                            );
+                          }
+                          return (
+                            <div className="flex flex-col items-center justify-center h-[300px] text-slate-400 space-y-2">
+                              <BarChart3 className="h-12 w-12 opacity-50" />
+                              <p>لا توجد بيانات للمشترين</p>
+                              <p className="text-xs">البيانات ستظهر هنا عندما يكون هناك مشترون</p>
+                            </div>
+                          );
+                        })()}
+                      </CardContent>
+                    </Card>
+
+                    {/* Timeline Chart - Requests and Purchases over time */}
+                    <Card className="bg-slate-800/50 border-slate-700">
+                      <CardHeader>
+                        <CardTitle className="text-white">طلبات الرموز</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        {analytics.charts?.timeline && analytics.charts.timeline.length > 0 ? (
+                          <div className="h-[300px] w-full">
+                            <ResponsiveContainer width="100%" height="100%">
+                              <BarChart data={analytics.charts.timeline} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                                <XAxis 
+                                  dataKey="date" 
+                                  tick={{ fill: '#9ca3af', fontSize: 12 }}
+                                  tickFormatter={(value) => {
+                                    try {
+                                      // Date is in format YYYY-MM-DD, parse it properly
+                                      const dateStr = String(value);
+                                      if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                                        const [year, month, day] = dateStr.split('-');
+                                        return `${month}/${day}`;
+                                      }
+                                      return dateStr;
+                                    } catch {
+                                      return String(value);
+                                    }
+                                  }}
+                                />
+                                <YAxis tick={{ fill: '#9ca3af', fontSize: 12 }} />
+                                <Tooltip 
+                                  contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '8px', color: '#fff' }}
+                                  labelFormatter={(value) => {
+                                    try {
+                                      const dateStr = String(value);
+                                      if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                                        return dateStr;
+                                      }
+                                      return dateStr;
+                                    } catch {
+                                      return String(value);
+                                    }
+                                  }}
+                                />
+                                <Legend wrapperStyle={{ color: '#9ca3af', fontSize: '14px' }} />
+                                <Bar dataKey="requests" fill="#3b82f6" name="الطلبات" radius={[4, 4, 0, 0]} />
+                                <Bar dataKey="purchases" fill="#10b981" name="المشتريات" radius={[4, 4, 0, 0]} />
+                              </BarChart>
+                            </ResponsiveContainer>
+                          </div>
+                        ) : (
+                          <div className="flex flex-col items-center justify-center h-[300px] text-slate-400 space-y-2">
+                            <BarChart3 className="h-12 w-12 opacity-50" />
+                            <p>لا توجد بيانات زمنية</p>
+                            <p className="text-xs">البيانات ستظهر هنا عندما يكون هناك طلبات</p>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  {/* Conversion Rate Chart */}
                   <Card className="bg-slate-800/50 border-slate-700">
                     <CardHeader>
-                      <CardTitle className="text-white">التحليلات والرسوم البيانية</CardTitle>
+                      <CardTitle className="text-white">معدل التحويل عبر الزمن</CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <div className="text-center py-12 text-slate-400">
-                        <BarChart3 className="h-16 w-16 mx-auto mb-4 opacity-50" />
-                        <p>سيتم إضافة الرسوم البيانية قريباً</p>
-                        <p className="text-sm mt-2">البيانات جاهزة للعرض</p>
-                      </div>
+                      {analytics.charts?.conversionRate && analytics.charts.conversionRate.length > 0 ? (
+                        <div className="h-[300px] w-full">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <LineChart data={analytics.charts.conversionRate} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                              <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                              <XAxis 
+                                dataKey="date" 
+                                tick={{ fill: '#9ca3af', fontSize: 12 }}
+                                tickFormatter={(value) => {
+                                  try {
+                                    const dateStr = String(value);
+                                    if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                                      const [year, month, day] = dateStr.split('-');
+                                      return `${month}/${day}`;
+                                    }
+                                    return dateStr;
+                                  } catch {
+                                    return String(value);
+                                  }
+                                }}
+                              />
+                              <YAxis 
+                                tick={{ fill: '#9ca3af', fontSize: 12 }}
+                                label={{ value: '%', angle: -90, position: 'insideLeft', fill: '#9ca3af', style: { fontSize: 12 } }}
+                                domain={[0, 100]}
+                              />
+                              <Tooltip 
+                                contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '8px', color: '#fff' }}
+                                labelFormatter={(value) => {
+                                  try {
+                                    const dateStr = String(value);
+                                    if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                                      return dateStr;
+                                    }
+                                    return dateStr;
+                                  } catch {
+                                    return String(value);
+                                  }
+                                }}
+                                formatter={(value: number) => [`${(value || 0).toFixed(2)}%`, 'معدل التحويل']}
+                              />
+                              <Legend wrapperStyle={{ color: '#9ca3af', fontSize: '14px' }} />
+                              <Line 
+                                type="monotone" 
+                                dataKey="conversionRate" 
+                                stroke="#8b5cf6" 
+                                strokeWidth={2}
+                                name="معدل التحويل (%)"
+                                dot={{ fill: '#8b5cf6', r: 4 }}
+                                activeDot={{ r: 6 }}
+                              />
+                            </LineChart>
+                          </ResponsiveContainer>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-center justify-center h-[300px] text-slate-400 space-y-2">
+                          <BarChart3 className="h-12 w-12 opacity-50" />
+                          <p>لا توجد بيانات لمعدل التحويل</p>
+                          <p className="text-xs">البيانات ستظهر هنا عندما يكون هناك طلبات ومشتريات</p>
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 </>
