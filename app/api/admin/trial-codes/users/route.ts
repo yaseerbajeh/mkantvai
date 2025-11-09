@@ -64,10 +64,10 @@ export async function GET(request: NextRequest) {
 
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get all user trial assignments
+    // Get all user trial assignments (including WhatsApp)
     let query = supabaseAdmin
       .from('user_trial_assignments')
-      .select('*')
+      .select('id, user_id, trial_code, expires_at, assigned_at, username, password, link, user_email, whatsapp')
       .order('assigned_at', { ascending: false });
 
     // Apply search filter

@@ -38,6 +38,7 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
+  MessageCircle,
 } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
 import { format } from 'date-fns';
@@ -69,6 +70,7 @@ interface TrialUser {
   username?: string;
   password?: string;
   link?: string;
+  whatsapp?: string;
   is_expired: boolean;
   has_purchased: boolean;
   status: 'active' | 'expired' | 'purchased' | 'not_purchased';
@@ -771,6 +773,7 @@ export default function AdminTrialCodesPage() {
                               </div>
                             </TableHead>
                             <TableHead className="text-slate-300">البريد الإلكتروني</TableHead>
+                            <TableHead className="text-slate-300">رقم الواتساب</TableHead>
                             <TableHead className="text-slate-300 cursor-pointer" onClick={() => handleSortUsers('trial_code')}>
                               <div className="flex items-center gap-1">
                                 رمز التجربة
@@ -808,6 +811,21 @@ export default function AdminTrialCodesPage() {
                                 {format(new Date(trialUser.assigned_at), 'yyyy-MM-dd HH:mm', { locale: ar })}
                               </TableCell>
                               <TableCell className="text-white">{trialUser.user_email || '-'}</TableCell>
+                              <TableCell className="text-slate-300">
+                                {trialUser.whatsapp ? (
+                                  <a
+                                    href={`https://wa.me/${trialUser.whatsapp}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1 text-green-400 hover:text-green-300"
+                                  >
+                                    <MessageCircle className="h-4 w-4" />
+                                    {trialUser.whatsapp}
+                                  </a>
+                                ) : (
+                                  '-'
+                                )}
+                              </TableCell>
                               <TableCell className="text-slate-300 font-mono">{trialUser.trial_code}</TableCell>
                               <TableCell className="text-slate-300">
                                 {format(new Date(trialUser.expires_at), 'yyyy-MM-dd HH:mm', { locale: ar })}
@@ -828,15 +846,28 @@ export default function AdminTrialCodesPage() {
                                 </div>
                               </TableCell>
                               <TableCell>
-                                {trialUser.user_email && (
-                                  <a
-                                    href={`mailto:${trialUser.user_email}`}
-                                    className="inline-flex items-center gap-1 text-blue-400 hover:text-blue-300"
-                                  >
-                                    <Mail className="h-4 w-4" />
-                                    إرسال بريد
-                                  </a>
-                                )}
+                                <div className="flex items-center gap-2">
+                                  {trialUser.user_email && (
+                                    <a
+                                      href={`mailto:${trialUser.user_email}`}
+                                      className="inline-flex items-center gap-1 text-blue-400 hover:text-blue-300"
+                                      title="إرسال بريد"
+                                    >
+                                      <Mail className="h-4 w-4" />
+                                    </a>
+                                  )}
+                                  {trialUser.whatsapp && (
+                                    <a
+                                      href={`https://wa.me/${trialUser.whatsapp}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="inline-flex items-center gap-1 text-green-400 hover:text-green-300"
+                                      title="فتح الواتساب"
+                                    >
+                                      <MessageCircle className="h-4 w-4" />
+                                    </a>
+                                  )}
+                                </div>
                               </TableCell>
                             </TableRow>
                           ))}
