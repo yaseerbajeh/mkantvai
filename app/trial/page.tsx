@@ -8,6 +8,7 @@ import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Input } from '@/components/ui/input';
 import { supabase } from '@/lib/supabase';
 import { Sparkles, Clock, AlertCircle, CheckCircle2, Loader2, Copy, ArrowRight, LogIn, Wrench } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -25,6 +26,9 @@ function TrialPageContent() {
   const [link, setLink] = useState<string | null>(null);
   const [fetching, setFetching] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [whatsappConfirm, setWhatsappConfirm] = useState('');
+  const [confirmingPhone, setConfirmingPhone] = useState(false);
+  const [whatsappSaved, setWhatsappSaved] = useState(false);
 
   useEffect(() => {
     // Check authentication
@@ -75,11 +79,95 @@ function TrialPageContent() {
         setUsername(result.username || null);
         setPassword(result.password || null);
         setLink(result.link || null);
+        // If trial code exists, WhatsApp is already saved
+        setWhatsappSaved(true);
+      } else if (response.ok && result.whatsapp) {
+        // Check if WhatsApp is saved even if no trial code
+        setWhatsappSaved(true);
+        // Pre-fill the WhatsApp input with the saved number (without 966 prefix)
+        const whatsappWithoutPrefix = result.whatsapp.replace(/^966/, '');
+        setWhatsappConfirm(whatsappWithoutPrefix);
       }
     } catch (error) {
       console.error('Error checking existing trial:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleConfirmPhone = async () => {
+    if (!user) {
+      toast({
+        title: 'خطأ',
+        description: 'يرجى تسجيل الدخول أولاً',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (!whatsappConfirm.trim()) {
+      toast({
+        title: 'خطأ',
+        description: 'يرجى إدخال رقم الواتساب',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setConfirmingPhone(true);
+
+    try {
+      // Format phone number: remove any non-digits, remove leading zeros
+      const cleaned = whatsappConfirm.replace(/\D/g, '').replace(/^0+/, '');
+      
+      // Validate: must be exactly 9 digits
+      if (cleaned.length !== 9) {
+        toast({
+          title: 'خطأ',
+          description: 'يجب أن يتكون الرقم من 9 أرقام فقط. مثال: 542668201',
+          variant: 'destructive',
+        });
+        setConfirmingPhone(false);
+        return;
+      }
+
+      // Get session token
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError || !session?.access_token) {
+        throw new Error('غير مصرح. يرجى تسجيل الدخول');
+      }
+
+      const response = await fetch('/api/user/phone', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ phone: cleaned }), // Send just the 9 digits, API will add 966 prefix
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'فشل حفظ رقم الهاتف');
+      }
+
+      setWhatsappSaved(true);
+
+      toast({
+        title: 'نجح',
+        description: 'تم حفظ رقم الهاتف بنجاح',
+      });
+    } catch (error: any) {
+      console.error('Error confirming phone:', error);
+      toast({
+        title: 'خطأ',
+        description: error.message || 'حدث خطأ أثناء حفظ رقم الهاتف',
+        variant: 'destructive',
+      });
+    } finally {
+      setConfirmingPhone(false);
     }
   };
 
@@ -445,51 +533,103 @@ function TrialPageContent() {
               </CardContent>
             </Card>
           ) : (
-            <Card className="bg-gradient-to-br from-slate-800/90 to-slate-900/90 border-2 border-slate-700/50">
-              <CardHeader>
-                <div className="flex items-center gap-3 mb-2">
-                  <Sparkles className="h-6 w-6 text-blue-500" />
-                  <CardTitle className="text-2xl text-white">احصل على رمز التجربة</CardTitle>
-                </div>
-                <CardDescription className="text-slate-300">
-                  اضغط على الزر أدناه للحصول على رمز تجربة مجاني
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex items-start gap-3 p-4 bg-blue-900/20 rounded-lg border border-blue-500/30">
-                    <Clock className="h-5 w-5 text-blue-400 mt-0.5 flex-shrink-0" />
-                    <div className="text-sm text-slate-300">
-                      <p className="font-semibold mb-1">مميزات التجربة:</p>
-                      <ul className="list-disc list-inside space-y-1 text-slate-400">
-                        <li>تجربة مجانية محدودة المدة</li>
-                        <li>وصول كامل لجميع الميزات</li>
-                        <li>جودة فائقة</li>
-                        <li>تجربة واحدة فقط لكل مستخدم</li>
-                      </ul>
+            <>
+              {/* WhatsApp Collection Card */}
+              {!whatsappSaved && (
+                <Card className="bg-gradient-to-br from-slate-800/90 to-slate-900/90 border-2 border-slate-700/50 mb-6">
+                  <CardHeader>
+                    <CardTitle className="text-2xl text-white">رقم الواتساب</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <p className="text-sm text-slate-300">اكتب رقمك الواتس للتواصل معك بعد التجربة</p>
+                    <p className="text-xs text-slate-400">اكتب رقمك بدون الصفر. مثال 542668201</p>
+                    <div className="flex gap-2">
+                      <div className="flex-1 relative">
+                        <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 text-sm">966</span>
+                        <Input
+                          placeholder="542668201"
+                          value={whatsappConfirm.replace(/^966/, '')}
+                          onChange={(e) => {
+                            // Remove any non-digit characters and leading zeros, limit to 9 digits
+                            const cleaned = e.target.value.replace(/\D/g, '').replace(/^0+/, '').slice(0, 9);
+                            setWhatsappConfirm(cleaned);
+                          }}
+                          maxLength={9}
+                          className="bg-slate-700 border-slate-600 text-white pr-12"
+                          dir="ltr"
+                          disabled={confirmingPhone}
+                        />
+                      </div>
+                      <Button
+                        onClick={handleConfirmPhone}
+                        disabled={confirmingPhone || !whatsappConfirm.trim() || whatsappConfirm.replace(/\D/g, '').length !== 9}
+                        className="bg-blue-600 hover:bg-blue-700"
+                      >
+                        {confirmingPhone ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          'تأكيد'
+                        )}
+                      </Button>
                     </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Trial Code Request Card */}
+              <Card className="bg-gradient-to-br from-slate-800/90 to-slate-900/90 border-2 border-slate-700/50">
+                <CardHeader>
+                  <div className="flex items-center gap-3 mb-2">
+                    <Sparkles className="h-6 w-6 text-blue-500" />
+                    <CardTitle className="text-2xl text-white">احصل على رمز التجربة</CardTitle>
                   </div>
-                  <Button
-                    onClick={fetchTrialCode}
-                    disabled={fetching}
-                    size="lg"
-                    className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white font-bold py-6 text-lg"
-                  >
-                    {fetching ? (
-                      <>
-                        <Loader2 className="h-5 w-5 ml-2 animate-spin" />
-                        جاري الجلب...
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="h-5 w-5 ml-2" />
-                        احصل على رمز التجربة الآن
-                      </>
+                  <CardDescription className="text-slate-300">
+                    اضغط على الزر أدناه للحصول على رمز تجربة مجاني
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="flex items-start gap-3 p-4 bg-blue-900/20 rounded-lg border border-blue-500/30">
+                      <Clock className="h-5 w-5 text-blue-400 mt-0.5 flex-shrink-0" />
+                      <div className="text-sm text-slate-300">
+                        <p className="font-semibold mb-1">مميزات التجربة:</p>
+                        <ul className="list-disc list-inside space-y-1 text-slate-400">
+                          <li>تجربة مجانية محدودة المدة</li>
+                          <li>وصول كامل لجميع الميزات</li>
+                          <li>جودة فائقة</li>
+                          <li>تجربة واحدة فقط لكل مستخدم</li>
+                        </ul>
+                      </div>
+                    </div>
+                    {!whatsappSaved && (
+                      <div className="p-4 bg-yellow-900/20 border border-yellow-700 rounded-lg">
+                        <p className="text-yellow-400 text-sm text-center">
+                          يرجى إدخال رقم الواتساب أعلاه أولاً
+                        </p>
+                      </div>
                     )}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+                    <Button
+                      onClick={fetchTrialCode}
+                      disabled={fetching || !whatsappSaved}
+                      size="lg"
+                      className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white font-bold py-6 text-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {fetching ? (
+                        <>
+                          <Loader2 className="h-5 w-5 ml-2 animate-spin" />
+                          جاري الجلب...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="h-5 w-5 ml-2" />
+                          احصل على رمز التجربة الآن
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </>
           )}
         </div>
       </main>

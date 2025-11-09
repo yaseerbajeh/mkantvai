@@ -25,6 +25,8 @@ export default function CartPage() {
   const { items, removeItem, updateQuantity, clearCart, getTotal } = useCart();
   const [user, setUser] = useState<User | null>(null);
   const [whatsapp, setWhatsapp] = useState('');
+  const [whatsappConfirm, setWhatsappConfirm] = useState('');
+  const [confirmingPhone, setConfirmingPhone] = useState(false);
   const [authDialogOpen, setAuthDialogOpen] = useState(false);
   const [promoCode, setPromoCode] = useState('');
   const [appliedPromo, setAppliedPromo] = useState<any>(null);
@@ -121,6 +123,84 @@ export default function CartPage() {
     setAppliedPromo(null);
     setPromoCode('');
     setPromoError('');
+  };
+
+  const handleConfirmPhone = async () => {
+    if (!user) {
+      toast({
+        title: 'خطأ',
+        description: 'يرجى تسجيل الدخول أولاً',
+        variant: 'destructive',
+      });
+      setAuthDialogOpen(true);
+      return;
+    }
+
+    if (!whatsappConfirm.trim()) {
+      toast({
+        title: 'خطأ',
+        description: 'يرجى إدخال رقم الواتساب',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setConfirmingPhone(true);
+
+    try {
+      // Format phone number: remove any non-digits, remove leading zeros
+      const cleaned = whatsappConfirm.replace(/\D/g, '').replace(/^0+/, '');
+      
+      // Validate: must be exactly 9 digits
+      if (cleaned.length !== 9) {
+        toast({
+          title: 'خطأ',
+          description: 'يجب أن يتكون الرقم من 9 أرقام فقط. مثال: 542668201',
+          variant: 'destructive',
+        });
+        setConfirmingPhone(false);
+        return;
+      }
+
+      // Get session token
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError || !session?.access_token) {
+        throw new Error('غير مصرح. يرجى تسجيل الدخول');
+      }
+
+      const response = await fetch('/api/user/phone', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ phone: cleaned }), // Send just the 9 digits, API will add 966 prefix
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'فشل حفظ رقم الهاتف');
+      }
+
+      // Update local state with formatted number (with 966 prefix for display)
+      setWhatsapp(`966${cleaned}`);
+
+      toast({
+        title: 'نجح',
+        description: 'تم حفظ رقم الهاتف بنجاح',
+      });
+    } catch (error: any) {
+      console.error('Error confirming phone:', error);
+      toast({
+        title: 'خطأ',
+        description: error.message || 'حدث خطأ أثناء حفظ رقم الهاتف',
+        variant: 'destructive',
+      });
+    } finally {
+      setConfirmingPhone(false);
+    }
   };
 
   const createOrder = async () => {
@@ -286,7 +366,7 @@ export default function CartPage() {
                           variant="outline"
                           size="sm"
                           onClick={() => updateQuantity(item.product_code, item.quantity - 1)}
-                          className="border-slate-600 text-white hover:bg-slate-700"
+                          className="border-slate-600 bg-white text-black hover:bg-slate-200"
                         >
                           <Minus className="h-4 w-4" />
                         </Button>
@@ -295,7 +375,7 @@ export default function CartPage() {
                           variant="outline"
                           size="sm"
                           onClick={() => updateQuantity(item.product_code, item.quantity + 1)}
-                          className="border-slate-600 text-white hover:bg-slate-700"
+                          className="border-slate-600 bg-white text-black hover:bg-slate-200"
                         >
                           <Plus className="h-4 w-4" />
                         </Button>
@@ -336,17 +416,6 @@ export default function CartPage() {
                       <p className="text-xs text-slate-400 mb-1">البريد الإلكتروني</p>
                       <p className="text-white font-medium">{user.email || '-'}</p>
                     </div>
-                    <div>
-                      <label className="text-xs text-slate-400 mb-1 block">رقم الواتساب (اختياري)</label>
-                      <Input
-                        placeholder="966xxxxxxxxx"
-                        value={whatsapp}
-                        onChange={(e) => setWhatsapp(e.target.value)}
-                        className="bg-slate-700 border-slate-600 text-white"
-                        dir="ltr"
-                      />
-                      <p className="text-xs text-slate-500 mt-1">مطلوب للتواصل بشأن الطلب</p>
-                    </div>
                   </CardContent>
                 </Card>
               ) : (
@@ -362,6 +431,51 @@ export default function CartPage() {
                     >
                       تسجيل الدخول / إنشاء حساب
                     </Button>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* WhatsApp Collection Card */}
+              {items.length > 0 && (
+                <Card className="bg-slate-800/50 border-slate-700">
+                  <CardHeader>
+                    <CardTitle className="text-white">رقم الواتساب</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <p className="text-sm text-slate-300">اكتب رقمك الواتس للتواصل معك بعد الشراء</p>
+                    <p className="text-xs text-slate-400">اكتب رقمك بدون الصفر. مثال 542668201</p>
+                    <div className="flex gap-2">
+                      <div className="flex-1 relative">
+                        <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 text-sm">966</span>
+                        <Input
+                          placeholder="542668201"
+                          value={whatsappConfirm.replace(/^966/, '')}
+                          onChange={(e) => {
+                            // Remove any non-digit characters and leading zeros, limit to 9 digits
+                            const cleaned = e.target.value.replace(/\D/g, '').replace(/^0+/, '').slice(0, 9);
+                            setWhatsappConfirm(cleaned);
+                          }}
+                          maxLength={9}
+                          className="bg-slate-700 border-slate-600 text-white pr-12"
+                          dir="ltr"
+                          disabled={confirmingPhone || !user}
+                        />
+                      </div>
+                      <Button
+                        onClick={handleConfirmPhone}
+                        disabled={confirmingPhone || !user || !whatsappConfirm.trim() || whatsappConfirm.replace(/\D/g, '').length !== 9}
+                        className="bg-blue-600 hover:bg-blue-700"
+                      >
+                        {confirmingPhone ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          'تأكيد'
+                        )}
+                      </Button>
+                    </div>
+                    {!user && (
+                      <p className="text-xs text-slate-400">يرجى تسجيل الدخول أولاً</p>
+                    )}
                   </CardContent>
                 </Card>
               )}

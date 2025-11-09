@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
 
     const { data: existingTrial, error: fetchError } = await supabaseAdmin
       .from('user_trial_assignments')
-      .select('trial_code, expires_at, assigned_at, username, password, link')
+      .select('trial_code, expires_at, assigned_at, username, password, link, whatsapp')
       .eq('user_id', user.id)
       .maybeSingle();
 
@@ -96,8 +96,55 @@ export async function GET(request: NextRequest) {
           username: existingTrial.username || null,
           password: existingTrial.password || null,
           link: existingTrial.link || null,
+          whatsapp: existingTrial.whatsapp || null,
         });
       }
+    }
+
+    // Check if user has WhatsApp saved (even if no trial code)
+    // Check user_trial_assignments first
+    const { data: userAssignment } = await supabaseAdmin
+      .from('user_trial_assignments')
+      .select('whatsapp')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (userAssignment?.whatsapp) {
+      return NextResponse.json({
+        trial_code: null,
+        expires_at: null,
+        whatsapp: userAssignment.whatsapp,
+      });
+    }
+
+    // Also check cart_sessions and active_subscriptions
+    const { data: cartSession } = await supabaseAdmin
+      .from('cart_sessions')
+      .select('whatsapp')
+      .eq('user_id', user.id)
+      .is('converted_to_order_id', null)
+      .maybeSingle();
+    
+    if (cartSession?.whatsapp) {
+      return NextResponse.json({
+        trial_code: null,
+        expires_at: null,
+        whatsapp: cartSession.whatsapp,
+      });
+    }
+
+    const { data: subscription } = await supabaseAdmin
+      .from('active_subscriptions')
+      .select('customer_phone')
+      .eq('customer_email', user.email || '')
+      .maybeSingle();
+
+    if (subscription?.customer_phone) {
+      return NextResponse.json({
+        trial_code: null,
+        expires_at: null,
+        whatsapp: subscription.customer_phone,
+      });
     }
 
     // No trial code found (either never fetched, or already fetched and deleted)
@@ -165,7 +212,7 @@ export async function POST(request: NextRequest) {
     // Check if user already has a trial code assigned (using admin client to bypass RLS)
     const { data: existingTrial, error: checkError } = await supabaseAdmin
       .from('user_trial_assignments')
-      .select('trial_code, expires_at')
+      .select('trial_code, expires_at, whatsapp')
       .eq('user_id', user.id)
       .maybeSingle();
 
@@ -202,6 +249,45 @@ export async function POST(request: NextRequest) {
       // For now, we'll allow only one trial ever
       return NextResponse.json(
         { error: 'مسموح تجربة واحدة فقط' },
+        { status: 400 }
+      );
+    }
+
+    // Check if user has WhatsApp number saved
+    let userWhatsapp: string | null = null;
+    
+    if (existingTrial?.whatsapp) {
+      userWhatsapp = existingTrial.whatsapp;
+    } else {
+      // Check if user has WhatsApp in cart_sessions or active_subscriptions
+      // Check cart_sessions first
+      const { data: cartSession } = await supabaseAdmin
+        .from('cart_sessions')
+        .select('whatsapp')
+        .eq('user_id', user.id)
+        .is('converted_to_order_id', null)
+        .maybeSingle();
+      
+      if (cartSession?.whatsapp) {
+        userWhatsapp = cartSession.whatsapp;
+      } else {
+        // Check active_subscriptions
+        const { data: subscription } = await supabaseAdmin
+          .from('active_subscriptions')
+          .select('customer_phone')
+          .eq('customer_email', user.email || '')
+          .maybeSingle();
+        
+        if (subscription?.customer_phone) {
+          userWhatsapp = subscription.customer_phone;
+        }
+      }
+    }
+
+    // Require WhatsApp before allowing trial code assignment
+    if (!userWhatsapp) {
+      return NextResponse.json(
+        { error: 'يرجى إدخال رقم الواتساب أولاً' },
         { status: 400 }
       );
     }
@@ -299,9 +385,41 @@ export async function POST(request: NextRequest) {
 
     const trialCode = codeData.trial_code;
     const expiresAt = codeData.expires_at;
-    const username = codeData.username || null;
-    const password = codeData.password || null;
-    const link = codeData.link || null;
+    
+    // Get username, password, link from trial_codes_pool
+    const { data: poolCode, error: poolError } = await supabaseAdmin
+      .from('trial_codes_pool')
+      .select('username, password, link')
+      .eq('trial_code', trialCode)
+      .maybeSingle();
+    
+    const username = poolCode?.username || null;
+    const password = poolCode?.password || null;
+    const link = poolCode?.link || null;
+
+    // Update user_trial_assignments with username, password, link, user_email, and WhatsApp
+    // The record should have been created by the assign_trial_code_to_user function
+    // Get user WhatsApp from the check we did earlier
+    const finalWhatsapp = userWhatsapp || null;
+    
+    // Update user_trial_assignments with credentials, user_email, and WhatsApp
+    const { error: updateError } = await supabaseAdmin
+      .from('user_trial_assignments')
+      .update({
+        username: username,
+        password: password,
+        link: link,
+        user_email: user.email || null,
+        whatsapp: finalWhatsapp,
+      })
+      .eq('user_id', user.id);
+
+    if (updateError) {
+      console.error('Error updating user_trial_assignments:', updateError);
+      // Continue anyway, credentials update is optional
+    } else {
+      console.log('Updated user_trial_assignments with WhatsApp:', finalWhatsapp);
+    }
 
     // Send email to user with trial code and credentials
     if (!user.email) {
