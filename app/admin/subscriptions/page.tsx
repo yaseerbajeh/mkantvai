@@ -43,7 +43,7 @@ import {
   FileText,
   X,
   Sparkles,
-  PencilSquare,
+  PenSquare,
 } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
 import { calculateExpirationDate, parseDurationToDays } from '@/lib/subscription-utils';
@@ -1497,7 +1497,7 @@ export default function AdminSubscriptionsPage() {
                                 {actionLoading.has(sub.id) ? (
                                   <Loader2 className="h-4 w-4 animate-spin" />
                                 ) : (
-                                  <PencilSquare className="h-4 w-4" />
+                                  <PenSquare className="h-4 w-4" />
                                 )}
                               </Button>
                               <Button
