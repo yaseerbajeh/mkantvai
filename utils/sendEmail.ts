@@ -347,38 +347,33 @@ export async function sendTrialCodeEmail(trialData: TrialCodeEmailData): Promise
     `;
   }
 
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || '';
+  const installUrl = siteUrl ? `${siteUrl.replace(/\/+$/, '')}/tarkeeb` : '/tarkeeb';
+  const mailtoLink = `mailto:${encodeURIComponent(trialData.email)}`;
+
   const mailOptions = {
     from: `"مكان TV" <${emailConfig.auth.user}>`,
     to: trialData.email,
-    subject: 'رمز التجربة المجانية الخاص بك',
+    subject: 'تفاصيل التجربة المجانية الخاصة بك',
     html: `
       <div dir="rtl" style="font-family: Arial, sans-serif; padding: 20px; background-color: #f5f5f5;">
         <div style="max-width: 600px; margin: 0 auto; background-color: white; padding: 30px; border-radius: 10px;">
-          <h2 style="color: #28a745; margin-bottom: 20px;">✅ رمز التجربة المجانية</h2>
+          <h2 style="color: #28a745; margin-bottom: 20px;">✅ تم تفعيل تجربتك المجانية</h2>
           
           <p style="font-size: 16px; color: #333; margin-bottom: 20px;">
             مرحباً،
           </p>
           
           <p style="font-size: 16px; color: #333; margin-bottom: 20px;">
-            شكراً لاهتمامك بخدماتنا! إليك رمز التجربة المجانية الخاص بك:
+            شكراً لاهتمامك بخدماتنا! تم تفعيل تجربتك بنجاح. أدناه تفاصيل التجربة:
           </p>
           
-          <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: center;">
-            <div style="margin-bottom: 15px;">
-              <strong style="display: block; margin-bottom: 10px; color: #333;">رمز التجربة:</strong>
-              <span style="font-family: monospace; font-size: 24px; font-weight: bold; background-color: #e9ecef; padding: 15px 20px; border-radius: 8px; display: inline-block; color: #28a745; letter-spacing: 2px;">
-                ${escapeHtml(trialData.trialCode)}
-              </span>
+          <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <div style="margin-bottom: 10px;">
+              <strong>مدة التجربة:</strong> ${escapeHtml(trialDuration)}
             </div>
-            
-            <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #dee2e6;">
-              <div style="margin-bottom: 10px;">
-                <strong>مدة التجربة:</strong> ${escapeHtml(trialDuration)}
-              </div>
-              <div style="margin-bottom: 10px;">
-                <strong>تاريخ الانتهاء:</strong> ${escapeHtml(formattedExpiresAt)}
-              </div>
+            <div style="margin-bottom: 10px;">
+              <strong>تاريخ الانتهاء:</strong> ${escapeHtml(formattedExpiresAt)}
             </div>
           </div>
           
@@ -390,6 +385,16 @@ export async function sendTrialCodeEmail(trialData: TrialCodeEmailData): Promise
             </p>
           </div>
           
+          <div style="margin: 24px 0; text-align: center;">
+            <a href="${installUrl}" style="display: inline-block; background-color: #0ea5e9; color: #fff; text-decoration: none; padding: 12px 20px; border-radius: 8px; font-weight: bold;">
+              طريقة التركيب
+            </a>
+          </div>
+
+          <div style="margin: 16px 0; text-align: center; font-size: 14px;">
+            <a href="${mailtoLink}" style="color: #0ea5e9; text-decoration: underline;">تواصل عبر بريدك: ${escapeHtml(trialData.email)}</a>
+          </div>
+
           <p style="font-size: 16px; color: #333; margin-top: 30px;">
             نتمنى لك تجربة ممتعة مع خدماتنا!
           </p>

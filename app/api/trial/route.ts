@@ -264,6 +264,21 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Additional fallback: check auth user metadata for whatsapp (saved via /api/user/phone in other flows)
+    if (!userWhatsapp) {
+      try {
+        const { data: adminUser, error: adminUserError } = await supabaseAdmin.auth.admin.getUserById(user.id);
+        if (!adminUserError && adminUser?.user?.user_metadata?.whatsapp) {
+          // Ensure it's in the expected 966######### format; if not, attempt to normalize
+          const metaPhone: string = String(adminUser.user.user_metadata.whatsapp);
+          const cleaned = metaPhone.replace(/\D/g, '').replace(/^0+/, '');
+          userWhatsapp = cleaned.startsWith('966') ? cleaned : `966${cleaned}`;
+        }
+      } catch (e) {
+        console.warn('Warning: Failed to read whatsapp from auth metadata:', (e as any)?.message || e);
+      }
+    }
+
     // Check if user already has a valid trial (after checking WhatsApp)
     if (existingTrial) {
       // Check if trial is expired
@@ -285,14 +300,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Require WhatsApp before allowing trial code assignment
-    if (!userWhatsapp) {
-      return NextResponse.json(
-        { error: 'يرجى إدخال رقم الواتساب أولاً' },
-        { status: 400 }
-      );
-    }
-
+    // Check pool availability BEFORE WhatsApp requirement to surface correct stock error
     // First, clean up expired codes from pool
     const { error: cleanupError } = await supabaseAdmin.rpc('delete_expired_trial_codes_pool');
     if (cleanupError) {
@@ -300,7 +308,7 @@ export async function POST(request: NextRequest) {
       // Continue anyway
     }
 
-    // Debug: Check available codes before assignment
+    // Debug/Availability: Check available codes before assignment
     const { data: availableCodes, error: checkPoolError } = await supabaseAdmin
       .from('trial_codes_pool')
       .select('id, trial_code, expires_at, is_assigned')
@@ -309,6 +317,33 @@ export async function POST(request: NextRequest) {
       .limit(5);
     
     console.log('Available codes in pool:', availableCodes?.length || 0, checkPoolError);
+
+    // If no codes available, return stock error (even if WhatsApp missing)
+    if (!checkPoolError && ((availableCodes?.length || 0) === 0)) {
+      return NextResponse.json(
+        { error: 'لا يوجد تجارب حاليا, جرب في وقت لاحق' },
+        { status: 503 }
+      );
+    }
+
+    // Require WhatsApp: enforce existence in user_credentials as the source of truth
+    if (!userWhatsapp) {
+      // Try credentials table as source of truth
+      const { data: creds } = await supabaseAdmin
+        .from('user_credentials')
+        .select('phone, email')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (creds?.phone) {
+        userWhatsapp = creds.phone;
+      } else {
+        return NextResponse.json(
+          { error: 'يرجى إدخال رقم الواتساب أولاً' },
+          { status: 400 }
+        );
+      }
+    }
 
     // Assign a trial code from pool to this user using the database function
     console.log('Calling RPC function with user_id:', user.id);

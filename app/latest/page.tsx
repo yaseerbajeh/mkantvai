@@ -33,12 +33,41 @@ export default function LatestPage() {
           pastYear.setFullYear(today.getFullYear() - 1);
           const yearMin = pastYear.getFullYear();
           const yearMax = today.getFullYear();
-          resp = await fetch(`/api/tmdb/discover?type=tv&with_watch_providers=8,384,9,350&watch_region=SA&yearMin=${yearMin}&yearMax=${yearMax}&sort_by=first_air_date.desc&limit=50`);
+          // Try primary: same as Home (API max limit is 20)
+          resp = await fetch(`/api/tmdb/discover?type=tv&with_watch_providers=8,384,9,350&watch_region=SA&yearMin=${yearMin}&yearMax=${yearMax}&sort_by=first_air_date.desc&limit=20`);
+
+          // If primary fails or returns empty, try fallback without provider filter
+          if (!resp.ok) {
+            console.error('Primary discover (providers) failed:', resp.status);
+          }
+          let data = await resp.json().catch(() => ({ items: [], error: 'parse_error' }));
+          if (!resp.ok || data?.items?.length === 0) {
+            const fb1 = await fetch(`/api/tmdb/discover?type=tv&yearMin=${yearMin}&yearMax=${yearMax}&sort_by=first_air_date.desc&limit=20`);
+            if (fb1.ok) {
+              data = await fb1.json();
+            } else {
+              console.error('Fallback 1 (no providers) failed:', fb1.status);
+              // Final fallback: popularity without year constraint
+              const fb2 = await fetch(`/api/tmdb/discover?type=tv&sort_by=popularity.desc&limit=20`);
+              data = await fb2.json().catch(() => ({ items: [], error: 'parse_error' }));
+              resp = fb2;
+            }
+            // Normalize resp to carry the last response status for error handling below
+            if (data && !resp.ok) {
+              resp = new Response(JSON.stringify(data), { status: 200 });
+            }
+            // Replace the parsing branch by stashing parsed data for use below
+            // We'll reuse "data" variable after else branch too
+            // To keep structure consistent, move assignment to a scoped variable
+            (resp as any)._parsed = data;
+          } else {
+            (resp as any)._parsed = data;
+          }
         } else {
           // For movies: use now-playing
           resp = await fetch(`/api/tmdb/now-playing?type=movie&lang=ar`);
         }
-        const data = await resp.json();
+        const data = (resp as any)._parsed || (await resp.json());
         if (data.error) {
           console.error('Error fetching:', data.error);
           setMovies([]);
@@ -87,7 +116,7 @@ export default function LatestPage() {
 
   const getSubtitle = () => {
     if (type === 'movie') return `أفلام معروضة الآن`;
-    if (type === 'series') return `مسلسلات نتفلكس، HBO Max، أمازون برايم، و Apple TV+`;
+    if (type === 'series') return `مسلسلات نتفلكس شاهد واشتراك اروما`;
     return '';
   };
 

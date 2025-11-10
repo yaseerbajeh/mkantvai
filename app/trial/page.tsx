@@ -138,7 +138,8 @@ function TrialPageContent() {
         throw new Error('غير مصرح. يرجى تسجيل الدخول');
       }
 
-      const response = await fetch('/api/user/phone', {
+      // Save phone into credentials table
+      const response = await fetch('/api/user/credentials', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -394,32 +395,13 @@ function TrialPageContent() {
               <CardHeader>
                 <div className="flex items-center gap-3 mb-2">
                   <CheckCircle2 className="h-6 w-6 text-green-500" />
-                  <CardTitle className="text-2xl text-white">رمز التجربة الخاص بك</CardTitle>
+                  <CardTitle className="text-2xl text-white">تفاصيل التجربة</CardTitle>
                 </div>
                 <CardDescription className="text-slate-300">
-                  <span className="text-xs text-slate-400 mt-2 block">
-                    تم إرسال رمز التجربة إلى بريدك الإلكتروني
-                  </span>
+                  <span className="text-xs text-slate-400 mt-2 block">معلومات الدخول أدناه</span>
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="bg-slate-900/50 rounded-lg p-6 mb-4 border border-slate-700">
-                  <div className="flex items-center justify-between gap-4">
-                    <code className="text-2xl md:text-3xl font-mono font-bold text-green-400 break-all">
-                      {trialCode}
-                    </code>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => copyToClipboard(trialCode || '')}
-                      className="flex-shrink-0"
-                    >
-                      <Copy className="h-4 w-4 ml-2" />
-                      نسخ
-                    </Button>
-                  </div>
-                </div>
-                
                 {/* Credentials Section */}
                 {(username || password || link) && (
                   <div className="bg-gradient-to-br from-blue-900/30 to-cyan-900/30 rounded-lg p-6 mb-4 border border-blue-500/30">

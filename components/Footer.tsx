@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Facebook, Twitter, Instagram } from 'lucide-react';
+import { Instagram, MessageCircle } from 'lucide-react';
 
 export default function Footer() {
   return (
@@ -18,14 +18,23 @@ export default function Footer() {
         </div>
 
         <div className="flex justify-center items-center gap-6 mb-8">
-          <a href="#" className="text-slate-400 hover:text-white transition">
-            <Facebook className="w-5 h-5" />
-          </a>
-          <a href="#" className="text-slate-400 hover:text-white transition">
-            <Twitter className="w-5 h-5" />
-          </a>
-          <a href="#" className="text-slate-400 hover:text-white transition">
+          <a
+            href="https://www.instagram.com/maakaantv"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-slate-400 hover:text-white transition"
+            aria-label="Instagram"
+          >
             <Instagram className="w-5 h-5" />
+          </a>
+          <a
+            href={process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ? `https://wa.me/${process.env.NEXT_PUBLIC_WHATSAPP_NUMBER}` : '#'}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-slate-400 hover:text-white transition"
+            aria-label="WhatsApp"
+          >
+            <MessageCircle className="w-5 h-5" />
           </a>
         </div>
 
