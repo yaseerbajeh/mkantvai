@@ -43,6 +43,7 @@ import {
   FileText,
   X,
   Sparkles,
+  PencilSquare,
 } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
 import { calculateExpirationDate, parseDurationToDays } from '@/lib/subscription-utils';
@@ -97,6 +98,10 @@ export default function AdminSubscriptionsPage() {
   // Subscription code view dialog
   const [viewCodeDialogOpen, setViewCodeDialogOpen] = useState(false);
   const [viewingSubscriptionCode, setViewingSubscriptionCode] = useState<string>('');
+  
+  // Edit subscription dialog
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingSubscription, setEditingSubscription] = useState<ActiveSubscription | null>(null);
   
   // Manual entry form
   const [manualForm, setManualForm] = useState({
@@ -235,7 +240,8 @@ export default function AdminSubscriptionsPage() {
       setCategories(data || []);
       
       // Set default category if form is empty (only if form hasn't been initialized yet)
-      if (data && data.length > 0) {
+      // Only set default when dialog is closed to avoid overriding user selections
+      if (data && data.length > 0 && !manualEntryDialogOpen) {
         setManualForm(prev => {
           // Only set default if subscription_type is empty
           if (!prev.subscription_type) {
@@ -935,6 +941,121 @@ export default function AdminSubscriptionsPage() {
     }
   };
 
+  const exportToCSV = () => {
+    const headers = [
+      'اسم العميل',
+      'البريد الإلكتروني',
+      'رقم الهاتف',
+      'رمز الاشتراك',
+      'نوع الاشتراك',
+      'مدة الاشتراك',
+      'تاريخ البدء',
+      'تاريخ الانتهاء',
+      'الأيام المتبقية',
+      'رمز المنتج',
+      'عدد التجديدات',
+      'تم إرسال التذكير',
+    ];
+    
+    const rows = filteredSubscriptions.map(sub => [
+      sub.customer_name || '',
+      sub.customer_email || '',
+      sub.customer_phone || '',
+      sub.subscription_code || '',
+      sub.subscription_type || '',
+      sub.subscription_duration || '',
+      format(new Date(sub.start_date), 'yyyy-MM-dd', { locale: ar }),
+      sub.expiration_date ? format(new Date(sub.expiration_date), 'yyyy-MM-dd', { locale: ar }) : '',
+      sub.due_days.toString(),
+      sub.product_code || '',
+      (sub.renewal_count || 0).toString(),
+      sub.reminder_sent ? 'نعم' : 'لا',
+    ]);
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+    ].join('\n');
+
+    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `subscriptions-${format(new Date(), 'yyyy-MM-dd')}.csv`;
+    link.click();
+    URL.revokeObjectURL(link.href);
+    
+    toast({
+      title: 'نجح',
+      description: `تم تصدير ${filteredSubscriptions.length} اشتراك`,
+    });
+  };
+
+  const handleEditSubscription = (subscription: ActiveSubscription) => {
+    setEditingSubscription(subscription);
+    setManualForm({
+      customer_name: subscription.customer_name,
+      customer_email: subscription.customer_email,
+      customer_phone: subscription.customer_phone || '',
+      subscription_code: subscription.subscription_code,
+      subscription_type: subscription.subscription_type,
+      subscription_duration: subscription.subscription_duration,
+      start_date: new Date(subscription.start_date),
+      expiration_date: new Date(subscription.expiration_date),
+      product_code: subscription.product_code || '',
+    });
+    setEditDialogOpen(true);
+  };
+
+  const handleUpdateSubscription = async () => {
+    if (!editingSubscription) return;
+
+    try {
+      const { error } = await supabase
+        .from('active_subscriptions')
+        .update({
+          customer_name: manualForm.customer_name,
+          customer_email: manualForm.customer_email,
+          customer_phone: manualForm.customer_phone || null,
+          subscription_code: manualForm.subscription_code,
+          subscription_type: manualForm.subscription_type,
+          subscription_duration: manualForm.subscription_duration,
+          start_date: manualForm.start_date.toISOString(),
+          expiration_date: manualForm.expiration_date.toISOString(),
+          product_code: manualForm.product_code || null,
+        })
+        .eq('id', editingSubscription.id);
+
+      if (error) throw error;
+
+      toast({
+        title: 'نجح',
+        description: 'تم تحديث الاشتراك بنجاح',
+      });
+
+      setEditDialogOpen(false);
+      setEditingSubscription(null);
+      setManualForm({
+        customer_name: '',
+        customer_email: '',
+        customer_phone: '',
+        subscription_code: '',
+        subscription_type: categories.length > 0 ? categories[0].name : '',
+        subscription_duration: '1 شهر',
+        start_date: new Date(),
+        expiration_date: new Date(),
+        product_code: '',
+      });
+      fetchSubscriptions();
+    } catch (error: any) {
+      console.error('Error updating subscription:', error);
+      toast({
+        title: 'خطأ',
+        description: error.message || 'حدث خطأ أثناء تحديث الاشتراك',
+        variant: 'destructive',
+      });
+    }
+  };
+
   // Statistics
   const stats = useMemo(() => {
     const total = subscriptions.length;
@@ -1183,6 +1304,15 @@ export default function AdminSubscriptionsPage() {
               <RefreshCw className="h-4 w-4 mr-2" />
               تحديث
             </Button>
+            <Button
+              onClick={exportToCSV}
+              variant="outline"
+              className="border-green-600 text-green-400 hover:bg-green-600/10"
+              disabled={filteredSubscriptions.length === 0}
+            >
+              <Download className="h-4 w-4 mr-2" />
+              تصدير CSV
+            </Button>
           </div>
 
           {/* Subscriptions Table */}
@@ -1359,6 +1489,20 @@ export default function AdminSubscriptionsPage() {
                               <Button
                                 size="sm"
                                 variant="ghost"
+                                onClick={() => handleEditSubscription(sub)}
+                                disabled={actionLoading.has(sub.id)}
+                                className="text-yellow-400 hover:text-yellow-300"
+                                title="تعديل الاشتراك"
+                              >
+                                {actionLoading.has(sub.id) ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <PencilSquare className="h-4 w-4" />
+                                )}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
                                 onClick={() => handleDeleteSubscription(sub)}
                                 disabled={actionLoading.has(sub.id)}
                                 className="text-red-400 hover:text-red-300"
@@ -1526,26 +1670,49 @@ export default function AdminSubscriptionsPage() {
                 value={manualForm.product_code}
                 onChange={async (e) => {
                   const productCode = e.target.value;
+                  // Store the current subscription_type before fetching product
+                  const currentSubscriptionType = manualForm.subscription_type;
+                  
                   setManualForm({ ...manualForm, product_code: productCode });
                   
                   // Fetch product and update duration if found
                   if (productCode && productCode.trim() !== '') {
                     const product = await fetchProductByCode(productCode);
-                    if (product && product.duration) {
+                    if (product) {
+                      // Get product category name (Arabic first, then English)
+                      const productCategoryName = product.categories?.name || product.categories?.name_en || null;
+                      
                       // Update duration and recalculate expiration date
-                      const newDuration = product.duration;
-                      const newExpirationDate = calculateExpirationDate(manualForm.start_date, newDuration);
+                      const updates: any = {
+                        product_code: productCode,
+                      };
+                      
+                      if (product.duration) {
+                        const newDuration = product.duration;
+                        const newExpirationDate = calculateExpirationDate(manualForm.start_date, newDuration);
+                        updates.subscription_duration = newDuration;
+                        updates.expiration_date = newExpirationDate;
+                        
+                        toast({
+                          title: 'تم تحديث المدة',
+                          description: `تم تعيين المدة من المنتج: ${newDuration}`,
+                        });
+                      }
+                      
+                      // Only update subscription_type if:
+                      // 1. User hasn't manually selected a category (empty or default)
+                      // 2. Product has a valid category
+                      const isDefaultOrEmpty = !currentSubscriptionType || 
+                        (categories.length > 0 && currentSubscriptionType === categories[0].name);
+                      
+                      if (isDefaultOrEmpty && productCategoryName) {
+                        updates.subscription_type = productCategoryName;
+                      }
+                      
                       setManualForm(prev => ({
                         ...prev,
-                        product_code: productCode,
-                        subscription_duration: newDuration,
-                        expiration_date: newExpirationDate,
+                        ...updates,
                       }));
-                      
-                      toast({
-                        title: 'تم تحديث المدة',
-                        description: `تم تعيين المدة من المنتج: ${newDuration}`,
-                      });
                     }
                   }
                 }}
@@ -1572,6 +1739,237 @@ export default function AdminSubscriptionsPage() {
               className="bg-blue-600 hover:bg-blue-700"
             >
               إضافة
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Subscription Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>تعديل اشتراك</DialogTitle>
+            <DialogDescription className="text-slate-400">
+              تعديل بيانات الاشتراك
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label>اسم العميل *</Label>
+              <Input
+                value={manualForm.customer_name}
+                onChange={(e) => setManualForm({ ...manualForm, customer_name: e.target.value })}
+                className="bg-slate-700 border-slate-600 text-white"
+              />
+            </div>
+            <div>
+              <Label>البريد الإلكتروني *</Label>
+              <Input
+                type="email"
+                value={manualForm.customer_email}
+                onChange={(e) => setManualForm({ ...manualForm, customer_email: e.target.value })}
+                className="bg-slate-700 border-slate-600 text-white"
+              />
+            </div>
+            <div>
+              <Label>رقم الهاتف</Label>
+              <Input
+                value={manualForm.customer_phone}
+                onChange={(e) => setManualForm({ ...manualForm, customer_phone: e.target.value })}
+                className="bg-slate-700 border-slate-600 text-white"
+              />
+            </div>
+            <div>
+              <Label>رمز الاشتراك *</Label>
+              <Input
+                value={manualForm.subscription_code}
+                onChange={(e) => setManualForm({ ...manualForm, subscription_code: e.target.value })}
+                className="bg-slate-700 border-slate-600 text-white"
+              />
+            </div>
+            <div>
+              <Label>نوع الاشتراك (التصنيف) *</Label>
+              <Select
+                value={manualForm.subscription_type}
+                onValueChange={(value: string) =>
+                  setManualForm({ ...manualForm, subscription_type: value })
+                }
+              >
+                <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
+                  <SelectValue placeholder="اختر التصنيف" />
+                </SelectTrigger>
+                <SelectContent>
+                  {categories && categories.length > 0 ? (
+                    categories.map((category) => (
+                      <SelectItem key={category.id} value={category.name}>
+                        {category.name}
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <SelectItem value="" disabled>جاري تحميل التصنيفات...</SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>مدة الاشتراك *</Label>
+              <Input
+                value={manualForm.subscription_duration}
+                onChange={(e) => {
+                  const duration = e.target.value;
+                  setManualForm({
+                    ...manualForm,
+                    subscription_duration: duration,
+                    expiration_date: calculateExpirationDate(manualForm.start_date, duration),
+                  });
+                }}
+                className="bg-slate-700 border-slate-600 text-white"
+                placeholder="مثال: 3 أشهر"
+              />
+            </div>
+            <div>
+              <Label>تاريخ البدء *</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start text-left font-normal bg-slate-700 border-slate-600 text-white"
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {format(manualForm.start_date, 'yyyy-MM-dd', { locale: ar })}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0 bg-slate-800 border-slate-700">
+                  <Calendar
+                    mode="single"
+                    selected={manualForm.start_date}
+                    onSelect={(date) => {
+                      if (date) {
+                        setManualForm({
+                          ...manualForm,
+                          start_date: date,
+                          expiration_date: calculateExpirationDate(date, manualForm.subscription_duration),
+                        });
+                      }
+                    }}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+            <div>
+              <Label>تاريخ الانتهاء *</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start text-left font-normal bg-slate-700 border-slate-600 text-white"
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {format(manualForm.expiration_date, 'yyyy-MM-dd', { locale: ar })}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0 bg-slate-800 border-slate-700">
+                  <Calendar
+                    mode="single"
+                    selected={manualForm.expiration_date}
+                    onSelect={(date) => {
+                      if (date) {
+                        setManualForm({ ...manualForm, expiration_date: date });
+                      }
+                    }}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+            <div className="col-span-2">
+              <Label>رمز المنتج (اختياري)</Label>
+              <Input
+                value={manualForm.product_code}
+                onChange={async (e) => {
+                  const productCode = e.target.value;
+                  // Store the current subscription_type before fetching product
+                  const currentSubscriptionType = manualForm.subscription_type;
+                  
+                  setManualForm({ ...manualForm, product_code: productCode });
+                  
+                  // Fetch product and update duration if found
+                  if (productCode && productCode.trim() !== '') {
+                    const product = await fetchProductByCode(productCode);
+                    if (product) {
+                      // Get product category name (Arabic first, then English)
+                      const productCategoryName = product.categories?.name || product.categories?.name_en || null;
+                      
+                      // Update duration and recalculate expiration date
+                      const updates: any = {
+                        product_code: productCode,
+                      };
+                      
+                      if (product.duration) {
+                        const newDuration = product.duration;
+                        const newExpirationDate = calculateExpirationDate(manualForm.start_date, newDuration);
+                        updates.subscription_duration = newDuration;
+                        updates.expiration_date = newExpirationDate;
+                        
+                        toast({
+                          title: 'تم تحديث المدة',
+                          description: `تم تعيين المدة من المنتج: ${newDuration}`,
+                        });
+                      }
+                      
+                      // Only update subscription_type if:
+                      // 1. User hasn't manually selected a category (empty or default)
+                      // 2. Product has a valid category
+                      const isDefaultOrEmpty = !currentSubscriptionType || 
+                        (categories.length > 0 && currentSubscriptionType === categories[0].name);
+                      
+                      if (isDefaultOrEmpty && productCategoryName) {
+                        updates.subscription_type = productCategoryName;
+                      }
+                      
+                      setManualForm(prev => ({
+                        ...prev,
+                        ...updates,
+                      }));
+                    }
+                  }
+                }}
+                className="bg-slate-700 border-slate-600 text-white"
+                placeholder="أدخل رمز المنتج للحصول على المدة تلقائياً"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setEditDialogOpen(false);
+                setEditingSubscription(null);
+                setManualForm({
+                  customer_name: '',
+                  customer_email: '',
+                  customer_phone: '',
+                  subscription_code: '',
+                  subscription_type: categories.length > 0 ? categories[0].name : '',
+                  subscription_duration: '1 شهر',
+                  start_date: new Date(),
+                  expiration_date: new Date(),
+                  product_code: '',
+                });
+              }}
+              className="border-slate-600 text-slate-300"
+            >
+              إلغاء
+            </Button>
+            <Button
+              onClick={handleUpdateSubscription}
+              disabled={
+                !manualForm.customer_name ||
+                !manualForm.customer_email ||
+                !manualForm.subscription_code
+              }
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              تحديث
             </Button>
           </DialogFooter>
         </DialogContent>
