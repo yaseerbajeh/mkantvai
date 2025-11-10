@@ -51,14 +51,35 @@ export default function TarkeebPage() {
               </CardHeader>
               <CardContent className="pt-6">
                 <div className="space-y-6">
-                  {/* YouTube Video Placeholder */}
-                  <div className="bg-slate-900/50 rounded-xl p-8 border-2 border-dashed border-slate-600">
-                    <div className="aspect-video bg-slate-800 rounded-lg flex items-center justify-center">
-                      <div className="text-center">
-                        <Play className="w-16 h-16 text-slate-500 mx-auto mb-4" />
-                        <p className="text-slate-400 text-lg">فيديو يوتيوب - سيتم إضافته لاحقاً</p>
-                      </div>
+                  {/* YouTube Video */}
+                  <div className="bg-slate-900/50 rounded-xl p-4 md:p-8 border-2 border-slate-600">
+                    <div className="aspect-video rounded-lg overflow-hidden">
+                      <iframe
+                        src="https://www.youtube.com/embed/Kt7PMPNe6_g"
+                        title="طريقة تثبيت التطبيق على iPhone/iPad"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                        allowFullScreen
+                        className="w-full h-full"
+                      />
                     </div>
+                  </div>
+
+                  {/* App Store Download Button */}
+                  <div className="flex justify-center">
+                    <a
+                      href="https://apps.apple.com/us/app/s-player-pro/id1616174252"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-block"
+                    >
+                      <Button
+                        size="lg"
+                        className="bg-blue-600 hover:bg-blue-700 text-white text-lg px-8 py-6 h-auto rounded-xl shadow-lg hover:scale-105 transition-all duration-200 flex items-center gap-3"
+                      >
+                        <Store className="w-6 h-6" />
+                        تحميل التطبيق على متجر iOS
+                      </Button>
+                    </a>
                   </div>
                 </div>
               </CardContent>
@@ -90,16 +111,6 @@ export default function TarkeebPage() {
                         افتح متجر Google Play على جهاز Android
                       </p>
                     </div>
-                    
-                    {/* Photo Placeholder 1 */}
-                    <div className="bg-slate-900/50 rounded-xl p-8 border-2 border-dashed border-slate-600">
-                      <div className="aspect-video bg-slate-800 rounded-lg flex items-center justify-center">
-                        <div className="text-center">
-                          <Store className="w-16 h-16 text-slate-500 mx-auto mb-4" />
-                          <p className="text-slate-400">صورة - سيتم رفعها لاحقاً</p>
-                        </div>
-                      </div>
-                    </div>
 
                     <div className="flex items-start gap-4 p-4 bg-slate-900/50 rounded-lg border border-slate-700 hover:border-green-500/50 transition-colors">
                       <div className="flex-shrink-0 w-8 h-8 bg-green-600 rounded-full flex items-center justify-center text-white font-bold">
@@ -108,6 +119,17 @@ export default function TarkeebPage() {
                       <p className="text-slate-300 text-lg flex-1 pt-1">
                         ابحث عن تطبيق Downloader
                       </p>
+                    </div>
+                    
+                    {/* Photo Placeholder 1 */}
+                    <div className="bg-slate-900/50 rounded-xl p-4 md:p-8 border-2 border-slate-600">
+                      <div className="rounded-lg overflow-hidden">
+                        <img
+                          src="https://play-lh.googleusercontent.com/bN-XmCfiNAOZ6DSEKWCvhtGwiP5IeXhRJKNpfX_-7lUW9hCwhdqFcTqVmSB1edNayVw=w526-h296-rw"
+                          alt="Google Play Store"
+                          className="w-full h-auto rounded-lg"
+                        />
+                      </div>
                     </div>
 
                     <div className="flex items-start gap-4 p-4 bg-slate-900/50 rounded-lg border border-slate-700 hover:border-green-500/50 transition-colors">
@@ -134,12 +156,13 @@ export default function TarkeebPage() {
                     </div>
 
                     {/* Photo Placeholder 2 */}
-                    <div className="bg-slate-900/50 rounded-xl p-8 border-2 border-dashed border-slate-600">
-                      <div className="aspect-video bg-slate-800 rounded-lg flex items-center justify-center">
-                        <div className="text-center">
-                          <Store className="w-16 h-16 text-slate-500 mx-auto mb-4" />
-                          <p className="text-slate-400">صورة - سيتم رفعها لاحقاً</p>
-                        </div>
+                    <div className="bg-slate-900/50 rounded-xl p-4 md:p-8 border-2 border-slate-600">
+                      <div className="rounded-lg overflow-hidden">
+                        <img
+                          src="https://c.top4top.io/p_36017da5r1.png"
+                          alt="Downloader App"
+                          className="w-full h-auto rounded-lg"
+                        />
                       </div>
                     </div>
 
@@ -148,17 +171,18 @@ export default function TarkeebPage() {
                         5
                       </div>
                       <p className="text-slate-300 text-lg flex-1 pt-1">
-                        ثم تكتب رمز الاشتراك هنا ويضبط
+                        بعد التحميل تكتب اليوزر بس بدون كلمة السر في واجهة التطبيق ويضبط
                       </p>
                     </div>
 
                     {/* Photo Placeholder 3 */}
-                    <div className="bg-slate-900/50 rounded-xl p-8 border-2 border-dashed border-slate-600">
-                      <div className="aspect-video bg-slate-800 rounded-lg flex items-center justify-center">
-                        <div className="text-center">
-                          <Store className="w-16 h-16 text-slate-500 mx-auto mb-4" />
-                          <p className="text-slate-400">صورة - سيتم رفعها لاحقاً</p>
-                        </div>
+                    <div className="bg-slate-900/50 rounded-xl p-4 md:p-8 border-2 border-slate-600">
+                      <div className="rounded-lg overflow-hidden">
+                        <img
+                          src="https://image.winudf.com/v2/image1/Y29tLm1ibV9zb2Z0LmFyb21hNGtfc2NyZWVuXzBfMTYxNTI0ODY3OV8wNjY/screen-0.jpg?fakeurl=1&type=.jpg"
+                          alt="App Interface"
+                          className="w-full h-auto rounded-lg"
+                        />
                       </div>
                     </div>
                   </div>
@@ -222,6 +246,17 @@ export default function TarkeebPage() {
                       بعد التحميل سجل دخول باستخدام البيانات اللي حصلت عليها
                     </p>
                   </div>
+
+                  {/* Photo after Step 3 */}
+                  <div className="bg-slate-900/50 rounded-xl p-4 md:p-8 border-2 border-slate-600">
+                    <div className="rounded-lg overflow-hidden">
+                      <img
+                        src="https://f.top4top.io/p_36012t1mn1.jpeg"
+                        alt="Laptop App Interface"
+                        className="w-full h-auto rounded-lg"
+                      />
+                    </div>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -276,6 +311,17 @@ export default function TarkeebPage() {
                     <p className="text-slate-300 text-lg flex-1 pt-1">
                       بعد التحميل سجل دخول باستخدام البيانات اللي حصلت عليها
                     </p>
+                  </div>
+
+                  {/* Photo after Step 4 */}
+                  <div className="bg-slate-900/50 rounded-xl p-4 md:p-8 border-2 border-slate-600">
+                    <div className="rounded-lg overflow-hidden">
+                      <img
+                        src="https://f.top4top.io/p_36012t1mn1.jpeg"
+                        alt="Smart TV App Interface"
+                        className="w-full h-auto rounded-lg"
+                      />
+                    </div>
                   </div>
 
                   <div className="flex items-start gap-4 p-4 bg-slate-900/50 rounded-lg border border-slate-700 hover:border-red-500/50 transition-colors">
