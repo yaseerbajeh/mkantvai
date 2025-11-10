@@ -62,14 +62,16 @@ export default function Header() {
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-black/80 backdrop-blur-sm border-b border-slate-800">
-      <nav className="container mx-auto px-4 py-4 flex items-center justify-between">
+      <nav className="container mx-auto px-4 h-12 flex items-center justify-between overflow-visible">
         {/* Left side: Logo, الرئيسية, and Watchlist */}
         <div className="flex items-center gap-4">
+          {/* Logo - Size is independent from header height (h-10) */}
+          {/* Change logo size by modifying the h-* class below without affecting header height */}
           <Link href="/" className="flex items-center">
             <img 
-              src="/logos/logo.png" 
-              alt="Logo" 
-              className="h-10 w-auto"
+              src="https://f.top4top.io/p_3601uhadl1.png" 
+              alt="Mkantv Plus Logo" 
+              className="h-36 w-auto object-contain"
             />
           </Link>
           
