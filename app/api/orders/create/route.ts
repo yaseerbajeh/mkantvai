@@ -146,6 +146,41 @@ export async function POST(request: NextRequest) {
           subscriptionMeta = subscriptionData.meta || null;
         }
 
+        // Create active subscription entry if subscription was assigned
+        if (subscriptionData) {
+          try {
+            // First, temporarily update order status to 'approved' so auto_create_subscription_from_order can work
+            await supabaseAdmin
+              .from('orders')
+              .update({ status: 'approved' })
+              .eq('id', order.id);
+
+            // Now create active subscription entry
+            const { error: createSubError } = await supabaseAdmin.rpc(
+              'auto_create_subscription_from_order',
+              {
+                p_order_id: order.id,
+                p_subscription_type: null, // Will be determined by product category
+              }
+            );
+
+            // Update back to 'paid' status
+            await supabaseAdmin
+              .from('orders')
+              .update({ status: 'paid' })
+              .eq('id', order.id);
+
+            if (createSubError) {
+              console.error('Error creating active subscription:', createSubError);
+              // Non-critical error - subscription is assigned but active subscription creation failed
+              console.warn('Subscription assigned but active subscription creation failed:', createSubError.message);
+            }
+          } catch (createSubErr: any) {
+            console.error('Error in auto_create_subscription_from_order:', createSubErr);
+            // Non-critical error - continue
+          }
+        }
+
         const orderDisplayId = (order as any).order_number || order.id.slice(0, 8).toUpperCase();
         await sendApprovalEmail({
           orderId: orderDisplayId,
