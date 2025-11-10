@@ -649,7 +649,7 @@ export default function Home() {
           <div className="flex items-center justify-between mb-8">
             <div>
               <h2 className="text-3xl md:text-4xl font-bold mb-2">أحدث المسلسلات</h2>
-              <p className="text-slate-400">مسلسلات نتفلكس، HBO Max، أمازون برايم، و Apple TV+</p>
+              <p className="text-slate-400">مسلسلات نتفلكس شاهد واشتراك اروما</p>
             </div>
             <Link href="/latest?type=series">
               <Button variant="outline" className="border-blue-600 text-blue-400 hover:bg-blue-600 hover:text-white">

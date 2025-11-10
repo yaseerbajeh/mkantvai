@@ -170,14 +170,6 @@ export default function Header() {
             >
               الرئيسية
             </Link>
-            
-            <Link
-              href="/#how-it-works"
-              className="text-slate-300 hover:text-white transition py-2 text-base font-medium"
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              كيف يعمل
-            </Link>
             <Link
               href="/subscribe"
               className="text-slate-300 hover:text-white transition py-2 text-base font-medium flex items-center gap-2"

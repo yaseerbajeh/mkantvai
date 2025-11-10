@@ -1,0 +1,29 @@
+UI 
+1- edit /suggestion page to show the correct statistics +18000 movie and +9000 series. 
+also show the download feature and arabic dashboard feature exactly like in home page /
+
+2- أحدث المسلسلات fix subtitle to say مسلسلات نتفلكس شاهد واشتراك اروما
+3- whatsapp buton on footer, edit all foooter links.
+4- delete كيف يعمل tab in header.
+5- in /trial page, after user recieves his trial. remove Trial code box. معلومات الدخول is enought
+
+
+
+
+
+Backend
+1- in /trial . user added his phone number. then requested a trial code. but an error came
+يرجى ادخال رقم الواتس اب اولا, the entry got validated but the error message is wrong. there 
+was no stock in trial codes pool. the error should have said no stock available. after adding
+stock, code got fetched to user.
+
+
+2- 
+
+
+
+
+Operations
+1- add promo-code 20A 
+2- edit /tarkeeb page
+3- add customers info intro system. ( edit csv format according to what i have in my database)

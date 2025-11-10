@@ -9,7 +9,7 @@ import MovieCard from '@/components/MovieCard';
 import MovieModal from '@/components/MovieModal';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { RefreshCw, Sparkles, Film, ShoppingCart, Tv, Smartphone, Monitor, Laptop } from 'lucide-react';
+import { RefreshCw, Sparkles, Film, ShoppingCart, Tv, Smartphone, Monitor, Laptop, Languages, Download } from 'lucide-react';
 import { type Movie } from '@/lib/supabase';
 
 // Genre mapping: English database -> Arabic display
@@ -525,10 +525,10 @@ function SuggestionsPageContent() {
                 </div>
               </div>
               <div className="text-5xl md:text-6xl font-bold text-white mb-2" style={{ fontFamily: 'var(--font-arabic)' }}>
-                9000+
+                18000+
               </div>
               <p className="text-xl md:text-2xl text-slate-300" style={{ fontFamily: 'var(--font-arabic)' }}>
-                مكتبة أفلام فوق ال 9000 فلم
+                مكتبة أفلام فوق ال 18000 فلم
               </p>
             </div>
 
@@ -540,10 +540,10 @@ function SuggestionsPageContent() {
                 </div>
               </div>
               <div className="text-5xl md:text-6xl font-bold text-white mb-2" style={{ fontFamily: 'var(--font-arabic)' }}>
-                5000+
+                9000+
               </div>
               <p className="text-xl md:text-2xl text-slate-300" style={{ fontFamily: 'var(--font-arabic)' }}>
-                مكتبة مسلسلات فوق ال5000 مسلسل
+                مكتبة مسلسلات فوق ال9000 مسلسل
               </p>
             </div>
           </div>
@@ -592,6 +592,33 @@ function SuggestionsPageContent() {
               {/* Apple TV+ */}
               <div className="flex flex-col items-center justify-center p-4 bg-slate-800/50 rounded-xl hover:bg-slate-700/50 transition-all duration-300 hover:scale-110">
                 <img src="/logos/apple-tv.svg" alt="Apple TV+" className="h-12 w-auto mb-2 opacity-90 hover:opacity-100 transition-opacity" />
+              </div>
+            </div>
+          </div>
+
+          {/* App Features Section (match Home page) */}
+          <div className="grid md:grid-cols-2 gap-6 mb-16">
+            <div className="group relative bg-gradient-to-br from-cyan-600/20 to-teal-600/20 border border-cyan-500/30 rounded-2xl p-8 hover:border-cyan-400/50 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-cyan-500/20">
+              <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/10 to-transparent rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
+              <div className="relative z-10">
+                <div className="w-16 h-16 bg-gradient-to-br from-cyan-500 to-teal-600 rounded-xl flex items-center justify-center mb-6 mx-auto shadow-lg shadow-cyan-500/30">
+                  <Languages className="w-8 h-8 text-white" />
+                </div>
+                <p className="text-xl md:text-2xl text-white font-semibold text-center" style={{ fontFamily: 'var(--font-arabic)' }}>
+                  واجهة التطبيق عربية
+                </p>
+              </div>
+            </div>
+            
+            <div className="group relative bg-gradient-to-br from-orange-600/20 to-amber-600/20 border border-orange-500/30 rounded-2xl p-8 hover:border-orange-400/50 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-orange-500/20">
+              <div className="absolute inset-0 bg-gradient-to-br from-orange-500/10 to-transparent rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
+              <div className="relative z-10">
+                <div className="w-16 h-16 bg-gradient-to-br from-orange-500 to-amber-600 rounded-xl flex items-center justify-center mb-6 mx-auto shadow-lg shadow-orange-500/30">
+                  <Download className="w-8 h-8 text-white" />
+                </div>
+                <p className="text-xl md:text-2xl text-white font-semibold text-center" style={{ fontFamily: 'var(--font-arabic)' }}>
+                  امكانية تنزيل وتحميل المسلسلات والافلام والمتابعة بدون انترنت
+                </p>
               </div>
             </div>
           </div>
