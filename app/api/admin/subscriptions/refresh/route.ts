@@ -28,7 +28,7 @@ async function getAdminUser(request: NextRequest) {
   }
 
   // Check if user is admin
-  const adminEmails = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim());
+  const adminEmails = (process.env.ADMIN_EMAILS || process.env.NEXT_PUBLIC_ADMIN_EMAILS || '').split(',').map(e => e.trim());
   if (adminEmails.length > 0 && !adminEmails.includes(user.email || '')) {
     return null;
   }

@@ -106,6 +106,15 @@ export default function AdminOrdersPage() {
   const [creatingOrder, setCreatingOrder] = useState(false);
   const [availableSubscriptionCodes, setAvailableSubscriptionCodes] = useState<any[]>([]);
   const [loadingSubscriptionCodes, setLoadingSubscriptionCodes] = useState(false);
+  const [emailValidation, setEmailValidation] = useState<{
+    isValid: boolean | null;
+    isChecking: boolean;
+    message: string;
+  }>({
+    isValid: null,
+    isChecking: false,
+    message: '',
+  });
   const [manualOrderForm, setManualOrderForm] = useState({
     customer_name: '',
     customer_email: '',
@@ -660,7 +669,7 @@ export default function AdminOrdersPage() {
           product_name: manualOrderForm.product_name,
           price: parseFloat(manualOrderForm.price),
           payment_status: manualOrderForm.payment_status,
-          selected_subscription_code: manualOrderForm.selected_subscription_code || null,
+          selected_subscription_code: (manualOrderForm.selected_subscription_code && manualOrderForm.selected_subscription_code !== 'auto') ? manualOrderForm.selected_subscription_code : null,
         }),
       });
 
@@ -685,6 +694,11 @@ export default function AdminOrdersPage() {
         price: '',
         payment_status: 'unpaid',
         selected_subscription_code: '',
+      });
+      setEmailValidation({
+        isValid: null,
+        isChecking: false,
+        message: '',
       });
       setAvailableSubscriptionCodes([]);
       setManualOrderDialogOpen(false);
@@ -792,6 +806,88 @@ export default function AdminOrdersPage() {
       fetchAvailableSubscriptionCodes(product.product_code);
     }
   };
+
+  const checkEmailExists = async (email: string) => {
+    if (!email || !email.includes('@')) {
+      setEmailValidation({
+        isValid: null,
+        isChecking: false,
+        message: '',
+      });
+      return;
+    }
+
+    setEmailValidation({
+      isValid: null,
+      isChecking: true,
+      message: '',
+    });
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        setEmailValidation({
+          isValid: null,
+          isChecking: false,
+          message: '',
+        });
+        return;
+      }
+
+      const response = await fetch('/api/admin/users/check-email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ email }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        setEmailValidation({
+          isValid: false,
+          isChecking: false,
+          message: result.error || 'فشل التحقق من البريد الإلكتروني',
+        });
+        return;
+      }
+
+      setEmailValidation({
+        isValid: result.exists,
+        isChecking: false,
+        message: result.exists 
+          ? 'البريد الإلكتروني مسجل في النظام' 
+          : 'البريد الإلكتروني غير مسجل في النظام. يجب أن يكون العميل مسجلاً أولاً.',
+      });
+    } catch (error: any) {
+      console.error('Error checking email:', error);
+      setEmailValidation({
+        isValid: null,
+        isChecking: false,
+        message: '',
+      });
+    }
+  };
+
+  // Debounce email validation
+  useEffect(() => {
+    if (!manualOrderForm.customer_email) {
+      setEmailValidation({
+        isValid: null,
+        isChecking: false,
+        message: '',
+      });
+      return;
+    }
+
+    const timeoutId = setTimeout(() => {
+      checkEmailExists(manualOrderForm.customer_email);
+    }, 500); // Wait 500ms after user stops typing
+
+    return () => clearTimeout(timeoutId);
+  }, [manualOrderForm.customer_email]);
 
   const exportToCSV = () => {
     const headers = ['رقم الطلب', 'الاسم', 'البريد الإلكتروني', 'واتساب', 'المنتج', 'السعر', 'الحالة', 'التاريخ'];
@@ -1442,9 +1538,25 @@ export default function AdminOrdersPage() {
                 type="email"
                 value={manualOrderForm.customer_email}
                 onChange={(e) => setManualOrderForm({ ...manualOrderForm, customer_email: e.target.value })}
-                className="bg-slate-700 border-slate-600 text-white mt-1"
+                className={`bg-slate-700 border-slate-600 text-white mt-1 ${
+                  emailValidation.isValid === false ? 'border-red-500' : 
+                  emailValidation.isValid === true ? 'border-green-500' : ''
+                }`}
                 placeholder="email@example.com"
               />
+              {emailValidation.isChecking && (
+                <p className="text-xs text-slate-400 mt-1 flex items-center">
+                  <Loader2 className="h-3 w-3 ml-1 animate-spin" />
+                  جاري التحقق من البريد الإلكتروني...
+                </p>
+              )}
+              {!emailValidation.isChecking && emailValidation.message && (
+                <p className={`text-xs mt-1 ${
+                  emailValidation.isValid ? 'text-green-400' : 'text-red-400'
+                }`}>
+                  {emailValidation.message}
+                </p>
+              )}
             </div>
             <div>
               <Label>رقم الواتساب (اختياري)</Label>
@@ -1487,15 +1599,15 @@ export default function AdminOrdersPage() {
               <div className="col-span-2">
                 <Label>اختر رمز الاشتراك (اختياري)</Label>
                 <Select
-                  value={manualOrderForm.selected_subscription_code}
-                  onValueChange={(value) => setManualOrderForm({ ...manualOrderForm, selected_subscription_code: value })}
+                  value={manualOrderForm.selected_subscription_code || 'auto'}
+                  onValueChange={(value) => setManualOrderForm({ ...manualOrderForm, selected_subscription_code: value === 'auto' ? '' : value })}
                   disabled={loadingSubscriptionCodes}
                 >
                   <SelectTrigger className="bg-slate-700 border-slate-600 text-white mt-1">
                     <SelectValue placeholder="اختر رمز الاشتراك (سيتم اختيار واحد تلقائياً إذا لم تختر)" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">تلقائي (اختيار عشوائي)</SelectItem>
+                    <SelectItem value="auto">تلقائي (اختيار عشوائي)</SelectItem>
                     {availableSubscriptionCodes.map((sub) => (
                       <SelectItem key={sub.id} value={sub.subscription_code}>
                         {sub.subscription_code} {sub.subscription_meta?.duration ? `(${sub.subscription_meta.duration})` : ''}
@@ -1555,7 +1667,15 @@ export default function AdminOrdersPage() {
             </Button>
             <Button
               onClick={handleManualOrderSubmit}
-              disabled={creatingOrder || !manualOrderForm.customer_name || !manualOrderForm.customer_email || !manualOrderForm.product_name || !manualOrderForm.price}
+              disabled={
+                creatingOrder || 
+                !manualOrderForm.customer_name || 
+                !manualOrderForm.customer_email || 
+                !manualOrderForm.product_name || 
+                !manualOrderForm.price ||
+                emailValidation.isValid === false ||
+                emailValidation.isChecking
+              }
               className="bg-blue-600 hover:bg-blue-700"
             >
               {creatingOrder ? (
