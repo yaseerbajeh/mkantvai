@@ -233,26 +233,6 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    if (existingTrial) {
-      // Check if trial is expired
-      const expiresAt = new Date(existingTrial.expires_at);
-      const now = new Date();
-      
-      if (now < expiresAt) {
-        // Trial still valid
-        return NextResponse.json(
-          { error: 'مسموح تجربة واحدة فقط' },
-          { status: 400 }
-        );
-      }
-      // Trial expired, user can get a new one (optional - you might want to prevent this)
-      // For now, we'll allow only one trial ever
-      return NextResponse.json(
-        { error: 'مسموح تجربة واحدة فقط' },
-        { status: 400 }
-      );
-    }
-
     // Check if user has WhatsApp number saved
     let userWhatsapp: string | null = null;
     
@@ -282,6 +262,27 @@ export async function POST(request: NextRequest) {
           userWhatsapp = subscription.customer_phone;
         }
       }
+    }
+
+    // Check if user already has a valid trial (after checking WhatsApp)
+    if (existingTrial) {
+      // Check if trial is expired
+      const expiresAt = new Date(existingTrial.expires_at);
+      const now = new Date();
+      
+      if (now < expiresAt) {
+        // Trial still valid
+        return NextResponse.json(
+          { error: 'مسموح تجربة واحدة فقط' },
+          { status: 400 }
+        );
+      }
+      // Trial expired, user can get a new one (optional - you might want to prevent this)
+      // For now, we'll allow only one trial ever
+      return NextResponse.json(
+        { error: 'مسموح تجربة واحدة فقط' },
+        { status: 400 }
+      );
     }
 
     // Require WhatsApp before allowing trial code assignment
