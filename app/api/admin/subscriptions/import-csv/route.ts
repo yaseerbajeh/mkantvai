@@ -13,8 +13,8 @@ const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
 });
 
 interface CSVRow {
-  customer_name: string;
-  customer_email: string;
+  customer_name?: string;
+  customer_email?: string;
   customer_phone?: string;
   subscription_code: string;
   subscription_type: string;
@@ -32,7 +32,7 @@ function parseCSV(csvText: string): CSVRow[] {
 
   // Parse header
   const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
-  const requiredHeaders = ['customer_name', 'customer_email', 'subscription_code', 'subscription_type', 'subscription_duration', 'expiration_date', 'start_date'];
+  const requiredHeaders = ['subscription_code', 'subscription_type', 'subscription_duration', 'expiration_date', 'start_date'];
   
   for (const header of requiredHeaders) {
     if (!headers.includes(header)) {
@@ -54,8 +54,8 @@ function parseCSV(csvText: string): CSVRow[] {
     });
 
     // Validate required fields
-    if (!row.customer_name || !row.customer_email || !row.subscription_code) {
-      throw new Error(`Row ${i + 1} is missing required fields`);
+    if (!row.subscription_code) {
+      throw new Error(`Row ${i + 1} is missing required field: subscription_code`);
     }
 
     rows.push(row as CSVRow);
@@ -166,8 +166,8 @@ export async function POST(request: NextRequest) {
         }
 
         subscriptions.push({
-          customer_name: row.customer_name,
-          customer_email: row.customer_email,
+          customer_name: row.customer_name || null,
+          customer_email: row.customer_email || null,
           customer_phone: row.customer_phone || null,
           subscription_code: row.subscription_code,
           subscription_type: subscriptionType,

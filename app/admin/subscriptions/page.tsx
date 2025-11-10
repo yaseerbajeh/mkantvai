@@ -537,7 +537,7 @@ export default function AdminSubscriptionsPage() {
       exampleRow.join(','),
       '', // Empty row for clarity
       '# ملاحظات:',
-      '# - customer_phone و product_code حقول اختيارية',
+      '# - customer_name و customer_email و customer_phone و product_code حقول اختيارية',
       '# - product_code: إذا تم إدخاله، سيتم جلب المدة من جدول المنتجات تلقائياً',
       '# - product_code: عند استخدامه، سيتم حساب expiration_date تلقائياً بناءً على start_date والمدة',
       '# - subscription_type: يمكن أن يكون اسم التصنيف (مثل "اشتراكات IPTV" أو "نتـFlix") أو الأنواع القديمة (iptv, shahid, netflix, package)',
