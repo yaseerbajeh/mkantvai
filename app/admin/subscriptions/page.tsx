@@ -324,6 +324,30 @@ export default function AdminSubscriptionsPage() {
         return;
       }
 
+      // Fetch all valid category names to check if manually set categories are valid
+      const { data: validCategories } = await supabase
+        .from('categories')
+        .select('name, name_en')
+        .eq('is_active', true);
+
+      // Create a set of valid category names (both Arabic and English)
+      const validCategoryNames = new Set<string>();
+      if (validCategories) {
+        validCategories.forEach((cat) => {
+          if (cat.name) validCategoryNames.add(cat.name);
+          if (cat.name_en) validCategoryNames.add(cat.name_en);
+        });
+      }
+
+      // Helper function to check if a subscription_type is a valid category name
+      const isValidCategoryName = (subscriptionType: string | null | undefined): boolean => {
+        if (!subscriptionType) return false;
+        return validCategoryNames.has(subscriptionType);
+      };
+
+      // Old format subscription types that should be overridden
+      const oldFormats = ['iptv', 'shahid', 'netflix', 'package'];
+
       // Get unique product codes from subscriptions
       const productCodes = [...new Set((subscriptionsData || [])
         .map((sub: any) => sub.product_code)
@@ -373,6 +397,22 @@ export default function AdminSubscriptionsPage() {
           sub.product_code
         );
         
+        // Check if current subscription_type should be preserved or overridden
+        const currentSubscriptionType = sub.subscription_type;
+        const isCurrentTypeValid = isValidCategoryName(currentSubscriptionType);
+        const isCurrentTypeOldFormat = currentSubscriptionType && oldFormats.includes(currentSubscriptionType.toLowerCase());
+        
+        // Only override if:
+        // 1. Current type is empty/null
+        // 2. Current type is an old format (iptv, shahid, netflix, package)
+        // 3. Current type is not a valid category name
+        let finalSubscriptionType = currentSubscriptionType;
+        if (!currentSubscriptionType || isCurrentTypeOldFormat || !isCurrentTypeValid) {
+          // Override with the correct type from product category
+          finalSubscriptionType = correctSubscriptionType;
+        }
+        // Otherwise, preserve the manually set valid category
+        
         // Check if expiration_date needs to be recalculated based on product duration
         let expirationDate = sub.expiration_date;
         
@@ -412,8 +452,10 @@ export default function AdminSubscriptionsPage() {
           console.log('Subscription type determination:', {
             productCode: sub.product_code,
             categoryName: categoryName,
+            currentType: currentSubscriptionType,
+            isCurrentTypeValid: isCurrentTypeValid,
             determinedType: correctSubscriptionType,
-            oldType: sub.subscription_type
+            finalType: finalSubscriptionType
           });
         }
         
@@ -421,7 +463,7 @@ export default function AdminSubscriptionsPage() {
           ...sub,
           expiration_date: expirationDate,
           due_days: calculateDueDays(expirationDate),
-          subscription_type: correctSubscriptionType, // Override with category-based type from categories table
+          subscription_type: finalSubscriptionType, // Preserve valid manually set categories, override only if needed
         };
       });
 
