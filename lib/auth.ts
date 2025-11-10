@@ -24,7 +24,32 @@ export async function signUp(email: string, password: string): Promise<AuthResul
     });
 
     if (error) {
+      // Check for specific error messages that indicate email already exists
+      const errorMessage = error.message.toLowerCase();
+      if (errorMessage.includes('user already registered') || 
+          errorMessage.includes('email already exists') ||
+          errorMessage.includes('already registered') ||
+          error.status === 422) {
+        return { 
+          error: { 
+            message: 'هذا البريد الإلكتروني مسجل بالفعل. يرجى تسجيل الدخول بدلاً من ذلك.', 
+            code: 'email_already_exists' 
+          } 
+        };
+      }
       return { error: { message: error.message, code: error.status?.toString() || error.name } };
+    }
+
+    // Check if user already exists (has confirmed email)
+    // Supabase doesn't return an error for existing emails to prevent enumeration,
+    // but we can detect it by checking if email_confirmed_at is already set
+    if (data?.user && data.user.email_confirmed_at) {
+      return { 
+        error: { 
+          message: 'هذا البريد الإلكتروني مسجل بالفعل. يرجى تسجيل الدخول بدلاً من ذلك.', 
+          code: 'email_already_exists' 
+        } 
+      };
     }
 
     return { error: null, data };
