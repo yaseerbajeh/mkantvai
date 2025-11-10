@@ -84,38 +84,36 @@ export async function POST(request: NextRequest) {
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
     // Check if the email exists in authentication system
-    // Only check for paid orders since unpaid orders can be created for any email
-    if (payment_status === 'paid') {
-      try {
-        // Use listUsers with filter to check if user exists by email
-        // This is more efficient than listing all users
-        const { data: authUsers, error: authError } = await supabaseAdmin.auth.admin.listUsers();
-        
-        if (authError) {
-          console.error('Error checking user existence:', authError);
-          return NextResponse.json(
-            { error: 'فشل التحقق من وجود المستخدم. يرجى المحاولة مرة أخرى.' },
-            { status: 500 }
-          );
-        }
-
-        const userExists = authUsers?.users?.some(user => 
-          user.email?.toLowerCase() === customer_email.toLowerCase()
-        );
-
-        if (!userExists) {
-          return NextResponse.json(
-            { error: `البريد الإلكتروني ${customer_email} غير مسجل في النظام. يجب أن يكون العميل مسجلاً أولاً قبل إنشاء طلب مدفوع.` },
-            { status: 400 }
-          );
-        }
-      } catch (authCheckError: any) {
-        console.error('Error checking user existence:', authCheckError);
+    // Required for both paid and unpaid orders - user must be signed up
+    try {
+      // Use listUsers with filter to check if user exists by email
+      // This is more efficient than listing all users
+      const { data: authUsers, error: authError } = await supabaseAdmin.auth.admin.listUsers();
+      
+      if (authError) {
+        console.error('Error checking user existence:', authError);
         return NextResponse.json(
-          { error: 'حدث خطأ أثناء التحقق من وجود المستخدم. يرجى المحاولة مرة أخرى.' },
+          { error: 'فشل التحقق من وجود المستخدم. يرجى المحاولة مرة أخرى.' },
           { status: 500 }
         );
       }
+
+      const userExists = authUsers?.users?.some(user => 
+        user.email?.toLowerCase() === customer_email.toLowerCase()
+      );
+
+      if (!userExists) {
+        return NextResponse.json(
+          { error: `البريد الإلكتروني ${customer_email} غير مسجل في النظام. يجب أن يكون العميل مسجلاً أولاً قبل إنشاء طلب.` },
+          { status: 400 }
+        );
+      }
+    } catch (authCheckError: any) {
+      console.error('Error checking user existence:', authCheckError);
+      return NextResponse.json(
+        { error: 'حدث خطأ أثناء التحقق من وجود المستخدم. يرجى المحاولة مرة أخرى.' },
+        { status: 500 }
+      );
     }
 
     // Prepare order data

@@ -22,3 +22,4 @@ DROP POLICY IF EXISTS "Authenticated users can manage payment links" ON public.p
 -- Drop the table
 DROP TABLE IF EXISTS public.paypal_payment_links;
 
+

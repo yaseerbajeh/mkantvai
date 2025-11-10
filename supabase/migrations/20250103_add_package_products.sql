@@ -39,3 +39,4 @@ GROUP BY product_code, subscription_meta->>'type';
 
 
 
+

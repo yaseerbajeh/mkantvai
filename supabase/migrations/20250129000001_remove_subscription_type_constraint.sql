@@ -7,3 +7,4 @@ DROP CONSTRAINT IF EXISTS active_subscriptions_subscription_type_check;
 
 -- Note: subscription_type can now be any text value (category name)
 
+
