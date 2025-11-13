@@ -41,11 +41,27 @@ export default function AuthDialog({ open, onOpenChange, onSuccess }: AuthDialog
     const result = await signIn(signInData.email, signInData.password);
 
     if (result.error) {
-      toast({
-        title: 'خطأ',
-        description: result.error.message || 'فشل تسجيل الدخول',
-        variant: 'destructive',
-      });
+      // Check if it's invalid credentials error
+      const errorMessage = result.error.message.toLowerCase();
+      if (errorMessage.includes('invalid login credentials') || 
+          errorMessage.includes('invalid credentials') ||
+          (errorMessage.includes('email') && errorMessage.includes('password'))) {
+        toast({
+          title: 'خطأ',
+          description: 'لا يوجد ايميل بهذه المعلومات. تأكد انك مسجل في المنصة. سجل هنا',
+          variant: 'destructive',
+        });
+        // Switch to signup tab after a short delay
+        setTimeout(() => {
+          setActiveTab('signup');
+        }, 100);
+      } else {
+        toast({
+          title: 'خطأ',
+          description: result.error.message || 'فشل تسجيل الدخول',
+          variant: 'destructive',
+        });
+      }
       setIsLoading(false);
       return;
     }

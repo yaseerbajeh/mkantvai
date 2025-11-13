@@ -91,7 +91,15 @@ export default function AuthForm() {
     const result = await signIn(data.email, data.password);
 
     if (result.error) {
-      setError(result.error.message);
+      // Check if it's invalid credentials error
+      const errorMessage = result.error.message.toLowerCase();
+      if (errorMessage.includes('invalid login credentials') || 
+          errorMessage.includes('invalid credentials') ||
+          errorMessage.includes('email') && errorMessage.includes('password')) {
+        setError('invalid_credentials');
+      } else {
+        setError(result.error.message);
+      }
       setIsLoading(false);
       return;
     }
@@ -301,7 +309,26 @@ export default function AuthForm() {
                 </Button>
               </div>
 
-              {error && (
+              {error && error === 'invalid_credentials' && (
+                <Alert variant="destructive" className="bg-red-900/30 border-red-500/50">
+                  <AlertCircle className="h-4 w-4 text-red-400" />
+                  <AlertDescription className="text-red-300">
+                    <div className="flex flex-col gap-2">
+                      <span>لا يوجد ايميل بهذه المعلومات. تأكد انك مسجل في المنصة.</span>
+                      <Button
+                        type="button"
+                        variant="link"
+                        onClick={() => setActiveTab('signup')}
+                        className="text-blue-400 hover:text-blue-300 p-0 h-auto font-semibold text-sm w-fit"
+                      >
+                        سجل هنا
+                      </Button>
+                    </div>
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {error && error !== 'invalid_credentials' && (
                 <Alert variant="destructive" className="bg-red-900/30 border-red-500/50">
                   <AlertCircle className="h-4 w-4 text-red-400" />
                   <AlertDescription className="text-red-300">{error}</AlertDescription>
@@ -483,7 +510,26 @@ export default function AuthForm() {
                 )}
               </div>
 
-              {error && (
+              {error && error === 'invalid_credentials' && (
+                <Alert variant="destructive" className="bg-red-900/30 border-red-500/50">
+                  <AlertCircle className="h-4 w-4 text-red-400" />
+                  <AlertDescription className="text-red-300">
+                    <div className="flex flex-col gap-2">
+                      <span>لا يوجد ايميل بهذه المعلومات. تأكد انك مسجل في المنصة.</span>
+                      <Button
+                        type="button"
+                        variant="link"
+                        onClick={() => setActiveTab('signup')}
+                        className="text-blue-400 hover:text-blue-300 p-0 h-auto font-semibold text-sm w-fit"
+                      >
+                        سجل هنا
+                      </Button>
+                    </div>
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {error && error !== 'invalid_credentials' && (
                 <Alert variant="destructive" className="bg-red-900/30 border-red-500/50">
                   <AlertCircle className="h-4 w-4 text-red-400" />
                   <AlertDescription className="text-red-300">{error}</AlertDescription>
