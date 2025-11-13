@@ -32,6 +32,7 @@ export default function OrderPage() {
   const [authDialogOpen, setAuthDialogOpen] = useState(false);
   const [showAuthOptions, setShowAuthOptions] = useState(false);
   const [choseVisitorCheckout, setChoseVisitorCheckout] = useState(false);
+  const [activeTab, setActiveTab] = useState<'signin' | 'signup'>('signin');
   
   const [formData, setFormData] = useState({
     name: '',
@@ -40,6 +41,7 @@ export default function OrderPage() {
   });
 
   const [authData, setAuthData] = useState({
+    name: '',
     email: '',
     password: '',
     confirmPassword: '',
@@ -153,7 +155,7 @@ export default function OrderPage() {
   };
 
   const handleSignUp = async () => {
-    if (!authData.email || !authData.password || !authData.confirmPassword) {
+    if (!authData.name || !authData.email || !authData.password || !authData.confirmPassword) {
       toast({
         title: 'خطأ',
         description: 'يرجى ملء جميع الحقول',
@@ -172,7 +174,7 @@ export default function OrderPage() {
     }
 
     setSubmitting(true);
-    const result = await signUp(authData.email, authData.password);
+    const result = await signUp(authData.email, authData.password, authData.name);
     
     if (result.error) {
       toast({
@@ -564,7 +566,7 @@ export default function OrderPage() {
               اختر طريقة المتابعة
             </DialogDescription>
           </DialogHeader>
-          <Tabs defaultValue="signin" className="w-full">
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'signin' | 'signup')} className="w-full">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="signin">تسجيل الدخول</TabsTrigger>
               <TabsTrigger value="signup">إنشاء حساب</TabsTrigger>
@@ -600,6 +602,19 @@ export default function OrderPage() {
               >
                 {submitting ? <Loader2 className="ml-2 h-4 w-4 animate-spin" /> : 'تسجيل الدخول'}
               </Button>
+
+              <div className="text-center pt-2">
+                <span className="text-slate-400 text-sm">ماعندك حساب؟ </span>
+                <Button
+                  type="button"
+                  variant="link"
+                  onClick={() => setActiveTab('signup')}
+                  className="text-sm text-blue-400 hover:text-blue-300 p-0 h-auto font-semibold"
+                >
+                  سجل
+                </Button>
+              </div>
+
               <Button 
                 variant="outline"
                 onClick={handleVisitorCheckout}
@@ -609,6 +624,18 @@ export default function OrderPage() {
               </Button>
             </TabsContent>
             <TabsContent value="signup" className="space-y-4 mt-4">
+              <div className="space-y-2">
+                <Label htmlFor="signup-name">الاسم</Label>
+                <Input
+                  id="signup-name"
+                  type="text"
+                  value={authData.name}
+                  onChange={(e) => setAuthData({ ...authData, name: e.target.value })}
+                  className="bg-slate-900 border-slate-700 text-white"
+                  placeholder="أدخل اسمك"
+                  dir="rtl"
+                />
+              </div>
               <div className="space-y-2">
                 <Label htmlFor="signup-email">البريد الإلكتروني</Label>
                 <Input

@@ -11,50 +11,29 @@ export type AuthResult = {
 };
 
 /**
- * Sign up a new user with email and password
+ * Sign up a new user with email, password, and name
  */
-export async function signUp(email: string, password: string): Promise<AuthResult> {
+export async function signUp(email: string, password: string, name?: string): Promise<AuthResult> {
   try {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         emailRedirectTo: `${window.location.origin}/auth/callback`,
+        data: {
+          full_name: name || '',
+        },
       },
     });
 
     if (error) {
-      // Check for specific error messages that indicate email already exists
-      const errorMessage = error.message.toLowerCase();
-      if (errorMessage.includes('user already registered') || 
-          errorMessage.includes('email already exists') ||
-          errorMessage.includes('already registered') ||
-          error.status === 422) {
-        return { 
-          error: { 
-            message: 'هذا البريد الإلكتروني مسجل بالفعل. يرجى تسجيل الدخول بدلاً من ذلك.', 
-            code: 'email_already_exists' 
-          } 
-        };
-      }
       return { error: { message: error.message, code: error.status?.toString() || error.name } };
     }
 
-    // Check if user already exists (has confirmed email)
-    // Supabase doesn't return an error for existing emails to prevent enumeration,
-    // but we can detect it by checking if email_confirmed_at is already set
-    if (data?.user && data.user.email_confirmed_at) {
-      return { 
-        error: { 
-          message: 'هذا البريد الإلكتروني مسجل بالفعل. يرجى تسجيل الدخول بدلاً من ذلك.', 
-          code: 'email_already_exists' 
-        } 
-      };
-    }
-
     return { error: null, data };
-  } catch (err) {
-    return { error: { message: 'حدث خطأ غير متوقع' } };
+  } catch (err: any) {
+    console.error('Sign up error:', err);
+    return { error: { message: err?.message || 'حدث خطأ غير متوقع' } };
   }
 }
 
@@ -73,8 +52,9 @@ export async function signIn(email: string, password: string): Promise<AuthResul
     }
 
     return { error: null, data };
-  } catch (err) {
-    return { error: { message: 'حدث خطأ غير متوقع' } };
+  } catch (err: any) {
+    console.error('Sign in error:', err);
+    return { error: { message: err?.message || 'حدث خطأ غير متوقع' } };
   }
 }
 

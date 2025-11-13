@@ -137,19 +137,157 @@ export default function SubscribePage() {
       <Header />
       <main className="container mx-auto px-4 py-16 pt-28">
         <div className="max-w-7xl mx-auto">
-          {/* Hero Header */}
-          <div className="text-center mb-16">
-            <div className="inline-block mb-6">
-              <span className="px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 text-white text-sm font-semibold rounded-full">
-                خطط الاشتراك الحصرية
-              </span>
+          {/* Hero Banner */}
+          <div className="relative mb-20 overflow-hidden rounded-3xl">
+            {/* Animated Background */}
+            <div className="absolute inset-0 bg-gradient-to-br from-blue-600/20 via-purple-600/20 to-cyan-600/20 bg-[length:200%_200%] animate-gradient-shift">
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(59,130,246,0.3),transparent_50%)] animate-pulse-slow" />
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_80%,rgba(168,85,247,0.3),transparent_50%)] animate-pulse-slow" style={{ animationDelay: '1s' }} />
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(6,182,212,0.2),transparent_50%)] animate-pulse-slow" style={{ animationDelay: '2s' }} />
             </div>
-            <h1 className="text-5xl md:text-7xl font-extrabold mb-6 bg-gradient-to-r from-white via-blue-100 to-cyan-100 bg-clip-text text-transparent">
-              خطط الاشتراك
-            </h1>
-            <p className="text-xl md:text-2xl text-slate-300 max-w-2xl mx-auto">
-              اختر الباقة المناسبة لك واستمتع بمحتوى حصري وجودة فائقة
-            </p>
+
+            {/* Content */}
+            <div className="relative z-10 px-6 md:px-12 py-16 md:py-24">
+              {/* Main Headline */}
+              <div className="text-center mb-12">
+                <h1 className="text-5xl md:text-7xl lg:text-8xl font-extrabold mb-6 bg-gradient-to-r from-white via-blue-200 to-cyan-200 bg-clip-text text-transparent animate-fade-in">
+                  خطط الاشتراك الحصرية
+                </h1>
+                <p className="text-xl md:text-2xl lg:text-3xl text-slate-200 max-w-3xl mx-auto mb-8 leading-relaxed">
+                  اختر الباقة المناسبة لك واستمتع بمحتوى حصري وجودة فائقة
+                </p>
+                <div className="flex flex-wrap justify-center gap-4 mb-8">
+                  <Button
+                    onClick={() => {
+                      const firstCategory = Object.keys(productsByCategory)[0];
+                      if (firstCategory) {
+                        document.getElementById(`category-${firstCategory}`)?.scrollIntoView({ behavior: 'smooth' });
+                      }
+                    }}
+                    className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white font-bold px-8 py-6 text-lg md:text-xl shadow-2xl hover:shadow-blue-500/50 transition-all duration-300 hover:scale-105"
+                    disabled={loading || Object.keys(productsByCategory).length === 0}
+                  >
+                    <span>استكشف الخطط</span>
+                    <ArrowRight className="mr-2 h-6 w-6" />
+                  </Button>
+                </div>
+              </div>
+
+              {/* Categories Showcase */}
+              {!loading && Object.keys(productsByCategory).length > 0 && (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mt-12">
+                  {Object.keys(productsByCategory).slice(0, 4).map((categoryId, idx) => {
+                    const category = productsByCategory[categoryId];
+                    const categoryTitle = categoryTitles[categoryId] || 'غير محدد';
+                    const firstProduct = category[0];
+                    if (!firstProduct) return null;
+
+                    const delay = idx * 100;
+                    const productCount = category.length;
+
+                    // Get category-specific icon based on category title
+                    const getCategoryIcon = (title: string) => {
+                      const titleLower = title.toLowerCase();
+                      // Match Netflix variations: نتـFlix, نتflix, netflix, نتفليكس
+                      if (titleLower.includes('نت') && (titleLower.includes('flix') || titleLower.includes('فليكس'))) {
+                        return '/logos/netflix.svg';
+                      } else if (titleLower.includes('netflix')) {
+                        return '/logos/netflix.svg';
+                      } else if (titleLower.includes('شاه') || titleLower.includes('shahid')) {
+                        return 'https://c.top4top.io/p_35923vyyf1.jpeg';
+                      } else if (titleLower.includes('أروما') || titleLower.includes('iptv') || titleLower.includes('اروما')) {
+                        return '/logos/iptv.png';
+                      }
+                      return null;
+                    };
+
+                    const categoryIcon = getCategoryIcon(categoryTitle);
+                    const isNetflixCategory = categoryIcon === '/logos/netflix.svg';
+
+                    return (
+                      <div
+                        key={categoryId}
+                        onClick={() => {
+                          document.getElementById(`category-${categoryId}`)?.scrollIntoView({ behavior: 'smooth' });
+                        }}
+                        className="group relative cursor-pointer"
+                      >
+                        <div
+                          className="relative h-full bg-gradient-to-br from-slate-800/90 to-slate-900/90 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 hover:border-slate-500 transition-all duration-300 hover:shadow-2xl hover:shadow-blue-500/20 hover:-translate-y-2 overflow-hidden"
+                          style={{ animationDelay: `${delay}ms` }}
+                        >
+                          {/* Netflix Icon Overlay for Netflix category - Always visible, behind gradient */}
+                          {isNetflixCategory && (
+                            <div className="absolute inset-0 flex items-center justify-center opacity-5 group-hover:opacity-10 transition-opacity pointer-events-none z-0">
+                              <img
+                                src="/logos/netflix.svg"
+                                alt="Netflix"
+                                className="h-32 w-32 md:h-40 md:w-40 object-contain"
+                              />
+                            </div>
+                          )}
+                          
+                          {/* Gradient Overlay */}
+                          <div className={`absolute inset-0 bg-gradient-to-br ${firstProduct.gradient} opacity-0 group-hover:opacity-20 transition-opacity duration-300 pointer-events-none z-0`} />
+                          
+                          {/* Category Icon/Logo */}
+                          <div className="flex items-center justify-center mb-4 h-16">
+                            {categoryIcon ? (
+                              <div className="bg-white/10 backdrop-blur-sm rounded-lg p-2 border border-white/20 group-hover:scale-110 transition-transform">
+                                <img
+                                  src={categoryIcon}
+                                  alt={`${categoryTitle} logo`}
+                                  className="h-12 w-12 object-contain"
+                                />
+                              </div>
+                            ) : firstProduct.logos && firstProduct.logos.length > 0 ? (
+                              <div className="flex items-center gap-2">
+                                {firstProduct.logos.slice(0, 2).map((logo: string, logoIdx: number) => (
+                                  <div key={logoIdx} className="bg-white/10 backdrop-blur-sm rounded-lg p-2 border border-white/20 group-hover:scale-110 transition-transform">
+                                    <img
+                                      src={logo}
+                                      alt={`${categoryTitle} logo`}
+                                      className="h-8 w-8 object-contain"
+                                    />
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 border border-white/20 group-hover:scale-110 transition-transform">
+                                <Package className="h-10 w-10 text-white" />
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Category Info */}
+                          <div className="relative z-10 text-center">
+                            <h3 className="text-xl font-bold text-white mb-2 group-hover:text-blue-300 transition-colors">
+                              {categoryTitle}
+                            </h3>
+                            <p className="text-sm text-slate-400 mb-4">
+                              {productCount} {productCount === 1 ? 'منتج' : 'منتجات'} متاحة
+                            </p>
+                            <div className="flex items-center justify-center gap-2 text-blue-400">
+                              <span className="text-sm font-semibold">استكشف الفئة</span>
+                              <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Loading State for Categories */}
+              {loading && (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mt-12">
+                  {[1, 2, 3, 4].map((i) => (
+                    <div key={i} className="h-48 bg-slate-800/50 rounded-2xl animate-pulse" />
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
           {loading ? (
@@ -169,7 +307,7 @@ export default function SubscribePage() {
               if (!category || category.length === 0) return null;
               
               return (
-                <div key={categoryId} className="mb-20">
+                <div key={categoryId} id={`category-${categoryId}`} className="mb-20 scroll-mt-20">
                   {/* Category Header */}
                   <div className="mb-8 text-center">
                     <h2 className="text-3xl md:text-4xl font-bold text-white mb-2 inline-block">
