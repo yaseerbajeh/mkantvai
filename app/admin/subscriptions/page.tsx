@@ -198,10 +198,11 @@ export default function AdminSubscriptionsPage() {
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(sub =>
-        sub.customer_name.toLowerCase().includes(query) ||
-        sub.customer_email.toLowerCase().includes(query) ||
-        sub.customer_phone?.toLowerCase().includes(query) ||
-        sub.subscription_code.toLowerCase().includes(query)
+        (sub.id && sub.id.toLowerCase().includes(query)) ||
+        (sub.customer_name && sub.customer_name.toLowerCase().includes(query)) ||
+        (sub.customer_email && sub.customer_email.toLowerCase().includes(query)) ||
+        (sub.customer_phone && sub.customer_phone.toLowerCase().includes(query)) ||
+        (sub.subscription_code && sub.subscription_code.toLowerCase().includes(query))
       );
     }
 
@@ -1252,7 +1253,7 @@ export default function AdminSubscriptionsPage() {
               <div className="relative">
                 <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 h-4 w-4" />
                 <Input
-                  placeholder="البحث عن اشتراك..."
+                  placeholder="بحث برقم الاشتراك (#)، الاسم، البريد الإلكتروني، أو رمز الاشتراك..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pr-10 bg-slate-800/50 border-slate-700 text-white"

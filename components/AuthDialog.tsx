@@ -7,9 +7,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { signIn, signUp, signInWithGoogle, signInWithTwitter } from '@/lib/auth';
+import { signIn, signUp, signInWithGoogle } from '@/lib/auth';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Mail, Lock, UserPlus, LogIn } from 'lucide-react';
+import { Loader2, Mail, Lock, UserPlus, LogIn, User } from 'lucide-react';
 
 interface AuthDialogProps {
   open: boolean;
@@ -22,9 +22,9 @@ export default function AuthDialog({ open, onOpenChange, onSuccess }: AuthDialog
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<'signin' | 'signup'>('signin');
   const [isLoading, setIsLoading] = useState(false);
-  const [oauthLoading, setOauthLoading] = useState<'google' | 'twitter' | null>(null);
+  const [oauthLoading, setOauthLoading] = useState<'google' | null>(null);
   const [signInData, setSignInData] = useState({ email: '', password: '' });
-  const [signUpData, setSignUpData] = useState({ email: '', password: '', confirmPassword: '' });
+  const [signUpData, setSignUpData] = useState({ name: '', email: '', password: '', confirmPassword: '' });
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -66,7 +66,7 @@ export default function AuthDialog({ open, onOpenChange, onSuccess }: AuthDialog
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!signUpData.email || !signUpData.password || !signUpData.confirmPassword) {
+    if (!signUpData.name || !signUpData.email || !signUpData.password || !signUpData.confirmPassword) {
       toast({
         title: 'خطأ',
         description: 'يرجى ملء جميع الحقول',
@@ -94,7 +94,7 @@ export default function AuthDialog({ open, onOpenChange, onSuccess }: AuthDialog
     }
 
     setIsLoading(true);
-    const result = await signUp(signUpData.email, signUpData.password);
+    const result = await signUp(signUpData.email, signUpData.password, signUpData.name);
 
     if (result.error) {
       toast({
@@ -108,12 +108,16 @@ export default function AuthDialog({ open, onOpenChange, onSuccess }: AuthDialog
 
     toast({
       title: 'نجح',
-      description: 'تم إنشاء الحساب بنجاح! يرجى التحقق من بريدك الإلكتروني',
+      description: 'تم إنشاء الحساب بنجاح!',
     });
 
     setIsLoading(false);
-    setActiveTab('signin');
-    setSignUpData({ email: signUpData.email, password: '', confirmPassword: '' });
+    onOpenChange(false);
+    if (onSuccess) {
+      onSuccess();
+    } else {
+      router.refresh();
+    }
   };
 
   const handleGoogleSignIn = async () => {
@@ -130,19 +134,6 @@ export default function AuthDialog({ open, onOpenChange, onSuccess }: AuthDialog
     // If successful, user will be redirected by OAuth flow
   };
 
-  const handleTwitterSignIn = async () => {
-    setOauthLoading('twitter');
-    const result = await signInWithTwitter();
-    if (result.error) {
-      toast({
-        title: 'خطأ',
-        description: result.error.message || 'فشل تسجيل الدخول مع X',
-        variant: 'destructive',
-      });
-      setOauthLoading(null);
-    }
-    // If successful, user will be redirected by OAuth flow
-  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -160,17 +151,17 @@ export default function AuthDialog({ open, onOpenChange, onSuccess }: AuthDialog
           </TabsList>
           <TabsContent value="signin" className="space-y-4 mt-4">
             {/* OAuth Buttons */}
-            <div className="grid grid-cols-2 gap-3">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleGoogleSignIn}
-                disabled={isLoading || oauthLoading !== null}
-                className="h-10 border-slate-600 bg-white hover:bg-gray-50 dark:bg-slate-700 dark:hover:bg-slate-600 p-0 flex items-center justify-center transition-all"
-              >
-                {oauthLoading === 'google' ? (
-                  <Loader2 className="h-4 w-4 animate-spin text-slate-600 dark:text-slate-300" />
-                ) : (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleGoogleSignIn}
+              disabled={isLoading || oauthLoading !== null}
+              className="w-full h-10 border-slate-600 bg-white hover:bg-gray-50 dark:bg-slate-700 dark:hover:bg-slate-600 flex items-center justify-center gap-3 transition-all"
+            >
+              {oauthLoading === 'google' ? (
+                <Loader2 className="h-4 w-4 animate-spin text-slate-600 dark:text-slate-300" />
+              ) : (
+                <>
                   <svg className="h-4 w-4" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                     <path
                       d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -189,24 +180,10 @@ export default function AuthDialog({ open, onOpenChange, onSuccess }: AuthDialog
                       fill="#EA4335"
                     />
                   </svg>
-                )}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleTwitterSignIn}
-                disabled={isLoading || oauthLoading !== null}
-                className="h-10 border-slate-600 bg-black hover:bg-gray-900 dark:bg-slate-900 dark:hover:bg-slate-800 p-0 flex items-center justify-center transition-all"
-              >
-                {oauthLoading === 'twitter' ? (
-                  <Loader2 className="h-4 w-4 animate-spin text-white" />
-                ) : (
-                  <svg className="h-4 w-4 text-white" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
-                  </svg>
-                )}
-              </Button>
-            </div>
+                  <span className="text-slate-700 dark:text-slate-200 font-medium text-sm">سجل دخول باستخدام جوجل</span>
+                </>
+              )}
+            </Button>
 
             {/* Divider */}
             <div className="relative">
@@ -228,7 +205,7 @@ export default function AuthDialog({ open, onOpenChange, onSuccess }: AuthDialog
                   onChange={(e) => setSignInData({ ...signInData, email: e.target.value })}
                   className="bg-slate-700 border-slate-600 text-white"
                   placeholder="example@email.com"
-                  dir="ltr"
+                  dir="rtl"
                   disabled={isLoading || oauthLoading !== null}
                   required
                 />
@@ -252,27 +229,39 @@ export default function AuthDialog({ open, onOpenChange, onSuccess }: AuthDialog
                 disabled={isLoading || oauthLoading !== null}
               >
                 {isLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin ml-2" />
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
                 ) : (
-                  <LogIn className="h-4 w-4 ml-2" />
+                  <LogIn className="h-4 w-4 mr-2" />
                 )}
                 تسجيل الدخول
               </Button>
+
+              <div className="text-center pt-2 flex flex-col items-center justify-center gap-1">
+                <span className="text-slate-400 text-sm">ماعندك حساب؟</span>
+                <Button
+                  type="button"
+                  variant="link"
+                  onClick={() => setActiveTab('signup')}
+                  className="text-sm text-blue-400 hover:text-blue-300 p-0 h-auto font-semibold"
+                >
+                  سجل
+                </Button>
+              </div>
             </form>
           </TabsContent>
           <TabsContent value="signup" className="space-y-4 mt-4">
             {/* OAuth Buttons */}
-            <div className="grid grid-cols-2 gap-3">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleGoogleSignIn}
-                disabled={isLoading || oauthLoading !== null}
-                className="h-10 border-slate-600 bg-white hover:bg-gray-50 dark:bg-slate-700 dark:hover:bg-slate-600 p-0 flex items-center justify-center transition-all"
-              >
-                {oauthLoading === 'google' ? (
-                  <Loader2 className="h-4 w-4 animate-spin text-slate-600 dark:text-slate-300" />
-                ) : (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleGoogleSignIn}
+              disabled={isLoading || oauthLoading !== null}
+              className="w-full h-10 border-slate-600 bg-white hover:bg-gray-50 dark:bg-slate-700 dark:hover:bg-slate-600 flex items-center justify-center gap-3 transition-all"
+            >
+              {oauthLoading === 'google' ? (
+                <Loader2 className="h-4 w-4 animate-spin text-slate-600 dark:text-slate-300" />
+              ) : (
+                <>
                   <svg className="h-4 w-4" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                     <path
                       d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -291,24 +280,10 @@ export default function AuthDialog({ open, onOpenChange, onSuccess }: AuthDialog
                       fill="#EA4335"
                     />
                   </svg>
-                )}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleTwitterSignIn}
-                disabled={isLoading || oauthLoading !== null}
-                className="h-10 border-slate-600 bg-black hover:bg-gray-900 dark:bg-slate-900 dark:hover:bg-slate-800 p-0 flex items-center justify-center transition-all"
-              >
-                {oauthLoading === 'twitter' ? (
-                  <Loader2 className="h-4 w-4 animate-spin text-white" />
-                ) : (
-                  <svg className="h-4 w-4 text-white" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
-                  </svg>
-                )}
-              </Button>
-            </div>
+                  <span className="text-slate-700 dark:text-slate-200 font-medium text-sm">سجل دخول باستخدام جوجل</span>
+                </>
+              )}
+            </Button>
 
             {/* Divider */}
             <div className="relative">
@@ -322,6 +297,20 @@ export default function AuthDialog({ open, onOpenChange, onSuccess }: AuthDialog
 
             <form onSubmit={handleSignUp} className="space-y-4">
               <div className="space-y-2">
+                <Label htmlFor="signup-name">الاسم</Label>
+                <Input
+                  id="signup-name"
+                  type="text"
+                  value={signUpData.name}
+                  onChange={(e) => setSignUpData({ ...signUpData, name: e.target.value })}
+                  className="bg-slate-700 border-slate-600 text-white"
+                  placeholder="أدخل اسمك"
+                  dir="rtl"
+                  disabled={isLoading || oauthLoading !== null}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
                 <Label htmlFor="signup-email">البريد الإلكتروني</Label>
                 <Input
                   id="signup-email"
@@ -330,7 +319,7 @@ export default function AuthDialog({ open, onOpenChange, onSuccess }: AuthDialog
                   onChange={(e) => setSignUpData({ ...signUpData, email: e.target.value })}
                   className="bg-slate-700 border-slate-600 text-white"
                   placeholder="example@email.com"
-                  dir="ltr"
+                  dir="rtl"
                   disabled={isLoading || oauthLoading !== null}
                   required
                 />
@@ -367,9 +356,9 @@ export default function AuthDialog({ open, onOpenChange, onSuccess }: AuthDialog
                 disabled={isLoading || oauthLoading !== null}
               >
                 {isLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin ml-2" />
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
                 ) : (
-                  <UserPlus className="h-4 w-4 ml-2" />
+                  <UserPlus className="h-4 w-4 mr-2" />
                 )}
                 إنشاء حساب
               </Button>
