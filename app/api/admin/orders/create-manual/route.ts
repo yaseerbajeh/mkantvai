@@ -124,7 +124,9 @@ export async function POST(request: NextRequest) {
       product_name: product_name,
       product_code: product_code || null,
       price: parseFloat(price),
+      total_amount: parseFloat(price), // Set total_amount to price for consistency
       status: payment_status === 'paid' ? 'paid' : 'pending',
+      is_cart_order: false, // Manual orders are not cart orders
     };
 
     // Add payment information if paid
@@ -252,7 +254,7 @@ export async function POST(request: NextRequest) {
             .eq('id', order.id);
 
           if (updateStatusError) {
-            console.error('Error updating order status:', updateStatusError);
+            console.error('Error updating order status to approved:', updateStatusError);
           }
 
           // Now create active subscription entry
@@ -264,23 +266,37 @@ export async function POST(request: NextRequest) {
             }
           );
 
-          // Update back to 'paid' status
-          if (!updateStatusError) {
-            await supabaseAdmin
-              .from('orders')
-              .update({ status: 'paid' })
-              .eq('id', order.id);
-          }
-
           if (createSubError) {
             console.error('Error creating active subscription:', createSubError);
             // Subscription was assigned but active subscription creation failed
             // This is not critical - subscription is still assigned to order
             console.warn('Subscription assigned but active subscription creation failed:', createSubError.message);
           }
+
+          // Update back to 'paid' status after creating subscription
+          // This ensures the order has the correct final status
+          const { error: updateToPaidError } = await supabaseAdmin
+            .from('orders')
+            .update({ status: 'paid' })
+            .eq('id', order.id);
+
+          if (updateToPaidError) {
+            console.error('Error updating order status back to paid:', updateToPaidError);
+            // If this fails, the order might remain in 'approved' status
+            // This is OK as 'approved' is also in the allowed statuses for the orders list
+          }
         } catch (createSubErr: any) {
           console.error('Error in auto_create_subscription_from_order:', createSubErr);
           // Non-critical error - continue
+          // Try to ensure order has correct status even if subscription creation fails
+          try {
+            await supabaseAdmin
+              .from('orders')
+              .update({ status: 'paid' })
+              .eq('id', order.id);
+          } catch (statusErr) {
+            console.error('Error updating order status after subscription creation error:', statusErr);
+          }
         }
 
         // Step 3: Fetch updated order with subscription
@@ -295,6 +311,21 @@ export async function POST(request: NextRequest) {
         }
 
         const finalOrder = updatedOrder || order;
+
+        // Log the final order status for debugging
+        console.log('🔍 Final order status after processing:', {
+          order_id: finalOrder.id,
+          status: finalOrder.status,
+          payment_method: (finalOrder as any).payment_method,
+          payment_status: (finalOrder as any).payment_status,
+          has_assigned_subscription: !!(finalOrder as any).assigned_subscription,
+          name: finalOrder.name,
+          email: finalOrder.email,
+          product_name: finalOrder.product_name,
+          price: finalOrder.price,
+          total_amount: (finalOrder as any).total_amount,
+          is_cart_order: (finalOrder as any).is_cart_order,
+        });
 
         // Step 4: Send email to customer with subscription details
         try {
