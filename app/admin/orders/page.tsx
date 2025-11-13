@@ -340,11 +340,17 @@ export default function AdminOrdersPage() {
       const validOrders = (data as Order[] || []).filter(order => {
         // Must have name and email
         if (!order.name || !order.email || order.name.trim() === '' || order.email.trim() === '') {
+          if (process.env.NODE_ENV === 'development') {
+            console.log('Filtered out order (missing name/email):', order.id, { name: order.name, email: order.email });
+          }
           return false;
         }
         
         // Must have a valid product name
         if (!order.product_name || order.product_name.trim() === '') {
+          if (process.env.NODE_ENV === 'development') {
+            console.log('Filtered out order (missing product_name):', order.id);
+          }
           return false;
         }
         
@@ -352,11 +358,17 @@ export default function AdminOrdersPage() {
         // Check total_amount if available, otherwise check price
         const orderPrice = order.total_amount !== undefined ? order.total_amount : order.price;
         if (orderPrice === null || orderPrice === undefined || orderPrice < 0) {
+          if (process.env.NODE_ENV === 'development') {
+            console.log('Filtered out order (invalid price):', order.id, { price: order.price, total_amount: order.total_amount, orderPrice });
+          }
           return false;
         }
         // Allow price = 0 only if it's a promo code order (100% discount)
         if (orderPrice === 0 && order.payment_method !== 'promo_code_100' && !order.promo_code_id) {
           // Price is 0 but not a promo code order - might be an invalid order
+          if (process.env.NODE_ENV === 'development') {
+            console.log('Filtered out order (price is 0 but not promo):', order.id);
+          }
           return false;
         }
         
@@ -364,22 +376,39 @@ export default function AdminOrdersPage() {
         // (orders without proper payment flow or customer data)
         // If it's a cart order, ensure it has order_items
         if (order.is_cart_order && (!order.order_items || order.order_items.length === 0)) {
+          if (process.env.NODE_ENV === 'development') {
+            console.log('Filtered out order (cart order without items):', order.id);
+          }
           return false;
         }
         
         // Filter out abandoned payment attempts - orders where user clicked pay but abandoned
         // These are: pending status + payment_method set + payment_status not COMPLETED
         // These will appear in abandoned carts page, so don't show in orders
+        // NOTE: Manual orders with payment_method='manual' should NOT be filtered out
+        // Only filter out PayPal abandoned payments, not manual orders
         if (order.status === 'pending' && 
             order.payment_method && 
             order.payment_method.includes('paypal') &&
+            order.payment_method !== 'manual' &&
             order.payment_status !== 'COMPLETED') {
           // This is an abandoned payment - exclude it
+          if (process.env.NODE_ENV === 'development') {
+            console.log('Filtered out order (abandoned payment):', order.id, { status: order.status, payment_method: order.payment_method, payment_status: order.payment_status });
+          }
           return false;
         }
         
         return true;
       });
+
+      // Log how many orders were filtered
+      if (process.env.NODE_ENV === 'development' && data) {
+        const filteredCount = (data as Order[] || []).length - validOrders.length;
+        if (filteredCount > 0) {
+          console.log(`📊 Filtered out ${filteredCount} orders from ${(data as Order[] || []).length} total orders`);
+        }
+      }
 
       setOrders(validOrders);
     } catch (error: any) {
@@ -703,35 +732,171 @@ export default function AdminOrdersPage() {
       setAvailableSubscriptionCodes([]);
       setManualOrderDialogOpen(false);
 
-      // Refresh orders list
-      const { data: ordersData, error: ordersError } = await supabase
-        .from('orders')
-        .select(`
-          id,
-          order_number,
-          name,
-          email,
-          whatsapp,
-          product_name,
-          product_code,
-          price,
-          total_amount,
-          discount_amount,
-          promo_code_id,
-          is_cart_order,
-          status,
-          payment_method,
-          payment_id,
-          payment_status,
-          assigned_subscription,
-          created_at,
-          order_items (*)
-        `)
-        .in('status', ['paid', 'approved', 'pending'])
-        .order('created_at', { ascending: false });
-      
-      if (!ordersError && ordersData) {
-        setOrders(ordersData as Order[]);
+      // Log the created order for debugging
+      const createdOrderId = result.order?.id;
+      if (result.order) {
+        console.log('✅ Manual order created:', {
+          id: result.order.id,
+          status: result.order.status,
+          payment_status: result.order.payment_status,
+          payment_method: result.order.payment_method,
+          name: result.order.name,
+          email: result.order.email,
+          product_name: result.order.product_name,
+          price: result.order.price,
+          total_amount: result.order.total_amount,
+          is_cart_order: result.order.is_cart_order,
+        });
+      }
+
+      // Add a small delay to ensure database transaction is fully committed
+      // This helps with potential race conditions where the query executes before the transaction completes
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Refresh orders list using fetchOrders() to ensure consistent filtering logic
+      // This ensures the same validation and filtering is applied as the initial load
+      await fetchOrders();
+
+      // Debug: Query the order directly from the database to see if it exists and what its status is
+      // Do this immediately after fetchOrders to check the actual database state
+      if (createdOrderId) {
+        // Wait a bit for state to update, then check
+        setTimeout(async () => {
+          try {
+            // Query the order directly from the database to see if it exists
+            const { data: orderData, error: orderError } = await supabase
+              .from('orders')
+              .select(`
+                id,
+                order_number,
+                name,
+                email,
+                whatsapp,
+                product_name,
+                product_code,
+                price,
+                total_amount,
+                discount_amount,
+                promo_code_id,
+                is_cart_order,
+                status,
+                payment_method,
+                payment_id,
+                payment_status,
+                assigned_subscription,
+                created_at,
+                order_items (*)
+              `)
+              .eq('id', createdOrderId)
+              .single();
+
+            if (orderError) {
+              console.error('❌ Error querying order directly:', orderError);
+              return;
+            }
+
+            if (!orderData) {
+              console.warn('⚠️ Order does not exist in database');
+              return;
+            }
+
+            console.log('🔍 Order exists in database:', {
+              id: orderData.id,
+              status: orderData.status,
+              name: orderData.name,
+              email: orderData.email,
+              product_name: orderData.product_name,
+              price: orderData.price,
+              total_amount: orderData.total_amount,
+              payment_method: orderData.payment_method,
+              payment_status: orderData.payment_status,
+              is_cart_order: orderData.is_cart_order,
+              has_order_items: orderData.order_items ? orderData.order_items.length > 0 : false,
+            });
+
+            // Check if it passes the status filter
+            if (!['paid', 'approved', 'pending'].includes(orderData.status || '')) {
+              console.error('❌ Order filtered: Status not in allowed list. Status:', orderData.status);
+              console.error('   Allowed statuses: paid, approved, pending');
+              return;
+            }
+
+            // Check if it passes validation filters
+            const order = orderData as Order;
+            let filteredOut = false;
+            let filterReason = '';
+
+            if (!order.name || !order.email || order.name.trim() === '' || order.email.trim() === '') {
+              filteredOut = true;
+              filterReason = 'Missing name or email';
+            } else if (!order.product_name || order.product_name.trim() === '') {
+              filteredOut = true;
+              filterReason = 'Missing product_name';
+            } else {
+              const orderPrice = order.total_amount !== undefined ? order.total_amount : order.price;
+              if (orderPrice === null || orderPrice === undefined || orderPrice < 0) {
+                filteredOut = true;
+                filterReason = `Invalid price: ${orderPrice}`;
+              } else if (orderPrice === 0 && order.payment_method !== 'promo_code_100' && !order.promo_code_id) {
+                filteredOut = true;
+                filterReason = 'Price is 0 but not a promo code order';
+              } else if (order.is_cart_order && (!order.order_items || order.order_items.length === 0)) {
+                filteredOut = true;
+                filterReason = 'Cart order without order_items';
+              } else if (order.status === 'pending' && 
+                          order.payment_method && 
+                          order.payment_method.includes('paypal') &&
+                          order.payment_status !== 'COMPLETED') {
+                filteredOut = true;
+                filterReason = 'Abandoned payment attempt';
+              }
+            }
+
+            if (filteredOut) {
+              console.error('❌ Order filtered out by validation:', filterReason);
+            } else {
+              console.log('✅ Order passes all filters. It should appear in the list.');
+              
+              // Check if it's actually in the fetched orders
+              // Query again with the same filter as fetchOrders to see if it's returned
+              const { data: filteredOrders, error: filterError } = await supabase
+                .from('orders')
+                .select(`
+                  id,
+                  order_number,
+                  name,
+                  email,
+                  whatsapp,
+                  product_name,
+                  product_code,
+                  price,
+                  total_amount,
+                  discount_amount,
+                  promo_code_id,
+                  is_cart_order,
+                  status,
+                  payment_method,
+                  payment_id,
+                  payment_status,
+                  assigned_subscription,
+                  created_at,
+                  order_items (*)
+                `)
+                .in('status', ['paid', 'approved', 'pending'])
+                .eq('id', createdOrderId)
+                .single();
+
+              if (filterError) {
+                console.error('❌ Order not returned by status filter query:', filterError);
+              } else if (filteredOrders) {
+                console.log('✅ Order is returned by status filter query. Checking if it appears in list...');
+                // The order should be in the list now
+              }
+            }
+          } catch (debugError) {
+            console.error('Error in debug check:', debugError);
+          }
+        }, 1000); // Wait 1 second for state to update
       }
 
       if (result.warning) {
