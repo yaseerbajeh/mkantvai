@@ -124,11 +124,27 @@ export default function OrderPage() {
     const result = await signIn(authData.email, authData.password);
     
     if (result.error) {
-      toast({
-        title: 'خطأ',
-        description: result.error.message,
-        variant: 'destructive',
-      });
+      // Check if it's invalid credentials error
+      const errorMessage = result.error.message.toLowerCase();
+      if (errorMessage.includes('invalid login credentials') || 
+          errorMessage.includes('invalid credentials') ||
+          (errorMessage.includes('email') && errorMessage.includes('password'))) {
+        toast({
+          title: 'خطأ',
+          description: 'لا يوجد ايميل بهذه المعلومات. تأكد انك مسجل في المنصة. سجل هنا',
+          variant: 'destructive',
+        });
+        // Switch to signup tab after a short delay
+        setTimeout(() => {
+          setActiveTab('signup');
+        }, 100);
+      } else {
+        toast({
+          title: 'خطأ',
+          description: result.error.message,
+          variant: 'destructive',
+        });
+      }
       setSubmitting(false);
       return;
     }
