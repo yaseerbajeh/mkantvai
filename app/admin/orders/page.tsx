@@ -33,7 +33,8 @@ import {
   TrendingUp,
   DollarSign,
   ShoppingCart,
-  Plus
+  Plus,
+  Trash2
 } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Legend, ResponsiveContainer } from 'recharts';
@@ -98,6 +99,11 @@ export default function AdminOrdersPage() {
   
   // Complete order state
   const [completingOrders, setCompletingOrders] = useState<Set<string>>(new Set());
+  
+  // Delete order state
+  const [deletingOrders, setDeletingOrders] = useState<Set<string>>(new Set());
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [orderToDelete, setOrderToDelete] = useState<Order | null>(null);
   
   // Manual order creation state
   const [manualOrderDialogOpen, setManualOrderDialogOpen] = useState(false);
@@ -656,6 +662,67 @@ export default function AdminOrdersPage() {
       setCompletingOrders(prev => {
         const newSet = new Set(prev);
         newSet.delete(orderId);
+        return newSet;
+      });
+    }
+  };
+
+  const handleDeleteOrder = async (order: Order) => {
+    setOrderToDelete(order);
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDeleteOrder = async () => {
+    if (!orderToDelete) return;
+
+    setDeletingOrders(prev => new Set(prev).add(orderToDelete.id));
+    
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        toast({
+          title: 'خطأ',
+          description: 'يرجى تسجيل الدخول',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      const response = await fetch(`/api/admin/orders/${orderToDelete.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'فشل في حذف الطلب');
+      }
+
+      toast({
+        title: 'نجح',
+        description: result.message || 'تم حذف الطلب بنجاح',
+      });
+
+      // Remove order from local state
+      setOrders(prevOrders => prevOrders.filter(o => o.id !== orderToDelete.id));
+      
+      // Close dialog
+      setDeleteDialogOpen(false);
+      setOrderToDelete(null);
+    } catch (error: any) {
+      console.error('Error deleting order:', error);
+      toast({
+        title: 'خطأ',
+        description: error.message || 'فشل في حذف الطلب',
+        variant: 'destructive',
+      });
+    } finally {
+      setDeletingOrders(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(orderToDelete.id);
         return newSet;
       });
     }
@@ -1457,27 +1524,49 @@ export default function AdminOrdersPage() {
                                   {format(new Date(order.created_at), 'yyyy-MM-dd HH:mm', { locale: ar })}
                                 </TableCell>
                                 <TableCell>
-                                  {/* Show mark as paid button for pending orders */}
-                                  {order.status === 'pending' && (
+                                  <div className="flex gap-2">
+                                    {/* Show mark as paid button for pending orders */}
+                                    {order.status === 'pending' && (
+                                      <Button
+                                        size="sm"
+                                        onClick={() => handleCompleteOrder(order.id)}
+                                        disabled={completingOrders.has(order.id)}
+                                        className="bg-green-600 hover:bg-green-700 text-white"
+                                      >
+                                        {completingOrders.has(order.id) ? (
+                                          <>
+                                            <Loader2 className="h-4 w-4 ml-2 animate-spin" />
+                                            جاري المعالجة...
+                                          </>
+                                        ) : (
+                                          <>
+                                            <CheckCircle2 className="h-4 w-4 ml-2" />
+                                            تم الاستلام
+                                          </>
+                                        )}
+                                      </Button>
+                                    )}
+                                    {/* Delete button for all orders */}
                                     <Button
                                       size="sm"
-                                      onClick={() => handleCompleteOrder(order.id)}
-                                      disabled={completingOrders.has(order.id)}
-                                      className="bg-green-600 hover:bg-green-700 text-white"
+                                      onClick={() => handleDeleteOrder(order)}
+                                      disabled={deletingOrders.has(order.id)}
+                                      variant="destructive"
+                                      className="bg-red-600 hover:bg-red-700 text-white"
                                     >
-                                      {completingOrders.has(order.id) ? (
+                                      {deletingOrders.has(order.id) ? (
                                         <>
                                           <Loader2 className="h-4 w-4 ml-2 animate-spin" />
-                                          جاري المعالجة...
+                                          جاري الحذف...
                                         </>
                                       ) : (
                                         <>
-                                          <CheckCircle2 className="h-4 w-4 ml-2" />
-                                          تم الاستلام
+                                          <Trash2 className="h-4 w-4 ml-2" />
+                                          حذف
                                         </>
                                       )}
                                     </Button>
-                                  )}
+                                  </div>
                                 </TableCell>
                               </TableRow>
                             ))}
@@ -1677,6 +1766,70 @@ export default function AdminOrdersPage() {
         </div>
       </main>
       <Footer />
+
+      {/* Delete Order Confirmation Dialog */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent className="bg-slate-800 border-slate-700 text-white">
+          <DialogHeader>
+            <DialogTitle>تأكيد حذف الطلب</DialogTitle>
+            <DialogDescription className="text-slate-400">
+              هل أنت متأكد من حذف هذا الطلب؟ لا يمكن التراجع عن هذا الإجراء.
+            </DialogDescription>
+          </DialogHeader>
+          {orderToDelete && (
+            <div className="py-4 space-y-2">
+              <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-700">
+                <p className="text-slate-300 text-sm mb-1">رقم الطلب:</p>
+                <p className="text-white font-mono font-semibold">
+                  {orderToDelete.order_number || orderToDelete.id.slice(0, 8).toUpperCase()}
+                </p>
+              </div>
+              <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-700">
+                <p className="text-slate-300 text-sm mb-1">اسم العميل:</p>
+                <p className="text-white font-semibold">{orderToDelete.name}</p>
+              </div>
+              <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-700">
+                <p className="text-slate-300 text-sm mb-1">البريد الإلكتروني:</p>
+                <p className="text-white">{orderToDelete.email}</p>
+              </div>
+              <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-700">
+                <p className="text-slate-300 text-sm mb-1">المنتج:</p>
+                <p className="text-white">{orderToDelete.product_name}</p>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDeleteDialogOpen(false);
+                setOrderToDelete(null);
+              }}
+              className="border-slate-600 text-slate-300"
+              disabled={deletingOrders.has(orderToDelete?.id || '')}
+            >
+              إلغاء
+            </Button>
+            <Button
+              onClick={confirmDeleteOrder}
+              disabled={deletingOrders.has(orderToDelete?.id || '')}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {deletingOrders.has(orderToDelete?.id || '') ? (
+                <>
+                  <Loader2 className="h-4 w-4 ml-2 animate-spin" />
+                  جاري الحذف...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="h-4 w-4 ml-2" />
+                  حذف الطلب
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Manual Order Creation Dialog */}
       <Dialog open={manualOrderDialogOpen} onOpenChange={setManualOrderDialogOpen}>
