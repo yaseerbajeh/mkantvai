@@ -30,6 +30,7 @@ import {
   MessageCircle,
   CheckCircle2,
   XCircle,
+  X,
 } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
 
