@@ -315,7 +315,67 @@ export default function AdminSubscriptionsPage() {
 
   const fetchSubscriptions = async () => {
     try {
-      // Fetch subscriptions
+      // First, fetch approved orders with assigned_subscription that might not have subscription entries
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.access_token) {
+        try {
+          // Fetch approved orders with assigned_subscription
+          const { data: approvedOrders, error: approvedOrdersError } = await supabase
+            .from('orders')
+            .select('id, status, assigned_subscription')
+            .eq('status', 'approved')
+            .not('assigned_subscription', 'is', null);
+
+          if (!approvedOrdersError && approvedOrders) {
+            // Get existing subscription order_ids to check which orders need subscription creation
+            const { data: existingSubscriptions } = await supabase
+              .from('active_subscriptions')
+              .select('order_id')
+              .not('order_id', 'is', null);
+
+            const existingOrderIds = new Set(
+              (existingSubscriptions || []).map((sub: any) => sub.order_id)
+            );
+
+            // For approved orders without subscription entries, create them
+            for (const order of approvedOrders) {
+              if (!existingOrderIds.has(order.id)) {
+                try {
+                  // Call the API to create subscription from order
+                  const response = await fetch('/api/admin/subscriptions/auto-create', {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'Authorization': `Bearer ${session.access_token}`,
+                    },
+                    body: JSON.stringify({
+                      orderId: order.id,
+                      subscriptionType: null, // Let function determine from category
+                    }),
+                  });
+
+                  if (response.ok) {
+                    console.log(`Created subscription for approved order ${order.id}`);
+                  } else {
+                    const result = await response.json();
+                    // If subscription already exists or order is not approved, that's okay
+                    if (!result.error?.includes('already exists') && !result.error?.includes('not approved')) {
+                      console.warn(`Failed to create subscription for order ${order.id}:`, result.error);
+                    }
+                  }
+                } catch (error) {
+                  console.error(`Error creating subscription for order ${order.id}:`, error);
+                }
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Error processing approved orders:', error);
+          // Continue even if this fails
+        }
+      }
+
+      // Fetch subscriptions (including newly created ones)
       const { data: subscriptionsData, error: subscriptionsError } = await supabase
         .from('active_subscriptions')
         .select('*')
@@ -329,6 +389,58 @@ export default function AdminSubscriptionsPage() {
           variant: 'destructive',
         });
         return;
+      }
+
+      // Filter out orphaned subscriptions (where order_id points to non-existent orders or is NULL)
+      // This handles cases where orders were deleted but subscriptions weren't cleaned up
+      if (subscriptionsData && subscriptionsData.length > 0) {
+        const subscriptionOrderIds = subscriptionsData
+          .map((sub: any) => sub.order_id)
+          .filter((id: any) => id !== null);
+
+        if (subscriptionOrderIds.length > 0) {
+          // Check which order_ids still exist
+          const { data: existingOrders } = await supabase
+            .from('orders')
+            .select('id')
+            .in('id', subscriptionOrderIds);
+
+          const existingOrderIds = new Set(
+            (existingOrders || []).map((o: any) => o.id)
+          );
+
+          // Filter out subscriptions with non-existent order_ids
+          const validSubscriptions = subscriptionsData.filter((sub: any) => {
+            // Keep subscriptions with NULL order_id (manually created) or valid order_id
+            return sub.order_id === null || existingOrderIds.has(sub.order_id);
+          });
+
+          // If we filtered out any subscriptions, delete them from the database
+          const orphanedSubscriptions = subscriptionsData.filter((sub: any) => {
+            return sub.order_id !== null && !existingOrderIds.has(sub.order_id);
+          });
+
+          if (orphanedSubscriptions.length > 0) {
+            console.log(`Found ${orphanedSubscriptions.length} orphaned subscription(s), deleting...`);
+            const orphanedIds = orphanedSubscriptions.map((sub: any) => sub.id);
+            const { error: deleteOrphanedError } = await supabase
+              .from('active_subscriptions')
+              .delete()
+              .in('id', orphanedIds);
+
+            if (deleteOrphanedError) {
+              console.error('Error deleting orphaned subscriptions:', deleteOrphanedError);
+            } else {
+              console.log(`Deleted ${orphanedSubscriptions.length} orphaned subscription(s)`);
+            }
+          }
+
+          // Use the filtered subscriptions
+          subscriptionsData.length = 0;
+          subscriptionsData.push(...validSubscriptions);
+        } else {
+          // All subscriptions have NULL order_id, keep them all (manually created)
+        }
       }
 
       // Fetch all valid category names to check if manually set categories are valid
