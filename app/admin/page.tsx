@@ -10,7 +10,7 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/lib/supabase';
-import { Loader2, Package, ShoppingCart, ArrowLeft, CreditCard, Trash2, Tag, Calendar, MessageCircle, Key } from 'lucide-react';
+import { Loader2, Package, ShoppingCart, ArrowLeft, CreditCard, Trash2, Tag, Calendar, MessageCircle, Key, UserPlus } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
 
 function AdminDashboardPageContent() {
@@ -294,6 +294,29 @@ function AdminDashboardPageContent() {
                   </p>
                   <div className="flex items-center text-pink-400 font-semibold">
                     الانتقال إلى التذاكر
+                    <ArrowLeft className="h-4 w-4 mr-2" />
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
+
+            {/* CRM Leads Card */}
+            <Link href="/admin/leads">
+              <Card className="bg-slate-800/50 border-slate-700 hover:border-emerald-500 transition-all duration-300 hover:shadow-xl hover:shadow-emerald-500/20 cursor-pointer h-full">
+                <CardHeader>
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 bg-emerald-500/20 rounded-lg">
+                      <UserPlus className="h-8 w-8 text-emerald-400" />
+                    </div>
+                    <CardTitle className="text-2xl text-white">إدارة العملاء المحتملين</CardTitle>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-slate-300 mb-4">
+                    تتبع وإدارة العملاء المحتملين من السلات المتروكة وواتساب. إضافة تعليقات ومتابعة العملاء.
+                  </p>
+                  <div className="flex items-center text-emerald-400 font-semibold">
+                    الانتقال إلى العملاء المحتملين
                     <ArrowLeft className="h-4 w-4 mr-2" />
                   </div>
                 </CardContent>

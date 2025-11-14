@@ -4,6 +4,7 @@ import { rateLimit, authenticatedLimiter } from '@/lib/rateLimiter';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
 // POST - Create or update cart session
 export async function POST(request: NextRequest) {
@@ -101,6 +102,41 @@ export async function POST(request: NextRequest) {
         { error: 'حدث خطأ أثناء حفظ السلة' },
         { status: 500 }
       );
+    }
+
+    // Automatically create lead from abandoned cart (if not already exists)
+    if (cartSession && supabaseServiceKey) {
+      try {
+        const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+        
+        // Check if lead already exists for this cart session
+        const { data: existingLead } = await supabaseAdmin
+          .from('crm_leads')
+          .select('id')
+          .eq('source', 'abandoned_cart')
+          .eq('source_reference_id', cartSession.id)
+          .maybeSingle();
+
+        // Only create if doesn't exist
+        if (!existingLead) {
+          await supabaseAdmin
+            .from('crm_leads')
+            .insert({
+              source: 'abandoned_cart',
+              name: cartSession.name || cartSession.email,
+              email: cartSession.email,
+              whatsapp: cartSession.whatsapp,
+              products: cartSession.cart_items || [],
+              total_amount: cartSession.total_amount || 0,
+              source_reference_id: cartSession.id,
+              status: 'new',
+              comments: [],
+            });
+        }
+      } catch (leadError) {
+        // Don't fail the cart session creation if lead creation fails
+        console.error('Error creating lead from cart session:', leadError);
+      }
     }
 
     return NextResponse.json({
