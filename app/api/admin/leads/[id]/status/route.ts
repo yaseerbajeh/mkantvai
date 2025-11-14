@@ -12,7 +12,6 @@ async function getAdminUser(request: NextRequest) {
     return null;
   }
 
-  // Use service role key like cart-sessions route does
   const supabase = createClient(supabaseUrl, supabaseServiceKey, {
     global: {
       headers: {
@@ -21,13 +20,11 @@ async function getAdminUser(request: NextRequest) {
     },
   });
 
-  // Verify user is admin
   const { data: { user }, error: userError } = await supabase.auth.getUser();
   if (userError || !user) {
     return null;
   }
 
-  // Check if user is admin (using environment variable)
   const adminEmailsStr = process.env.NEXT_PUBLIC_ADMIN_EMAILS || '';
   const adminEmails = adminEmailsStr.split(',').map(e => e.trim()).filter(Boolean);
   
@@ -38,8 +35,8 @@ async function getAdminUser(request: NextRequest) {
   return user;
 }
 
-// PUT/PATCH - Update a lead
-export async function PUT(
+// POST - Update lead status with timestamp tracking
+export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
@@ -58,31 +55,48 @@ export async function PUT(
     }
 
     const body = await request.json();
-    const { status, importance, reminder_date } = body;
+    const { status } = body;
+
+    if (!status || !['new', 'contacted', 'converted', 'lost', 'non_converted'].includes(status)) {
+      return NextResponse.json(
+        { error: 'حالة غير صحيحة' },
+        { status: 400 }
+      );
+    }
 
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
     
-    // Build update object
+    // Get current lead to check importance
+    const { data: currentLead } = await supabaseAdmin
+      .from('crm_leads')
+      .select('importance')
+      .eq('id', params.id)
+      .single();
+
+    // Build update object with timestamp tracking
     const updateData: any = {
+      status,
       updated_at: new Date().toISOString(),
     };
 
-    if (status !== undefined) {
-      updateData.status = status;
+    // Auto-downgrade urgent to medium when status changes to contacted
+    if (status === 'contacted' && currentLead?.importance === 'urgent') {
+      updateData.importance = 'medium';
     }
 
-    if (importance !== undefined) {
-      if (!['low', 'medium', 'high', 'urgent'].includes(importance)) {
-        return NextResponse.json(
-          { error: 'مستوى الأهمية غير صحيح' },
-          { status: 400 }
-        );
-      }
-      updateData.importance = importance;
-    }
-
-    if (reminder_date !== undefined) {
-      updateData.reminder_date = reminder_date || null;
+    // Set appropriate timestamp based on status
+    if (status === 'converted') {
+      updateData.converted_at = new Date().toISOString();
+      // Clear non_converted_at if it was set
+      updateData.non_converted_at = null;
+    } else if (status === 'non_converted') {
+      updateData.non_converted_at = new Date().toISOString();
+      // Clear converted_at if it was set
+      updateData.converted_at = null;
+    } else {
+      // For other statuses, clear both timestamps
+      updateData.converted_at = null;
+      updateData.non_converted_at = null;
     }
 
     const { data: updatedLead, error } = await supabaseAdmin
@@ -93,57 +107,14 @@ export async function PUT(
       .single();
 
     if (error) {
-      console.error('Error updating lead:', error);
+      console.error('Error updating lead status:', error);
       return NextResponse.json(
-        { error: 'حدث خطأ أثناء تحديث العميل المحتمل' },
+        { error: 'حدث خطأ أثناء تحديث حالة العميل المحتمل' },
         { status: 500 }
       );
     }
 
     return NextResponse.json({ lead: updatedLead });
-  } catch (error: any) {
-    console.error('Error:', error);
-    return NextResponse.json(
-      { error: 'حدث خطأ غير متوقع' },
-      { status: 500 }
-    );
-  }
-}
-
-// DELETE - Remove a lead
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  const rateLimitResult = await rateLimit(request, adminLimiter);
-  if (!rateLimitResult.success) {
-    return rateLimitResult.response!;
-  }
-
-  try {
-    const adminUser = await getAdminUser(request);
-    if (!adminUser) {
-      return NextResponse.json(
-        { error: 'غير مصرح' },
-        { status: 401 }
-      );
-    }
-
-    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
-    const { error } = await supabaseAdmin
-      .from('crm_leads')
-      .delete()
-      .eq('id', params.id);
-
-    if (error) {
-      console.error('Error deleting lead:', error);
-      return NextResponse.json(
-        { error: 'حدث خطأ أثناء حذف العميل المحتمل' },
-        { status: 500 }
-      );
-    }
-
-    return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error('Error:', error);
     return NextResponse.json(

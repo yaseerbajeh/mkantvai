@@ -230,6 +230,9 @@ export async function POST(request: NextRequest) {
     // Normalize WhatsApp number before storing
     const normalizedWhatsApp = whatsapp ? normalizeWhatsAppNumber(whatsapp) : null;
 
+    // Auto-set urgent importance for WhatsApp and abandoned_cart sources
+    const importance = (source === 'whatsapp' || source === 'abandoned_cart') ? 'urgent' : 'medium';
+
     // Create new lead
     const { data: lead, error: insertError } = await supabaseAdmin
       .from('crm_leads')
@@ -242,6 +245,7 @@ export async function POST(request: NextRequest) {
         total_amount: total_amount || 0,
         source_reference_id: source_reference_id || null,
         status: 'new',
+        importance,
         comments: [],
       })
       .select()
