@@ -506,6 +506,10 @@ export default function CRMLeadsPage() {
       filtered = filtered.filter(lead => lead.status === 'converted');
     } else if (activeTab === 'non_converted') {
       filtered = filtered.filter(lead => lead.status === 'non_converted');
+    } else {
+      // For all other tabs (including 'all'), hide converted leads
+      // They can still be viewed in the 'converted' tab
+      filtered = filtered.filter(lead => lead.status !== 'converted');
     }
 
     // For "new" status filtering, only show leads that are actually new (within 24 hours)
