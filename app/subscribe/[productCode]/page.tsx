@@ -14,7 +14,6 @@ import { formatPriceWithSar } from '@/lib/utils';
 import { useCart } from '@/lib/cart-context';
 import { supabase } from '@/lib/supabase';
 import type { User } from '@supabase/supabase-js';
-import AuthDialog from '@/components/AuthDialog';
 
 // Product data with descriptions (fallback data)
 const fallbackProductsData: { [key: string]: any } = {
@@ -440,7 +439,6 @@ export default function ProductDetailPage() {
   const [product, setProduct] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<User | null>(null);
-  const [authDialogOpen, setAuthDialogOpen] = useState(false);
   const [reviews, setReviews] = useState<any[]>([]);
   const [averageRating, setAverageRating] = useState<number>(0);
   const [totalReviews, setTotalReviews] = useState<number>(0);
@@ -744,10 +742,10 @@ export default function ProductDetailPage() {
 
                 {/* Order Now Button */}
                 <Button 
-                  disabled={!user || product.available_stock === 0}
+                  disabled={product.available_stock === 0}
                   onClick={() => {
                     if (!user) {
-                      setAuthDialogOpen(true);
+                      router.push('/auth');
                       return;
                     }
                     if (product.available_stock > 0) {
@@ -761,7 +759,7 @@ export default function ProductDetailPage() {
                       router.push('/cart');
                     }
                   }}
-                  className={`w-full bg-gradient-to-r ${product.gradient} hover:opacity-90 text-white font-bold py-7 text-xl shadow-2xl hover:shadow-3xl transition-all duration-300 hover:scale-105 ${!user || product.available_stock === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  className={`w-full bg-gradient-to-r ${product.gradient} hover:opacity-90 text-white font-bold py-7 text-xl shadow-2xl hover:shadow-3xl transition-all duration-300 hover:scale-105 ${product.available_stock === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
                   <span>
                     {!user ? 'يرجى تسجيل الدخول' : product.available_stock === 0 ? 'نفد المخزون' : 'اطلب الان'}
@@ -773,7 +771,7 @@ export default function ProductDetailPage() {
                 <Button
                   onClick={() => {
                     if (!user) {
-                      setAuthDialogOpen(true);
+                      router.push('/auth');
                       return;
                     }
                     if (product && product.available_stock > 0) {
@@ -908,13 +906,6 @@ export default function ProductDetailPage() {
         </div>
       </main>
       <Footer />
-      
-      {/* Auth Dialog */}
-      <AuthDialog 
-        open={authDialogOpen} 
-        onOpenChange={setAuthDialogOpen}
-        onSuccess={() => router.refresh()}
-      />
     </div>
   );
 }

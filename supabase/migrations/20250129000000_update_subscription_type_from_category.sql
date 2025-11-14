@@ -28,8 +28,9 @@ BEGIN
   END IF;
   
   -- Get product details with category if product_code exists
+  -- Prefer active categories, but fall back to inactive if needed
   IF v_order.product_code IS NOT NULL THEN
-    SELECT p.*, c.name as category_name, c.name_en as category_name_en
+    SELECT p.*, c.name as category_name, c.name_en as category_name_en, c.is_active as category_is_active
     INTO v_product
     FROM public.products p
     LEFT JOIN public.categories c ON p.category_id = c.id
@@ -41,12 +42,17 @@ BEGIN
   IF p_subscription_type IS NOT NULL THEN
     -- If explicitly provided, use it (but this should be category name)
     v_subscription_type := p_subscription_type;
-  ELSIF v_product IS NOT NULL AND v_product.category_name IS NOT NULL THEN
-    -- Use category name directly as subscription_type
+  ELSIF v_product IS NOT NULL AND v_product.category_name IS NOT NULL AND 
+        (v_product.category_is_active = true OR v_product.category_is_active IS NULL) THEN
+    -- Use category name directly as subscription_type (prefer active categories)
     v_subscription_type := v_product.category_name;
-  ELSIF v_product IS NOT NULL AND v_product.category_name_en IS NOT NULL THEN
-    -- Fallback to English category name if Arabic name not available
+  ELSIF v_product IS NOT NULL AND v_product.category_name_en IS NOT NULL AND 
+        (v_product.category_is_active = true OR v_product.category_is_active IS NULL) THEN
+    -- Fallback to English category name if Arabic name not available (prefer active categories)
     v_subscription_type := v_product.category_name_en;
+  ELSIF v_product IS NOT NULL AND v_product.category_name IS NOT NULL THEN
+    -- Use category name even if inactive (better than product code fallback)
+    v_subscription_type := v_product.category_name;
   ELSIF v_order.product_code IS NOT NULL THEN
     -- Fallback: if no category, use default category names based on product code
     IF v_order.product_code LIKE 'SUB-PREMIUM-%' THEN
