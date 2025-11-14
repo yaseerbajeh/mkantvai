@@ -12,7 +12,6 @@ async function getAdminUser(request: NextRequest) {
     return null;
   }
 
-  // Use service role key like cart-sessions route does
   const supabase = createClient(supabaseUrl, supabaseServiceKey, {
     global: {
       headers: {
@@ -21,13 +20,11 @@ async function getAdminUser(request: NextRequest) {
     },
   });
 
-  // Verify user is admin
   const { data: { user }, error: userError } = await supabase.auth.getUser();
   if (userError || !user) {
     return null;
   }
 
-  // Check if user is admin (using environment variable)
   const adminEmailsStr = process.env.NEXT_PUBLIC_ADMIN_EMAILS || '';
   const adminEmails = adminEmailsStr.split(',').map(e => e.trim()).filter(Boolean);
   
@@ -38,8 +35,8 @@ async function getAdminUser(request: NextRequest) {
   return user;
 }
 
-// PUT/PATCH - Update a lead
-export async function PUT(
+// POST - Set/update reminder date
+export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
@@ -58,44 +55,32 @@ export async function PUT(
     }
 
     const body = await request.json();
-    const { status, importance, reminder_date } = body;
+    const { reminder_date } = body;
+
+    // Validate date if provided
+    if (reminder_date && isNaN(Date.parse(reminder_date))) {
+      return NextResponse.json(
+        { error: 'تاريخ التذكير غير صحيح' },
+        { status: 400 }
+      );
+    }
 
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
     
-    // Build update object
-    const updateData: any = {
-      updated_at: new Date().toISOString(),
-    };
-
-    if (status !== undefined) {
-      updateData.status = status;
-    }
-
-    if (importance !== undefined) {
-      if (!['low', 'medium', 'high', 'urgent'].includes(importance)) {
-        return NextResponse.json(
-          { error: 'مستوى الأهمية غير صحيح' },
-          { status: 400 }
-        );
-      }
-      updateData.importance = importance;
-    }
-
-    if (reminder_date !== undefined) {
-      updateData.reminder_date = reminder_date || null;
-    }
-
     const { data: updatedLead, error } = await supabaseAdmin
       .from('crm_leads')
-      .update(updateData)
+      .update({
+        reminder_date: reminder_date || null,
+        updated_at: new Date().toISOString(),
+      })
       .eq('id', params.id)
       .select()
       .single();
 
     if (error) {
-      console.error('Error updating lead:', error);
+      console.error('Error updating reminder:', error);
       return NextResponse.json(
-        { error: 'حدث خطأ أثناء تحديث العميل المحتمل' },
+        { error: 'حدث خطأ أثناء تحديث التذكير' },
         { status: 500 }
       );
     }
@@ -110,11 +95,8 @@ export async function PUT(
   }
 }
 
-// DELETE - Remove a lead
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+// GET - Get leads with upcoming reminders (optional utility endpoint)
+export async function GET(request: NextRequest) {
   const rateLimitResult = await rateLimit(request, adminLimiter);
   if (!rateLimitResult.success) {
     return rateLimitResult.response!;
@@ -130,20 +112,26 @@ export async function DELETE(
     }
 
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
-    const { error } = await supabaseAdmin
+    const now = new Date().toISOString();
+    
+    // Get leads with reminders in the next 7 days
+    const { data: leads, error } = await supabaseAdmin
       .from('crm_leads')
-      .delete()
-      .eq('id', params.id);
+      .select('*')
+      .not('reminder_date', 'is', null)
+      .gte('reminder_date', now)
+      .lte('reminder_date', new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString())
+      .order('reminder_date', { ascending: true });
 
     if (error) {
-      console.error('Error deleting lead:', error);
+      console.error('Error fetching reminders:', error);
       return NextResponse.json(
-        { error: 'حدث خطأ أثناء حذف العميل المحتمل' },
+        { error: 'حدث خطأ أثناء جلب التذكيرات' },
         { status: 500 }
       );
     }
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ leads: leads || [] });
   } catch (error: any) {
     console.error('Error:', error);
     return NextResponse.json(

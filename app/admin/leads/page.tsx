@@ -2,15 +2,12 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { formatDistanceToNow } from 'date-fns';
-import { ar } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Dialog,
   DialogContent,
@@ -23,17 +20,16 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/lib/supabase';
+import LeadCard from '@/components/leads/LeadCard';
 import { 
   Loader2, 
   Search,
-  Mail,
-  MessageCircle,
-  Trash2,
   Plus,
   ShoppingCart,
   UserPlus,
-  MessageSquare,
-  X
+  MessageCircle,
+  CheckCircle2,
+  XCircle,
 } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
 
@@ -60,7 +56,11 @@ interface Lead {
   products: Product[];
   total_amount: number;
   comments: Comment[];
-  status: 'new' | 'contacted' | 'converted' | 'lost';
+  status: 'new' | 'contacted' | 'converted' | 'lost' | 'non_converted';
+  importance?: 'low' | 'medium' | 'high' | 'urgent';
+  reminder_date?: string;
+  converted_at?: string;
+  non_converted_at?: string;
   source_reference_id?: string;
   created_at: string;
   updated_at: string;
@@ -82,10 +82,6 @@ export default function CRMLeadsPage() {
   const [products, setProducts] = useState<ProductOption[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('all');
-  const [commentDialogOpen, setCommentDialogOpen] = useState<string | null>(null);
-  const [commentText, setCommentText] = useState('');
-  const [addingComment, setAddingComment] = useState(false);
-  const [deletingLead, setDeletingLead] = useState<string | null>(null);
   
   // Manual lead creation dialog
   const [manualLeadDialogOpen, setManualLeadDialogOpen] = useState(false);
@@ -96,6 +92,8 @@ export default function CRMLeadsPage() {
     whatsapp: '',
     products: [] as Product[],
     total_amount: 0,
+    importance: 'medium' as 'low' | 'medium' | 'high' | 'urgent',
+    reminder_date: '',
   });
   const [selectedProduct, setSelectedProduct] = useState<{ product: ProductOption | null; quantity: number }>({
     product: null,
@@ -154,7 +152,6 @@ export default function CRMLeadsPage() {
         const errorMessage = errorData.error || 'فشل جلب العملاء المحتملين';
         const errorDetails = errorData.details || '';
         
-        // Check if table doesn't exist
         if (errorMessage.includes('غير موجود') || errorMessage.includes('does not exist')) {
           toast({
             title: 'خطأ في قاعدة البيانات',
@@ -199,17 +196,7 @@ export default function CRMLeadsPage() {
     }
   };
 
-  const handleAddComment = async (leadId: string) => {
-    if (!commentText.trim()) {
-      toast({
-        title: 'خطأ',
-        description: 'يرجى إدخال تعليق',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    setAddingComment(true);
+  const handleAddComment = async (leadId: string, comment: string) => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
@@ -222,7 +209,7 @@ export default function CRMLeadsPage() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ comment: commentText }),
+        body: JSON.stringify({ comment }),
       });
 
       const data = await response.json();
@@ -236,8 +223,6 @@ export default function CRMLeadsPage() {
         description: 'تم إضافة التعليق بنجاح',
       });
 
-      setCommentText('');
-      setCommentDialogOpen(null);
       await fetchLeads();
     } catch (error: any) {
       toast({
@@ -245,17 +230,11 @@ export default function CRMLeadsPage() {
         description: error.message || 'حدث خطأ أثناء إضافة التعليق',
         variant: 'destructive',
       });
-    } finally {
-      setAddingComment(false);
+      throw error;
     }
   };
 
   const handleDeleteLead = async (leadId: string) => {
-    if (!confirm('هل أنت متأكد من حذف هذا العميل المحتمل؟')) {
-      return;
-    }
-
-    setDeletingLead(leadId);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
@@ -286,8 +265,115 @@ export default function CRMLeadsPage() {
         description: error.message || 'حدث خطأ أثناء حذف العميل المحتمل',
         variant: 'destructive',
       });
-    } finally {
-      setDeletingLead(null);
+    }
+  };
+
+  const handleUpdateStatus = async (leadId: string, status: string) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('غير مصرح');
+      }
+
+      const response = await fetch(`/api/admin/leads/${leadId}/status`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ status }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'حدث خطأ أثناء تحديث الحالة');
+      }
+
+      toast({
+        title: 'نجح',
+        description: 'تم تحديث الحالة بنجاح',
+      });
+
+      await fetchLeads();
+    } catch (error: any) {
+      toast({
+        title: 'خطأ',
+        description: error.message || 'حدث خطأ أثناء تحديث الحالة',
+        variant: 'destructive',
+      });
+      throw error;
+    }
+  };
+
+  const handleUpdateImportance = async (leadId: string, importance: string) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('غير مصرح');
+      }
+
+      const response = await fetch(`/api/admin/leads/${leadId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ importance }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'حدث خطأ أثناء تحديث الأهمية');
+      }
+
+      await fetchLeads();
+    } catch (error: any) {
+      toast({
+        title: 'خطأ',
+        description: error.message || 'حدث خطأ أثناء تحديث الأهمية',
+        variant: 'destructive',
+      });
+      throw error;
+    }
+  };
+
+  const handleUpdateReminder = async (leadId: string, reminderDate: string | null) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('غير مصرح');
+      }
+
+      const response = await fetch(`/api/admin/leads/${leadId}/reminder`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ reminder_date: reminderDate }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'حدث خطأ أثناء تحديث التذكير');
+      }
+
+      toast({
+        title: 'نجح',
+        description: reminderDate ? 'تم تعيين التذكير بنجاح' : 'تم إلغاء التذكير',
+      });
+
+      await fetchLeads();
+    } catch (error: any) {
+      toast({
+        title: 'خطأ',
+        description: error.message || 'حدث خطأ أثناء تحديث التذكير',
+        variant: 'destructive',
+      });
+      throw error;
     }
   };
 
@@ -377,6 +463,8 @@ export default function CRMLeadsPage() {
         whatsapp: '',
         products: [],
         total_amount: 0,
+        importance: 'medium',
+        reminder_date: '',
       });
       await fetchLeads();
     } catch (error: any) {
@@ -390,13 +478,37 @@ export default function CRMLeadsPage() {
     }
   };
 
+  // Helper to check if lead is within 24 hours
+  const isWithin24Hours = (createdAt: string) => {
+    const createdDate = new Date(createdAt);
+    const now = new Date();
+    const hoursDiff = (now.getTime() - createdDate.getTime()) / (1000 * 60 * 60);
+    return hoursDiff <= 24;
+  };
+
+  // Helper to check if lead is considered "new" (status is new AND within 24 hours)
+  const isNewLead = (lead: Lead) => {
+    return lead.status === 'new' && isWithin24Hours(lead.created_at);
+  };
+
   const filteredLeads = useMemo(() => {
     let filtered = [...leads];
 
-    // Filter by source
-    if (activeTab !== 'all') {
-      filtered = filtered.filter(lead => lead.source === activeTab);
+    // Filter by tab
+    if (activeTab === 'abandoned_cart') {
+      filtered = filtered.filter(lead => lead.source === 'abandoned_cart');
+    } else if (activeTab === 'whatsapp') {
+      filtered = filtered.filter(lead => lead.source === 'whatsapp');
+    } else if (activeTab === 'manual') {
+      filtered = filtered.filter(lead => lead.source === 'manual');
+    } else if (activeTab === 'converted') {
+      filtered = filtered.filter(lead => lead.status === 'converted');
+    } else if (activeTab === 'non_converted') {
+      filtered = filtered.filter(lead => lead.status === 'non_converted');
     }
+
+    // For "new" status filtering, only show leads that are actually new (within 24 hours)
+    // This is handled by the isNewLead function above
 
     // Search filter
     if (searchQuery) {
@@ -417,16 +529,39 @@ export default function CRMLeadsPage() {
     const abandonedCart = leads.filter(l => l.source === 'abandoned_cart').length;
     const whatsapp = leads.filter(l => l.source === 'whatsapp').length;
     const manual = leads.filter(l => l.source === 'manual').length;
-    const newLeads = leads.filter(l => l.status === 'new').length;
+    const newLeads = leads.filter(l => isNewLead(l)).length; // Only count leads within 24 hours
     const contacted = leads.filter(l => l.status === 'contacted').length;
     const converted = leads.filter(l => l.status === 'converted').length;
+    const nonConverted = leads.filter(l => l.status === 'non_converted').length;
+    const conversionRate = total > 0 ? ((converted / total) * 100).toFixed(1) : '0';
 
-    return { total, abandonedCart, whatsapp, manual, newLeads, contacted, converted };
+    return { 
+      total, 
+      abandonedCart, 
+      whatsapp, 
+      manual, 
+      newLeads, 
+      contacted, 
+      converted, 
+      nonConverted,
+      conversionRate 
+    };
+  }, [leads]);
+
+  const tabCounts = useMemo(() => {
+    return {
+      all: leads.length,
+      abandoned_cart: leads.filter(l => l.source === 'abandoned_cart').length,
+      whatsapp: leads.filter(l => l.source === 'whatsapp').length,
+      manual: leads.filter(l => l.source === 'manual').length,
+      converted: leads.filter(l => l.status === 'converted').length,
+      non_converted: leads.filter(l => l.status === 'non_converted').length,
+    };
   }, [leads]);
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900">
+      <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900" dir="rtl">
         <Header />
         <main className="container mx-auto px-4 py-24 pt-32">
           <div className="max-w-6xl mx-auto text-center">
@@ -444,10 +579,11 @@ export default function CRMLeadsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900">
+    <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900" dir="rtl">
       <Header />
       <main className="container mx-auto px-4 py-24 pt-32">
-        <div className="max-w-7xl mx-auto">
+        <div className="max-w-[1800px] mx-auto">
+          {/* Header */}
           <div className="flex justify-between items-center mb-8">
             <div>
               <h1 className="text-3xl font-bold text-white mb-2">إدارة العملاء المحتملين (CRM)</h1>
@@ -456,46 +592,75 @@ export default function CRMLeadsPage() {
             <Dialog open={manualLeadDialogOpen} onOpenChange={setManualLeadDialogOpen}>
               <DialogTrigger asChild>
                 <Button className="bg-emerald-600 hover:bg-emerald-700 text-white">
-                  <Plus className="h-4 w-4 mr-2" />
+                  <Plus className="h-4 w-4 ml-2" />
                   إضافة عميل محتمل
                 </Button>
               </DialogTrigger>
-              <DialogContent className="bg-slate-800 border-slate-700 max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogContent className="bg-slate-800 border-slate-700 max-w-3xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
-                  <DialogTitle className="text-white">إضافة عميل محتمل جديد</DialogTitle>
+                  <DialogTitle className="text-white text-2xl">إضافة عميل محتمل جديد</DialogTitle>
                 </DialogHeader>
-                <div className="space-y-4 mt-4">
-                  <div>
-                    <Label className="text-slate-300">الاسم *</Label>
-                    <Input
-                      value={manualLeadForm.name}
-                      onChange={(e) => setManualLeadForm(prev => ({ ...prev, name: e.target.value }))}
-                      placeholder="اسم العميل"
-                      className="bg-slate-900 border-slate-700 text-white mt-1"
-                    />
+                <div className="space-y-6 mt-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-slate-300 mb-2 block">الاسم *</Label>
+                      <Input
+                        value={manualLeadForm.name}
+                        onChange={(e) => setManualLeadForm(prev => ({ ...prev, name: e.target.value }))}
+                        placeholder="اسم العميل"
+                        className="bg-slate-900 border-slate-700 text-white"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-slate-300 mb-2 block">البريد الإلكتروني</Label>
+                      <Input
+                        type="email"
+                        value={manualLeadForm.email}
+                        onChange={(e) => setManualLeadForm(prev => ({ ...prev, email: e.target.value }))}
+                        placeholder="email@example.com"
+                        className="bg-slate-900 border-slate-700 text-white"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-slate-300 mb-2 block">واتساب</Label>
+                      <Input
+                        value={manualLeadForm.whatsapp}
+                        onChange={(e) => setManualLeadForm(prev => ({ ...prev, whatsapp: e.target.value }))}
+                        placeholder="+966501234567"
+                        className="bg-slate-900 border-slate-700 text-white"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-slate-300 mb-2 block">الأهمية</Label>
+                      <Select
+                        value={manualLeadForm.importance}
+                        onValueChange={(value: any) => setManualLeadForm(prev => ({ ...prev, importance: value }))}
+                      >
+                        <SelectTrigger className="bg-slate-900 border-slate-700 text-white">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="low">منخفض</SelectItem>
+                          <SelectItem value="medium">متوسط</SelectItem>
+                          <SelectItem value="high">عالي</SelectItem>
+                          <SelectItem value="urgent">عاجل</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label className="text-slate-300 mb-2 block">تاريخ التذكير (اختياري)</Label>
+                      <Input
+                        type="datetime-local"
+                        value={manualLeadForm.reminder_date}
+                        onChange={(e) => setManualLeadForm(prev => ({ ...prev, reminder_date: e.target.value }))}
+                        className="bg-slate-900 border-slate-700 text-white"
+                      />
+                    </div>
                   </div>
+
                   <div>
-                    <Label className="text-slate-300">البريد الإلكتروني</Label>
-                    <Input
-                      type="email"
-                      value={manualLeadForm.email}
-                      onChange={(e) => setManualLeadForm(prev => ({ ...prev, email: e.target.value }))}
-                      placeholder="email@example.com"
-                      className="bg-slate-900 border-slate-700 text-white mt-1"
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-slate-300">واتساب</Label>
-                    <Input
-                      value={manualLeadForm.whatsapp}
-                      onChange={(e) => setManualLeadForm(prev => ({ ...prev, whatsapp: e.target.value }))}
-                      placeholder="+966501234567"
-                      className="bg-slate-900 border-slate-700 text-white mt-1"
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-slate-300">المنتجات</Label>
-                    <div className="flex gap-2 mt-1">
+                    <Label className="text-slate-300 mb-2 block">المنتجات</Label>
+                    <div className="flex gap-2">
                       <select
                         value={selectedProduct.product?.id || ''}
                         onChange={(e) => {
@@ -528,9 +693,9 @@ export default function CRMLeadsPage() {
                       </Button>
                     </div>
                     {manualLeadForm.products.length > 0 && (
-                      <div className="mt-2 space-y-2">
+                      <div className="mt-3 space-y-2">
                         {manualLeadForm.products.map((product, index) => (
-                          <div key={index} className="flex items-center justify-between bg-slate-900 p-2 rounded">
+                          <div key={index} className="flex items-center justify-between bg-slate-900 p-3 rounded">
                             <span className="text-slate-300 text-sm">
                               {product.product_name} (x{product.quantity}) - {product.price * product.quantity} ريال
                             </span>
@@ -544,13 +709,14 @@ export default function CRMLeadsPage() {
                             </Button>
                           </div>
                         ))}
-                        <div className="text-slate-300 font-semibold mt-2">
+                        <div className="text-slate-300 font-semibold mt-3 text-lg">
                           الإجمالي: {manualLeadForm.total_amount} ريال
                         </div>
                       </div>
                     )}
                   </div>
-                  <div className="flex gap-2 pt-4">
+
+                  <div className="flex gap-2 pt-4 border-t border-slate-700">
                     <Button
                       onClick={handleCreateManualLead}
                       disabled={creatingLead || !manualLeadForm.name.trim()}
@@ -558,7 +724,7 @@ export default function CRMLeadsPage() {
                     >
                       {creatingLead ? (
                         <>
-                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                          <Loader2 className="h-4 w-4 animate-spin ml-2" />
                           جاري الإنشاء...
                         </>
                       ) : (
@@ -579,15 +745,15 @@ export default function CRMLeadsPage() {
           </div>
 
           {/* Statistics */}
-          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-7 gap-4 mb-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4 mb-6">
             <Card className="bg-blue-900/20 border-blue-700">
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <div className="text-3xl font-bold text-blue-500">{statistics.total}</div>
-                    <div className="text-slate-300 mt-2 text-sm">إجمالي العملاء</div>
+                    <div className="text-2xl font-bold text-blue-500">{statistics.total}</div>
+                    <div className="text-slate-300 mt-1 text-xs">إجمالي</div>
                   </div>
-                  <UserPlus className="h-8 w-8 text-blue-500 opacity-50" />
+                  <UserPlus className="h-6 w-6 text-blue-500 opacity-50" />
                 </div>
               </CardContent>
             </Card>
@@ -595,10 +761,10 @@ export default function CRMLeadsPage() {
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <div className="text-3xl font-bold text-orange-500">{statistics.abandonedCart}</div>
-                    <div className="text-slate-300 mt-2 text-sm">سلات متروكة</div>
+                    <div className="text-2xl font-bold text-orange-500">{statistics.abandonedCart}</div>
+                    <div className="text-slate-300 mt-1 text-xs">سلات</div>
                   </div>
-                  <ShoppingCart className="h-8 w-8 text-orange-500 opacity-50" />
+                  <ShoppingCart className="h-6 w-6 text-orange-500 opacity-50" />
                 </div>
               </CardContent>
             </Card>
@@ -606,10 +772,10 @@ export default function CRMLeadsPage() {
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <div className="text-3xl font-bold text-green-500">{statistics.whatsapp}</div>
-                    <div className="text-slate-300 mt-2 text-sm">واتساب</div>
+                    <div className="text-2xl font-bold text-green-500">{statistics.whatsapp}</div>
+                    <div className="text-slate-300 mt-1 text-xs">واتساب</div>
                   </div>
-                  <MessageCircle className="h-8 w-8 text-green-500 opacity-50" />
+                  <MessageCircle className="h-6 w-6 text-green-500 opacity-50" />
                 </div>
               </CardContent>
             </Card>
@@ -617,10 +783,10 @@ export default function CRMLeadsPage() {
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <div className="text-3xl font-bold text-purple-500">{statistics.manual}</div>
-                    <div className="text-slate-300 mt-2 text-sm">يدوي</div>
+                    <div className="text-2xl font-bold text-purple-500">{statistics.manual}</div>
+                    <div className="text-slate-300 mt-1 text-xs">يدوي</div>
                   </div>
-                  <UserPlus className="h-8 w-8 text-purple-500 opacity-50" />
+                  <UserPlus className="h-6 w-6 text-purple-500 opacity-50" />
                 </div>
               </CardContent>
             </Card>
@@ -628,10 +794,10 @@ export default function CRMLeadsPage() {
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <div className="text-3xl font-bold text-yellow-500">{statistics.newLeads}</div>
-                    <div className="text-slate-300 mt-2 text-sm">جديد</div>
+                    <div className="text-2xl font-bold text-yellow-500">{statistics.newLeads}</div>
+                    <div className="text-slate-300 mt-1 text-xs">جديد</div>
                   </div>
-                  <UserPlus className="h-8 w-8 text-yellow-500 opacity-50" />
+                  <UserPlus className="h-6 w-6 text-yellow-500 opacity-50" />
                 </div>
               </CardContent>
             </Card>
@@ -639,10 +805,10 @@ export default function CRMLeadsPage() {
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <div className="text-3xl font-bold text-indigo-500">{statistics.contacted}</div>
-                    <div className="text-slate-300 mt-2 text-sm">تم الاتصال</div>
+                    <div className="text-2xl font-bold text-indigo-500">{statistics.contacted}</div>
+                    <div className="text-slate-300 mt-1 text-xs">تم الاتصال</div>
                   </div>
-                  <MessageCircle className="h-8 w-8 text-indigo-500 opacity-50" />
+                  <MessageCircle className="h-6 w-6 text-indigo-500 opacity-50" />
                 </div>
               </CardContent>
             </Card>
@@ -650,16 +816,27 @@ export default function CRMLeadsPage() {
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <div className="text-3xl font-bold text-teal-500">{statistics.converted}</div>
-                    <div className="text-slate-300 mt-2 text-sm">محول</div>
+                    <div className="text-2xl font-bold text-teal-500">{statistics.converted}</div>
+                    <div className="text-slate-300 mt-1 text-xs">محول</div>
                   </div>
-                  <UserPlus className="h-8 w-8 text-teal-500 opacity-50" />
+                  <CheckCircle2 className="h-6 w-6 text-teal-500 opacity-50" />
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="bg-red-900/20 border-red-700">
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-2xl font-bold text-red-500">{statistics.conversionRate}%</div>
+                    <div className="text-slate-300 mt-1 text-xs">نسبة التحويل</div>
+                  </div>
+                  <XCircle className="h-6 w-6 text-red-500 opacity-50" />
                 </div>
               </CardContent>
             </Card>
           </div>
 
-          {/* Filters */}
+          {/* Search */}
           <Card className="bg-slate-800/50 border-slate-700 mb-6">
             <CardContent className="pt-6">
               <div className="relative">
@@ -674,183 +851,140 @@ export default function CRMLeadsPage() {
             </CardContent>
           </Card>
 
-          {/* Leads Table with Tabs */}
-          <Card className="bg-slate-800/50 border-slate-700">
-            <CardHeader>
-              <CardTitle className="text-2xl text-white">
-                العملاء المحتملين ({filteredLeads.length})
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Tabs value={activeTab} onValueChange={setActiveTab}>
-                <TabsList className="grid w-full grid-cols-4 mb-4 bg-slate-900">
-                  <TabsTrigger value="all" className="data-[state=active]:bg-slate-700">الكل</TabsTrigger>
-                  <TabsTrigger value="abandoned_cart" className="data-[state=active]:bg-slate-700">السلات المتروكة</TabsTrigger>
-                  <TabsTrigger value="whatsapp" className="data-[state=active]:bg-slate-700">واتساب</TabsTrigger>
-                  <TabsTrigger value="manual" className="data-[state=active]:bg-slate-700">يدوي</TabsTrigger>
-                </TabsList>
+          {/* Main Content with Right Sidebar */}
+          <div className="flex gap-6">
+            {/* Main Content Area - Cards Grid */}
+            <div className="flex-1">
+              {filteredLeads.length === 0 ? (
+                <Card className="bg-slate-800/50 border-slate-700">
+                  <CardContent className="py-16 text-center">
+                    <p className="text-slate-300 text-lg">لا توجد عملاء محتملين</p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {filteredLeads.map((lead) => (
+                    <LeadCard
+                      key={lead.id}
+                      lead={lead}
+                      onUpdate={fetchLeads}
+                      onDelete={handleDeleteLead}
+                      onAddComment={handleAddComment}
+                      onUpdateStatus={handleUpdateStatus}
+                      onUpdateImportance={handleUpdateImportance}
+                      onUpdateReminder={handleUpdateReminder}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
 
-                <TabsContent value={activeTab} className="mt-4">
-                  {filteredLeads.length === 0 ? (
-                    <p className="text-slate-300 text-center py-8">لا توجد عملاء محتملين</p>
-                  ) : (
-                    <div className="overflow-x-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow className="border-slate-700 hover:bg-slate-700/50">
-                            <TableHead className="text-white">العميل</TableHead>
-                            <TableHead className="text-white">المنتجات</TableHead>
-                            <TableHead className="text-white">المبلغ</TableHead>
-                            <TableHead className="text-white">المصدر</TableHead>
-                            <TableHead className="text-white">منذ</TableHead>
-                            <TableHead className="text-white">التعليقات</TableHead>
-                            <TableHead className="text-white">الإجراءات</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {filteredLeads.map((lead) => (
-                            <TableRow key={lead.id} className="border-slate-700 hover:bg-slate-700/50">
-                              <TableCell className="text-white">
-                                <div className="space-y-1">
-                                  <div className="font-semibold">{lead.name}</div>
-                                  {lead.email && (
-                                    <div className="text-xs text-slate-400 flex items-center gap-1">
-                                      <Mail className="h-3 w-3" />
-                                      {lead.email}
-                                    </div>
-                                  )}
-                                  {lead.whatsapp && (
-                                    <div className="text-xs text-slate-400 flex items-center gap-1">
-                                      <MessageCircle className="h-3 w-3" />
-                                      {lead.whatsapp}
-                                    </div>
-                                  )}
-                                </div>
-                              </TableCell>
-                              <TableCell className="text-slate-300 text-sm">
-                                <div className="space-y-1">
-                                  {lead.products.length > 0 ? (
-                                    lead.products.map((product, idx) => (
-                                      <div key={idx} className="text-xs">
-                                        • {product.product_name} {product.quantity > 1 && `(x${product.quantity})`}
-                                      </div>
-                                    ))
-                                  ) : (
-                                    <span className="text-slate-500 text-xs">لا توجد منتجات</span>
-                                  )}
-                                </div>
-                              </TableCell>
-                              <TableCell className="text-white">
-                                {lead.total_amount ? `${lead.total_amount.toLocaleString()} ريال` : '0 ريال'}
-                              </TableCell>
-                              <TableCell>
-                                <Badge className={
-                                  lead.source === 'abandoned_cart' 
-                                    ? 'bg-orange-900/50 text-orange-500 border-orange-700'
-                                    : lead.source === 'whatsapp'
-                                    ? 'bg-green-900/50 text-green-500 border-green-700'
-                                    : 'bg-purple-900/50 text-purple-500 border-purple-700'
-                                }>
-                                  {lead.source === 'abandoned_cart' ? 'سلة متروكة' : lead.source === 'whatsapp' ? 'واتساب' : 'يدوي'}
-                                </Badge>
-                              </TableCell>
-                              <TableCell className="text-slate-400 text-xs">
-                                منذ {formatDistanceToNow(new Date(lead.created_at), { addSuffix: false, locale: ar })}
-                              </TableCell>
-                              <TableCell>
-                                <Badge className="bg-slate-700 text-slate-300">
-                                  {lead.comments?.length || 0} تعليق
-                                </Badge>
-                              </TableCell>
-                              <TableCell>
-                                <div className="flex gap-2">
-                                  <Dialog open={commentDialogOpen === lead.id} onOpenChange={(open) => {
-                                    setCommentDialogOpen(open ? lead.id : null);
-                                    if (!open) setCommentText('');
-                                  }}>
-                                    <DialogTrigger asChild>
-                                      <Button size="sm" variant="outline" className="bg-blue-600 hover:bg-blue-700 text-white border-blue-700 h-7 text-xs">
-                                        <MessageSquare className="h-3 w-3 mr-1" />
-                                        تعليق
-                                      </Button>
-                                    </DialogTrigger>
-                                    <DialogContent className="bg-slate-800 border-slate-700 max-w-2xl">
-                                      <DialogHeader>
-                                        <DialogTitle className="text-white">إضافة تعليق</DialogTitle>
-                                      </DialogHeader>
-                                      <div className="space-y-4 mt-4">
-                                        <Textarea
-                                          value={commentText}
-                                          onChange={(e) => setCommentText(e.target.value)}
-                                          placeholder="اكتب تعليقك هنا..."
-                                          className="bg-slate-900 border-slate-700 text-white min-h-[100px]"
-                                        />
-                                        <div className="space-y-2">
-                                          <p className="text-sm text-slate-400 font-semibold">التعليقات السابقة:</p>
-                                          {lead.comments && lead.comments.length > 0 ? (
-                                            <div className="space-y-2 max-h-40 overflow-y-auto">
-                                              {lead.comments.map((comment, idx) => (
-                                                <div key={idx} className="bg-slate-900 p-3 rounded text-xs">
-                                                  <p className="text-slate-300">{comment.text}</p>
-                                                  <p className="text-slate-500 text-xs mt-1">
-                                                    {comment.added_by} - {formatDistanceToNow(new Date(comment.added_at), { addSuffix: true, locale: ar })}
-                                                  </p>
-                                                </div>
-                                              ))}
-                                            </div>
-                                          ) : (
-                                            <p className="text-slate-500 text-sm">لا توجد تعليقات</p>
-                                          )}
-                                        </div>
-                                        <Button
-                                          onClick={() => handleAddComment(lead.id)}
-                                          disabled={addingComment || !commentText.trim()}
-                                          className="bg-blue-600 hover:bg-blue-700 text-white w-full"
-                                        >
-                                          {addingComment ? (
-                                            <>
-                                              <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                                              جاري الإضافة...
-                                            </>
-                                          ) : (
-                                            'إضافة تعليق'
-                                          )}
-                                        </Button>
-                                      </div>
-                                    </DialogContent>
-                                  </Dialog>
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="bg-red-600 hover:bg-red-700 text-white border-red-700 h-7 text-xs"
-                                    onClick={() => handleDeleteLead(lead.id)}
-                                    disabled={deletingLead === lead.id}
-                                  >
-                                    {deletingLead === lead.id ? (
-                                      <Loader2 className="h-3 w-3 animate-spin" />
-                                    ) : (
-                                      <>
-                                        <Trash2 className="h-3 w-3 mr-1" />
-                                        حذف
-                                      </>
-                                    )}
-                                  </Button>
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  )}
-                </TabsContent>
-              </Tabs>
-            </CardContent>
-          </Card>
+            {/* Right Sidebar - Tabs */}
+            <div className="w-64 flex-shrink-0">
+              <Card className="bg-slate-800/50 border-slate-700 sticky top-32">
+                <CardHeader>
+                  <CardTitle className="text-xl text-white">التصنيفات</CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <div className="flex flex-col">
+                    <button
+                      onClick={() => setActiveTab('all')}
+                      className={`text-right px-4 py-3 transition-colors border-r-4 ${
+                        activeTab === 'all'
+                          ? 'bg-slate-700 border-blue-500 text-white'
+                          : 'border-transparent text-slate-300 hover:bg-slate-700/50'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium">الكل</span>
+                        <Badge className="bg-slate-600 text-slate-200 text-xs">
+                          {tabCounts.all}
+                        </Badge>
+                      </div>
+                    </button>
+                    <button
+                      onClick={() => setActiveTab('abandoned_cart')}
+                      className={`text-right px-4 py-3 transition-colors border-r-4 ${
+                        activeTab === 'abandoned_cart'
+                          ? 'bg-slate-700 border-orange-500 text-white'
+                          : 'border-transparent text-slate-300 hover:bg-slate-700/50'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium">السلات المتروكة</span>
+                        <Badge className="bg-orange-600 text-orange-200 text-xs">
+                          {tabCounts.abandoned_cart}
+                        </Badge>
+                      </div>
+                    </button>
+                    <button
+                      onClick={() => setActiveTab('whatsapp')}
+                      className={`text-right px-4 py-3 transition-colors border-r-4 ${
+                        activeTab === 'whatsapp'
+                          ? 'bg-slate-700 border-green-500 text-white'
+                          : 'border-transparent text-slate-300 hover:bg-slate-700/50'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium">واتساب</span>
+                        <Badge className="bg-green-600 text-green-200 text-xs">
+                          {tabCounts.whatsapp}
+                        </Badge>
+                      </div>
+                    </button>
+                    <button
+                      onClick={() => setActiveTab('manual')}
+                      className={`text-right px-4 py-3 transition-colors border-r-4 ${
+                        activeTab === 'manual'
+                          ? 'bg-slate-700 border-purple-500 text-white'
+                          : 'border-transparent text-slate-300 hover:bg-slate-700/50'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium">يدوي</span>
+                        <Badge className="bg-purple-600 text-purple-200 text-xs">
+                          {tabCounts.manual}
+                        </Badge>
+                      </div>
+                    </button>
+                    <button
+                      onClick={() => setActiveTab('converted')}
+                      className={`text-right px-4 py-3 transition-colors border-r-4 ${
+                        activeTab === 'converted'
+                          ? 'bg-slate-700 border-teal-500 text-white'
+                          : 'border-transparent text-slate-300 hover:bg-slate-700/50'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium">محول</span>
+                        <Badge className="bg-teal-600 text-teal-200 text-xs">
+                          {tabCounts.converted}
+                        </Badge>
+                      </div>
+                    </button>
+                    <button
+                      onClick={() => setActiveTab('non_converted')}
+                      className={`text-right px-4 py-3 transition-colors border-r-4 ${
+                        activeTab === 'non_converted'
+                          ? 'bg-slate-700 border-red-500 text-white'
+                          : 'border-transparent text-slate-300 hover:bg-slate-700/50'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium">غير محول</span>
+                        <Badge className="bg-red-600 text-red-200 text-xs">
+                          {tabCounts.non_converted}
+                        </Badge>
+                      </div>
+                    </button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
         </div>
       </main>
       <Footer />
     </div>
   );
 }
-

@@ -130,6 +130,7 @@ export async function POST(request: NextRequest) {
               total_amount: cartSession.total_amount || 0,
               source_reference_id: cartSession.id,
               status: 'new',
+              importance: 'urgent',
               comments: [],
             });
         }
