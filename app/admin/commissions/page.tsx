@@ -677,15 +677,20 @@ function AdminCommissionsPageContent() {
 }
 
 // Export with dynamic import to prevent build errors
-export default dynamic(() => Promise.resolve(AdminCommissionsPageContent), {
-  ssr: false,
-  loading: () => (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-      <div className="text-center">
-        <Loader2 className="h-8 w-8 animate-spin text-gray-600 mx-auto" />
-        <p className="text-gray-600 mt-4">جاري التحميل...</p>
+const AdminCommissionsPage = dynamic(
+  () => Promise.resolve(AdminCommissionsPageContent),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin text-gray-600 mx-auto" />
+          <p className="text-gray-600 mt-4">جاري التحميل...</p>
+        </div>
       </div>
-    </div>
-  ),
-});
+    ),
+  }
+);
+
+export default AdminCommissionsPage;
 
