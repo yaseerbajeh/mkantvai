@@ -34,6 +34,7 @@ import {
 } from 'lucide-react';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import dynamic from 'next/dynamic';
 
 interface Commissioner {
   id: string;
@@ -54,7 +55,7 @@ interface Stats {
   pendingPayouts: number;
 }
 
-export default function AdminCommissionsPage() {
+function AdminCommissionsPageContent() {
   const router = useRouter();
   const { toast } = useToast();
   const [user, setUser] = useState<SupabaseUser | null>(null);
@@ -326,12 +327,12 @@ export default function AdminCommissionsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900">
+      <div className="min-h-screen bg-gray-50">
         <Header />
         <main className="container mx-auto px-4 py-24 pt-32">
           <div className="max-w-6xl mx-auto text-center">
-            <Loader2 className="h-8 w-8 animate-spin text-white mx-auto" />
-            <p className="text-slate-300 mt-4">جاري التحميل...</p>
+            <Loader2 className="h-8 w-8 animate-spin text-gray-600 mx-auto" />
+            <p className="text-gray-600 mt-4">جاري التحميل...</p>
           </div>
         </main>
         <Footer />
@@ -674,4 +675,21 @@ export default function AdminCommissionsPage() {
     </div>
   );
 }
+
+// Export with dynamic import to prevent build errors
+export default dynamic(() => Promise.resolve(AdminCommissionsPageContent), {
+  ssr: false,
+  loading: () => (
+    <div className="min-h-screen bg-gray-50">
+      <Header />
+      <main className="container mx-auto px-4 py-24 pt-32">
+        <div className="max-w-6xl mx-auto text-center">
+          <Loader2 className="h-8 w-8 animate-spin text-gray-600 mx-auto" />
+          <p className="text-gray-600 mt-4">جاري التحميل...</p>
+        </div>
+      </main>
+      <Footer />
+    </div>
+  ),
+});
 
