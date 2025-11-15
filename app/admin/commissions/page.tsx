@@ -680,15 +680,11 @@ function AdminCommissionsPageContent() {
 export default dynamic(() => Promise.resolve(AdminCommissionsPageContent), {
   ssr: false,
   loading: () => (
-    <div className="min-h-screen bg-gray-50">
-      <Header />
-      <main className="container mx-auto px-4 py-24 pt-32">
-        <div className="max-w-6xl mx-auto text-center">
-          <Loader2 className="h-8 w-8 animate-spin text-gray-600 mx-auto" />
-          <p className="text-gray-600 mt-4">جاري التحميل...</p>
-        </div>
-      </main>
-      <Footer />
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="text-center">
+        <Loader2 className="h-8 w-8 animate-spin text-gray-600 mx-auto" />
+        <p className="text-gray-600 mt-4">جاري التحميل...</p>
+      </div>
     </div>
   ),
 });
