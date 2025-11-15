@@ -112,6 +112,43 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Calculate commission if order has commissioner and is now approved/paid
+    if (order.commissioner_id && (order.status === 'approved' || order.status === 'paid')) {
+      try {
+        // Check if commission already exists
+        const { data: existingCommission } = await supabaseAdmin
+          .from('commission_earnings')
+          .select('id')
+          .eq('order_id', order_id)
+          .single();
+
+        if (!existingCommission) {
+          const { data: commissioner } = await supabaseAdmin
+            .from('commissioners')
+            .select('commission_rate')
+            .eq('id', order.commissioner_id)
+            .single();
+
+          if (commissioner && order.total_amount) {
+            const commissionAmount = parseFloat(order.total_amount as any) * parseFloat(commissioner.commission_rate as any);
+            await supabaseAdmin
+              .from('commission_earnings')
+              .insert({
+                commissioner_id: order.commissioner_id,
+                order_id: order_id,
+                order_amount: parseFloat(order.total_amount as any),
+                commission_amount: commissionAmount,
+                status: 'pending',
+              });
+            console.log('✓ Commission earnings created on approval:', commissionAmount);
+          }
+        }
+      } catch (commissionError) {
+        console.error('Error creating commission earnings on approval:', commissionError);
+        // Don't fail the approval if commission calculation fails
+      }
+    }
+
     // Send approval email to customer (non-blocking)
     try {
       const subscriptionData = order.assigned_subscription as any;

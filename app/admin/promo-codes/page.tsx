@@ -580,12 +580,12 @@ export default function AdminPromoCodesPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900">
+      <div className="min-h-screen bg-gray-50">
         <Header />
         <main className="container mx-auto px-4 py-24 pt-32">
           <div className="max-w-6xl mx-auto text-center">
-            <Loader2 className="h-8 w-8 animate-spin text-white mx-auto" />
-            <p className="text-slate-300 mt-4">جاري التحميل...</p>
+            <Loader2 className="h-8 w-8 animate-spin text-gray-600 mx-auto" />
+            <p className="text-gray-600 mt-4">جاري التحميل...</p>
           </div>
         </main>
         <Footer />
@@ -598,14 +598,14 @@ export default function AdminPromoCodesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900">
+    <div className="min-h-screen bg-gray-50">
       <Header />
       <main className="container mx-auto px-4 py-24 pt-32">
         <div className="max-w-6xl mx-auto">
           <div className="mb-8 flex items-center justify-between">
             <div>
-              <h1 className="text-4xl font-bold text-white mb-2">إدارة رموز الخصم</h1>
-              <p className="text-slate-300">إنشاء وإدارة رموز الخصم الترويجية</p>
+              <h1 className="text-4xl font-bold text-gray-900 mb-2">إدارة رموز الخصم</h1>
+              <p className="text-gray-600">إنشاء وإدارة رموز الخصم الترويجية</p>
             </div>
             <Button onClick={handleCreatePromoCode} className="bg-blue-600 hover:bg-blue-700">
               <Plus className="h-4 w-4 ml-2" />
@@ -614,9 +614,9 @@ export default function AdminPromoCodesPage() {
           </div>
 
           {/* Promotional Banner Management */}
-          <Card className="bg-slate-800/50 border-slate-700 mb-6">
+          <Card className="bg-white border-gray-200 mb-6">
             <CardHeader>
-              <CardTitle className="text-white flex items-center gap-2">
+              <CardTitle className="text-gray-900 flex items-center gap-2">
                 <Megaphone className="h-5 w-5" />
                 إدارة البانر الترويجي
               </CardTitle>
@@ -624,13 +624,13 @@ export default function AdminPromoCodesPage() {
             <CardContent>
               {bannerLoading && !promotionalBanner ? (
                 <div className="flex items-center justify-center py-8">
-                  <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+                  <Loader2 className="h-6 w-6 animate-spin text-gray-500" />
                 </div>
               ) : (
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <Label htmlFor="banner-toggle" className="text-white cursor-pointer">
+                      <Label htmlFor="banner-toggle" className="text-gray-900 cursor-pointer">
                         تفعيل البانر الترويجي
                       </Label>
                       <Switch
@@ -643,7 +643,7 @@ export default function AdminPromoCodesPage() {
                     <Button
                       onClick={() => setBannerDialogOpen(true)}
                       variant="outline"
-                      className="border-slate-600 text-slate-300 hover:bg-slate-700"
+                      className="border-gray-300 text-gray-600 hover:bg-gray-100"
                     >
                       <Edit className="h-4 w-4 ml-2" />
                       تعديل
@@ -653,30 +653,30 @@ export default function AdminPromoCodesPage() {
                   {promotionalBanner && (
                     <div className="bg-slate-900/50 rounded-lg p-4 space-y-2 border border-slate-700">
                       <div className="flex items-center justify-between">
-                        <span className="text-slate-400">الحالة:</span>
+                        <span className="text-gray-500">الحالة:</span>
                         <Badge className={bannerForm.is_enabled ? 'bg-green-600' : 'bg-slate-600'}>
                           {bannerForm.is_enabled ? 'مفعّل' : 'معطّل'}
                         </Badge>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-slate-400">العنوان:</span>
-                        <span className="text-white text-sm">{promotionalBanner.title || '-'}</span>
+                        <span className="text-gray-500">العنوان:</span>
+                        <span className="text-gray-900 text-sm">{promotionalBanner.title || '-'}</span>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-slate-400">نسبة الخصم:</span>
-                        <span className="text-white font-semibold">{promotionalBanner.discount_percentage}%</span>
+                        <span className="text-gray-500">نسبة الخصم:</span>
+                        <span className="text-gray-900 font-semibold">{promotionalBanner.discount_percentage}%</span>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-slate-400">تاريخ الانتهاء:</span>
-                        <span className="text-white text-sm">
+                        <span className="text-gray-500">تاريخ الانتهاء:</span>
+                        <span className="text-gray-900 text-sm">
                           {promotionalBanner.expiration_date
                             ? format(new Date(promotionalBanner.expiration_date), 'yyyy-MM-dd', { locale: ar })
                             : '-'}
                         </span>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-slate-400">رابط الزر:</span>
-                        <span className="text-white text-sm">{promotionalBanner.cta_link || '/subscribe'}</span>
+                        <span className="text-gray-500">رابط الزر:</span>
+                        <span className="text-gray-900 text-sm">{promotionalBanner.cta_link || '/subscribe'}</span>
                       </div>
                     </div>
                   )}
@@ -686,20 +686,20 @@ export default function AdminPromoCodesPage() {
           </Card>
 
           {/* Filters */}
-          <Card className="bg-slate-800/50 border-slate-700 mb-6">
+          <Card className="bg-white border-gray-200 mb-6">
             <CardContent className="pt-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="relative">
-                  <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                   <Input
                     placeholder="ابحث عن رمز الخصم..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="bg-slate-700 border-slate-600 text-white pr-10"
+                    className="bg-white border-gray-300 text-gray-900 pr-10"
                   />
                 </div>
                 <Select value={activeFilter} onValueChange={setActiveFilter}>
-                  <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
+                  <SelectTrigger className="bg-white border-gray-300 text-gray-900">
                     <SelectValue placeholder="تصفية حسب الحالة" />
                   </SelectTrigger>
                   <SelectContent>
@@ -713,12 +713,12 @@ export default function AdminPromoCodesPage() {
           </Card>
 
           {/* Promo Codes Table */}
-          <Card className="bg-slate-800/50 border-slate-700">
+          <Card className="bg-white border-gray-200">
             <CardContent className="pt-6">
               <Table>
                 <TableHeader>
-                  <TableRow className="border-slate-700">
-                    <TableHead className="text-white">الرمز</TableHead>
+                  <TableRow className="border-gray-200">
+                    <TableHead className="text-gray-900">الرمز</TableHead>
                     <TableHead className="text-white">الوصف</TableHead>
                     <TableHead className="text-white">نوع الخصم</TableHead>
                     <TableHead className="text-white">قيمة الخصم</TableHead>
@@ -732,15 +732,15 @@ export default function AdminPromoCodesPage() {
                 <TableBody>
                   {filteredPromoCodes.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={9} className="text-center text-slate-400 py-8">
+                      <TableCell colSpan={9} className="text-center text-gray-500 py-8">
                         لا توجد رموز خصم
                       </TableCell>
                     </TableRow>
                   ) : (
                     filteredPromoCodes.map((promoCode) => (
-                      <TableRow key={promoCode.id} className="border-slate-700">
-                        <TableCell className="text-white font-semibold">{promoCode.code}</TableCell>
-                        <TableCell className="text-slate-300">
+                      <TableRow key={promoCode.id} className="border-gray-200">
+                        <TableCell className="text-gray-900 font-semibold">{promoCode.code}</TableCell>
+                        <TableCell className="text-gray-600">
                           {promoCode.description || '-'}
                         </TableCell>
                         <TableCell className="text-slate-300">
@@ -838,12 +838,12 @@ export default function AdminPromoCodesPage() {
 
           {/* Create/Edit Dialog */}
           <Dialog open={promoCodeDialogOpen} onOpenChange={setPromoCodeDialogOpen}>
-            <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="bg-white border-gray-200 text-gray-900 max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle className="text-2xl">
                   {editingPromoCode ? 'تعديل رمز الخصم' : 'إضافة رمز خصم جديد'}
                 </DialogTitle>
-                <DialogDescription className="text-slate-400">
+                <DialogDescription className="text-gray-600">
                   {editingPromoCode ? 'قم بتعديل معلومات رمز الخصم' : 'أدخل معلومات رمز الخصم الجديد'}
                 </DialogDescription>
               </DialogHeader>
@@ -877,7 +877,7 @@ export default function AdminPromoCodesPage() {
                         setPromoCodeForm({ ...promoCodeForm, discount_type: value })
                       }
                     >
-                      <SelectTrigger className="bg-slate-700 border-slate-600 text-white mt-1">
+                      <SelectTrigger className="bg-white border-gray-300 text-gray-900 mt-1">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -949,7 +949,7 @@ export default function AdminPromoCodesPage() {
                         setPromoCodeForm({ ...promoCodeForm, is_active: value === 'active' })
                       }
                     >
-                      <SelectTrigger className="bg-slate-700 border-slate-600 text-white mt-1">
+                      <SelectTrigger className="bg-white border-gray-300 text-gray-900 mt-1">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -999,10 +999,10 @@ export default function AdminPromoCodesPage() {
 
           {/* Delete Confirmation Dialog */}
           <Dialog open={!!deletingPromoCodeId} onOpenChange={(open) => !open && setDeletingPromoCodeId(null)}>
-            <DialogContent className="bg-slate-800 border-slate-700 text-white">
+            <DialogContent className="bg-white border-gray-200 text-gray-900">
               <DialogHeader>
                 <DialogTitle>تأكيد الحذف</DialogTitle>
-                <DialogDescription className="text-slate-400">
+                <DialogDescription className="text-gray-600">
                   هل أنت متأكد من حذف رمز الخصم هذا؟ لا يمكن التراجع عن هذا الإجراء.
                 </DialogDescription>
               </DialogHeader>
@@ -1026,16 +1026,16 @@ export default function AdminPromoCodesPage() {
 
           {/* Promotional Banner Edit Dialog */}
           <Dialog open={bannerDialogOpen} onOpenChange={setBannerDialogOpen}>
-            <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="bg-white border-gray-200 text-gray-900 max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle className="text-2xl">تعديل البانر الترويجي</DialogTitle>
-                <DialogDescription className="text-slate-400">
+                <DialogDescription className="text-gray-600">
                   قم بتعديل إعدادات البانر الترويجي المعروض على الصفحة الرئيسية
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-4">
                 <div className="flex items-center justify-between">
-                  <Label htmlFor="banner-enabled" className="text-white">
+                  <Label htmlFor="banner-enabled" className="text-gray-900">
                     تفعيل البانر
                   </Label>
                   <Switch

@@ -1148,12 +1148,12 @@ export default function AdminOrdersPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900">
+      <div className="min-h-screen bg-gray-50">
         <Header />
         <main className="container mx-auto px-4 py-24 pt-32">
           <div className="max-w-6xl mx-auto text-center">
-            <Loader2 className="h-8 w-8 animate-spin text-white mx-auto" />
-            <p className="text-slate-300 mt-4">جاري التحميل...</p>
+            <Loader2 className="h-8 w-8 animate-spin text-gray-600 mx-auto" />
+            <p className="text-gray-600 mt-4">جاري التحميل...</p>
           </div>
         </main>
         <Footer />
@@ -1163,15 +1163,15 @@ export default function AdminOrdersPage() {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900">
+      <div className="min-h-screen bg-gray-50">
         <Header />
         <main className="container mx-auto px-4 py-24 pt-32">
           <div className="max-w-6xl mx-auto">
-            <Card className="bg-red-900/20 border-red-700">
+            <Card className="bg-red-50 border-red-200">
               <CardContent className="pt-6">
                 <div className="text-center">
-                  <h2 className="text-xl font-bold text-white mb-2">غير مصرح</h2>
-                  <p className="text-slate-300 mb-4">
+                  <h2 className="text-xl font-bold text-gray-900 mb-2">غير مصرح</h2>
+                  <p className="text-gray-600 mb-4">
                     يرجى تسجيل الدخول للوصول إلى لوحة الإدارة
                   </p>
                   <Button onClick={() => router.push('/auth')} className="bg-blue-600 hover:bg-blue-700">
@@ -1188,12 +1188,12 @@ export default function AdminOrdersPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900">
+    <div className="min-h-screen bg-gray-50">
       <Header />
       <main className="container mx-auto px-4 py-24 pt-32">
         <div className="max-w-7xl mx-auto">
           <div className="flex justify-between items-center mb-8">
-            <h1 className="text-3xl font-bold text-white">لوحة تحكم الإدارة - الطلبات</h1>
+            <h1 className="text-3xl font-bold text-gray-900">لوحة تحكم الإدارة - الطلبات</h1>
             <div className="flex gap-2">
               <Button 
                 onClick={() => setManualOrderDialogOpen(true)} 
@@ -1202,7 +1202,7 @@ export default function AdminOrdersPage() {
                 <Plus className="h-4 w-4 ml-2" />
                 إضافة طلب
               </Button>
-              <Button onClick={exportToCSV} variant="outline" className="bg-slate-800 text-white border-slate-700">
+              <Button onClick={exportToCSV} variant="outline" className="bg-white text-gray-900 border-gray-300">
                 <Download className="h-4 w-4 ml-2" />
                 تصدير CSV
               </Button>
@@ -1210,19 +1210,19 @@ export default function AdminOrdersPage() {
           </div>
 
           <Tabs defaultValue="orders" className="w-full">
-            <TabsList className="bg-slate-800 border-slate-700">
-              <TabsTrigger value="orders" className="data-[state=active]:bg-slate-700">الطلبات</TabsTrigger>
-              <TabsTrigger value="analytics" className="data-[state=active]:bg-slate-700">التحليلات</TabsTrigger>
+            <TabsList className="bg-white border-gray-200">
+              <TabsTrigger value="orders" className="data-[state=active]:bg-gray-100">الطلبات</TabsTrigger>
+              <TabsTrigger value="analytics" className="data-[state=active]:bg-gray-100">التحليلات</TabsTrigger>
             </TabsList>
 
             <TabsContent value="orders" className="mt-6">
               {/* Filters */}
-              <Card className="bg-slate-800/50 border-slate-700 mb-6">
+              <Card className="bg-white border-gray-200 mb-6">
                 <CardContent className="pt-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     {/* Search */}
                     <div className="relative">
-                      <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+                      <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                       <Input
                         placeholder="بحث برقم الطلب أو الاسم..."
                         value={searchQuery}
@@ -1230,7 +1230,7 @@ export default function AdminOrdersPage() {
                           setSearchQuery(e.target.value);
                           setCurrentPage(1);
                         }}
-                        className="pr-10 bg-slate-900 border-slate-700 text-white"
+                        className="pr-10 bg-white border-gray-300 text-gray-900"
                       />
                     </div>
 
@@ -1239,7 +1239,7 @@ export default function AdminOrdersPage() {
                       setStatusFilter(value);
                       setCurrentPage(1);
                     }}>
-                      <SelectTrigger className="bg-slate-900 border-slate-700 text-white">
+                      <SelectTrigger className="bg-white border-gray-300 text-gray-900">
                         <SelectValue placeholder="حالة الطلب" />
                       </SelectTrigger>
                       <SelectContent>
@@ -1255,7 +1255,7 @@ export default function AdminOrdersPage() {
                       setQuickFilter(value);
                       setCurrentPage(1);
                     }}>
-                      <SelectTrigger className="bg-slate-900 border-slate-700 text-white">
+                      <SelectTrigger className="bg-white border-gray-300 text-gray-900">
                         <SelectValue placeholder="الفترة الزمنية" />
                       </SelectTrigger>
                       <SelectContent>
@@ -1271,12 +1271,12 @@ export default function AdminOrdersPage() {
                     <div className="flex gap-2">
                       <Popover>
                         <PopoverTrigger asChild>
-                          <Button variant="outline" className="flex-1 bg-slate-900 border-slate-700 text-white">
+                          <Button variant="outline" className="flex-1 bg-white border-gray-300 text-gray-900">
                             <CalendarIcon className="h-4 w-4 ml-2" />
                             {dateFrom ? format(dateFrom, 'yyyy-MM-dd', { locale: ar }) : 'من تاريخ'}
                           </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0 bg-slate-800 border-slate-700">
+                        <PopoverContent className="w-auto p-0 bg-white border-gray-200">
                           <Calendar
                             mode="single"
                             selected={dateFrom}
@@ -1285,18 +1285,18 @@ export default function AdminOrdersPage() {
                               setQuickFilter('custom');
                               setCurrentPage(1);
                             }}
-                            className="bg-slate-800"
+                            className="bg-white"
                           />
                         </PopoverContent>
                       </Popover>
                       <Popover>
                         <PopoverTrigger asChild>
-                          <Button variant="outline" className="flex-1 bg-slate-900 border-slate-700 text-white">
+                          <Button variant="outline" className="flex-1 bg-white border-gray-300 text-gray-900">
                             <CalendarIcon className="h-4 w-4 ml-2" />
                             {dateTo ? format(dateTo, 'yyyy-MM-dd', { locale: ar }) : 'إلى تاريخ'}
                           </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0 bg-slate-800 border-slate-700">
+                        <PopoverContent className="w-auto p-0 bg-white border-gray-200">
                           <Calendar
                             mode="single"
                             selected={dateTo}
@@ -1305,7 +1305,7 @@ export default function AdminOrdersPage() {
                               setQuickFilter('custom');
                               setCurrentPage(1);
                             }}
-                            className="bg-slate-800"
+                            className="bg-white"
                           />
                         </PopoverContent>
                       </Popover>
@@ -1321,7 +1321,7 @@ export default function AdminOrdersPage() {
                     <div className="flex items-center justify-between">
                       <div>
                         <div className="text-3xl font-bold text-blue-500">{analytics.totalOrders}</div>
-                        <div className="text-slate-300 mt-2 text-sm">إجمالي الطلبات</div>
+                        <div className="text-gray-600 mt-2 text-sm">إجمالي الطلبات</div>
                       </div>
                       <ShoppingCart className="h-8 w-8 text-blue-500 opacity-50" />
                     </div>
@@ -1332,7 +1332,7 @@ export default function AdminOrdersPage() {
                     <div className="flex items-center justify-between">
                       <div>
                         <div className="text-3xl font-bold text-indigo-500">{analytics.paidOrders}</div>
-                        <div className="text-slate-300 mt-2 text-sm">طلبات مدفوعة</div>
+                        <div className="text-gray-600 mt-2 text-sm">طلبات مدفوعة</div>
                       </div>
                       <CheckCircle2 className="h-8 w-8 text-indigo-500 opacity-50" />
                     </div>
@@ -1343,7 +1343,7 @@ export default function AdminOrdersPage() {
                     <div className="flex items-center justify-between">
                       <div>
                         <div className="text-3xl font-bold text-green-500">{analytics.approvedOrders}</div>
-                        <div className="text-slate-300 mt-2 text-sm">طلبات مقبولة</div>
+                        <div className="text-gray-600 mt-2 text-sm">طلبات مقبولة</div>
                       </div>
                       <CheckCircle2 className="h-8 w-8 text-green-500 opacity-50" />
                     </div>
@@ -1354,7 +1354,7 @@ export default function AdminOrdersPage() {
                     <div className="flex items-center justify-between">
                       <div>
                         <div className="text-3xl font-bold text-emerald-500">{analytics.totalRevenue.toLocaleString()}</div>
-                        <div className="text-slate-300 mt-2 text-sm">إجمالي الإيرادات (ريال)</div>
+                        <div className="text-gray-600 mt-2 text-sm">إجمالي الإيرادات (ريال)</div>
                       </div>
                       <DollarSign className="h-8 w-8 text-emerald-500 opacity-50" />
                     </div>
@@ -1363,75 +1363,75 @@ export default function AdminOrdersPage() {
               </div>
 
               {/* Orders Table */}
-              <Card className="bg-slate-800/50 border-slate-700">
+              <Card className="bg-white border-gray-200">
                 <CardHeader>
-                  <CardTitle className="text-2xl text-white">
+                  <CardTitle className="text-2xl text-gray-900">
                     الطلبات ({filteredAndSortedOrders.length})
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   {filteredAndSortedOrders.length === 0 ? (
-                    <p className="text-slate-300 text-center py-8">لا توجد طلبات</p>
+                    <p className="text-gray-600 text-center py-8">لا توجد طلبات</p>
                   ) : (
                     <>
                       <div className="overflow-x-auto">
                         <Table>
                           <TableHeader>
-                            <TableRow className="border-slate-700 hover:bg-slate-700/50">
-                              <TableHead className="text-white cursor-pointer" onClick={() => handleSort('order_number')}>
+                            <TableRow className="border-gray-200 hover:bg-gray-50">
+                              <TableHead className="text-gray-900 cursor-pointer" onClick={() => handleSort('order_number')}>
                                 <div className="flex items-center">
                                   رقم الطلب
                                   <SortIcon field="order_number" />
                                 </div>
                               </TableHead>
-                              <TableHead className="text-white cursor-pointer" onClick={() => handleSort('name')}>
+                              <TableHead className="text-gray-900 cursor-pointer" onClick={() => handleSort('name')}>
                                 <div className="flex items-center">
                                   الاسم
                                   <SortIcon field="name" />
                                 </div>
                               </TableHead>
-                              <TableHead className="text-white">البريد الإلكتروني</TableHead>
-                              <TableHead className="text-white">واتساب</TableHead>
-                              <TableHead className="text-white">المنتج</TableHead>
-                              <TableHead className="text-white cursor-pointer" onClick={() => handleSort('price')}>
+                              <TableHead className="text-gray-900">البريد الإلكتروني</TableHead>
+                              <TableHead className="text-gray-900">واتساب</TableHead>
+                              <TableHead className="text-gray-900">المنتج</TableHead>
+                              <TableHead className="text-gray-900 cursor-pointer" onClick={() => handleSort('price')}>
                                 <div className="flex items-center">
                                   السعر
                                   <SortIcon field="price" />
                                 </div>
                               </TableHead>
-                              <TableHead className="text-white cursor-pointer" onClick={() => handleSort('status')}>
+                              <TableHead className="text-gray-900 cursor-pointer" onClick={() => handleSort('status')}>
                                 <div className="flex items-center">
                                   الحالة
                                   <SortIcon field="status" />
                                 </div>
                               </TableHead>
-                              <TableHead className="text-white">طريقة الدفع</TableHead>
-                              <TableHead className="text-white cursor-pointer" onClick={() => handleSort('created_at')}>
+                              <TableHead className="text-gray-900">طريقة الدفع</TableHead>
+                              <TableHead className="text-gray-900 cursor-pointer" onClick={() => handleSort('created_at')}>
                                 <div className="flex items-center">
                                   التاريخ
                                   <SortIcon field="created_at" />
                                 </div>
                               </TableHead>
-                              <TableHead className="text-white">الإجراءات</TableHead>
+                              <TableHead className="text-gray-900">الإجراءات</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
                             {paginatedOrders.map((order) => (
-                              <TableRow key={order.id} className="border-slate-700 hover:bg-slate-700/50">
-                                <TableCell className="font-mono text-sm text-white">
+                              <TableRow key={order.id} className="border-gray-200 hover:bg-gray-50">
+                                <TableCell className="font-mono text-sm text-gray-900">
                                   {order.order_number || order.id.slice(0, 8).toUpperCase()}
                                 </TableCell>
-                                <TableCell className="text-white">{order.name}</TableCell>
-                                <TableCell className="text-slate-300 text-sm">{order.email}</TableCell>
-                                <TableCell className="text-slate-300 text-sm">{order.whatsapp || '-'}</TableCell>
-                                <TableCell className="text-slate-300 text-sm">
+                                <TableCell className="text-gray-900">{order.name}</TableCell>
+                                <TableCell className="text-gray-600 text-sm">{order.email}</TableCell>
+                                <TableCell className="text-gray-600 text-sm">{order.whatsapp || '-'}</TableCell>
+                                <TableCell className="text-gray-600 text-sm">
                                   {order.is_cart_order && order.order_items && order.order_items.length > 0 ? (
                                     <div className="space-y-1">
                                       <div className="font-semibold text-blue-400 mb-1">
                                         🛒 طلب سلة ({order.order_items.length} منتج)
                                       </div>
                                       {order.order_items.map((item: OrderItem) => (
-                                        <div key={item.id} className="text-xs text-slate-400 border-r-2 border-slate-600 pr-2 mr-2">
+                                        <div key={item.id} className="text-xs text-gray-500 border-r-2 border-gray-300 pr-2 mr-2">
                                           • {item.product_name} (x{item.quantity}) - {item.price * item.quantity} ريال
                                         </div>
                                       ))}
@@ -1450,7 +1450,7 @@ export default function AdminOrdersPage() {
                                     order.product_name
                                   )}
                                 </TableCell>
-                                <TableCell className="text-white">
+                                <TableCell className="text-gray-900">
                                   {order.total_amount ? `${order.total_amount} ريال` : `${order.price} ريال`}
                                   {order.discount_amount && order.discount_amount > 0 && (
                                     <div className="text-xs text-green-400">
@@ -1505,7 +1505,7 @@ export default function AdminOrdersPage() {
                                     );
                                   })()}
                                 </TableCell>
-                                <TableCell className="text-slate-300 text-sm">
+                                <TableCell className="text-gray-600 text-sm">
                                   {(() => {
                                     if (!order.payment_method) return '-';
                                     const method = order.payment_method.toLowerCase();
@@ -1516,11 +1516,11 @@ export default function AdminOrdersPage() {
                                     } else if (method.includes('paypal')) {
                                       return <Badge className="bg-blue-900/50 text-blue-400 border-blue-700">PayPal</Badge>;
                                     } else {
-                                      return <span className="text-slate-400">{order.payment_method}</span>;
+                                      return <span className="text-gray-500">{order.payment_method}</span>;
                                     }
                                   })()}
                                 </TableCell>
-                                <TableCell className="text-slate-400 text-xs">
+                                <TableCell className="text-gray-500 text-xs">
                                   {format(new Date(order.created_at), 'yyyy-MM-dd HH:mm', { locale: ar })}
                                 </TableCell>
                                 <TableCell>
@@ -1577,7 +1577,7 @@ export default function AdminOrdersPage() {
                       {/* Pagination */}
                       {totalPages > 1 && (
                         <div className="flex items-center justify-between mt-4">
-                          <p className="text-slate-300 text-sm">
+                          <p className="text-gray-600 text-sm">
                             عرض {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, filteredAndSortedOrders.length)} من {filteredAndSortedOrders.length}
                           </p>
                           <div className="flex gap-2">
@@ -1586,11 +1586,11 @@ export default function AdminOrdersPage() {
                               size="sm"
                               onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                               disabled={currentPage === 1}
-                              className="bg-slate-800 border-slate-700 text-white"
+                              className="bg-white border-gray-300 text-gray-900"
                             >
                               السابق
                             </Button>
-                            <span className="text-slate-300 text-sm flex items-center px-4">
+                            <span className="text-gray-600 text-sm flex items-center px-4">
                               صفحة {currentPage} من {totalPages}
                             </span>
                             <Button
@@ -1598,7 +1598,7 @@ export default function AdminOrdersPage() {
                               size="sm"
                               onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                               disabled={currentPage === totalPages}
-                              className="bg-slate-800 border-slate-700 text-white"
+                              className="bg-white border-gray-300 text-gray-900"
                             >
                               التالي
                             </Button>
@@ -1614,34 +1614,34 @@ export default function AdminOrdersPage() {
             <TabsContent value="analytics" className="mt-6">
               {/* Summary Cards */}
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                <Card className="bg-slate-800/50 border-slate-700">
+                <Card className="bg-white border-gray-200">
                   <CardContent className="pt-6">
                     <div className="flex items-center justify-between">
                       <div>
-                        <div className="text-3xl font-bold text-white">{analytics.totalOrders}</div>
-                        <div className="text-slate-300 mt-2 text-sm">إجمالي الطلبات</div>
+                        <div className="text-3xl font-bold text-gray-900">{analytics.totalOrders}</div>
+                        <div className="text-gray-600 mt-2 text-sm">إجمالي الطلبات</div>
                       </div>
-                      <ShoppingCart className="h-8 w-8 text-slate-400" />
+                      <ShoppingCart className="h-8 w-8 text-gray-400" />
                     </div>
                   </CardContent>
                 </Card>
-                <Card className="bg-slate-800/50 border-slate-700">
+                <Card className="bg-white border-gray-200">
                   <CardContent className="pt-6">
                     <div className="flex items-center justify-between">
                       <div>
                         <div className="text-3xl font-bold text-blue-500">{analytics.paidOrders}</div>
-                        <div className="text-slate-300 mt-2 text-sm">طلبات مدفوعة</div>
+                        <div className="text-gray-600 mt-2 text-sm">طلبات مدفوعة</div>
                       </div>
                       <CheckCircle2 className="h-8 w-8 text-blue-500" />
                     </div>
                   </CardContent>
                 </Card>
-                <Card className="bg-slate-800/50 border-slate-700">
+                <Card className="bg-white border-gray-200">
                   <CardContent className="pt-6">
                     <div className="flex items-center justify-between">
                       <div>
                         <div className="text-3xl font-bold text-blue-500">{analytics.totalRevenue.toLocaleString()}</div>
-                        <div className="text-slate-300 mt-2 text-sm">إجمالي الإيرادات (ريال)</div>
+                        <div className="text-gray-600 mt-2 text-sm">إجمالي الإيرادات (ريال)</div>
                       </div>
                       <DollarSign className="h-8 w-8 text-blue-500" />
                     </div>
@@ -1652,7 +1652,7 @@ export default function AdminOrdersPage() {
               {/* Charts */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
                 {/* Orders Over Time */}
-                <Card className="bg-slate-800/50 border-slate-700">
+                <Card className="bg-white border-gray-200">
                   <CardHeader>
                     <CardTitle className="text-white">الطلبات عبر الزمن (آخر 30 يوم)</CardTitle>
                   </CardHeader>
@@ -1676,7 +1676,7 @@ export default function AdminOrdersPage() {
                 </Card>
 
                 {/* Orders by Status */}
-                <Card className="bg-slate-800/50 border-slate-700">
+                <Card className="bg-white border-gray-200">
                   <CardHeader>
                     <CardTitle className="text-white">الطلبات حسب الحالة</CardTitle>
                   </CardHeader>
@@ -1714,7 +1714,7 @@ export default function AdminOrdersPage() {
                 </Card>
 
                 {/* Revenue by Product */}
-                <Card className="bg-slate-800/50 border-slate-700">
+                <Card className="bg-white border-gray-200">
                   <CardHeader>
                     <CardTitle className="text-white">الإيرادات حسب المنتج</CardTitle>
                   </CardHeader>
@@ -1738,7 +1738,7 @@ export default function AdminOrdersPage() {
                 </Card>
 
                 {/* Orders by Day of Week */}
-                <Card className="bg-slate-800/50 border-slate-700">
+                <Card className="bg-white border-gray-200">
                   <CardHeader>
                     <CardTitle className="text-white">الطلبات حسب يوم الأسبوع</CardTitle>
                   </CardHeader>
@@ -1769,10 +1769,10 @@ export default function AdminOrdersPage() {
 
       {/* Delete Order Confirmation Dialog */}
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <DialogContent className="bg-slate-800 border-slate-700 text-white">
+        <DialogContent className="bg-white border-gray-200 text-gray-900">
           <DialogHeader>
             <DialogTitle>تأكيد حذف الطلب</DialogTitle>
-            <DialogDescription className="text-slate-400">
+            <DialogDescription className="text-gray-600">
               هل أنت متأكد من حذف هذا الطلب؟ لا يمكن التراجع عن هذا الإجراء.
             </DialogDescription>
           </DialogHeader>
@@ -1836,7 +1836,7 @@ export default function AdminOrdersPage() {
         <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>إضافة طلب يدوياً</DialogTitle>
-            <DialogDescription className="text-slate-400">
+            <DialogDescription className="text-gray-600">
               أضف طلب جديد يدوياً مع معلومات العميل وحالة الدفع
             </DialogDescription>
           </DialogHeader>
