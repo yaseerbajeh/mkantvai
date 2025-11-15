@@ -11,7 +11,13 @@ import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Trash2, Plus, Minus, ShoppingBag, Tag, X, CheckCircle2, Loader2 } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Trash2, Plus, Minus, ShoppingBag, Tag, X, CheckCircle2, Loader2, MessageCircle, HelpCircle } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { User } from '@supabase/supabase-js';
 import AuthDialog from '@/components/AuthDialog';
@@ -36,6 +42,37 @@ export default function CartPage() {
   const [discount, setDiscount] = useState(0);
   const [total, setTotal] = useState(0);
   const [creatingOrder, setCreatingOrder] = useState(false);
+  const [helpDialogOpen, setHelpDialogOpen] = useState(false);
+
+  // Add styles to ensure dialog appears above PayPal
+  useEffect(() => {
+    if (helpDialogOpen) {
+      const style = document.createElement('style');
+      style.id = 'help-dialog-z-index-fix';
+      style.textContent = `
+        [data-radix-dialog-overlay] {
+          z-index: 99998 !important;
+        }
+        [data-radix-dialog-content] {
+          z-index: 99999 !important;
+        }
+        div[id*="paypal"],
+        div[class*="paypal"],
+        iframe[src*="paypal"],
+        [id*="zoid-paypal"] {
+          z-index: 1 !important;
+          pointer-events: none !important;
+        }
+      `;
+      document.head.appendChild(style);
+      return () => {
+        const existingStyle = document.getElementById('help-dialog-z-index-fix');
+        if (existingStyle) {
+          existingStyle.remove();
+        }
+      };
+    }
+  }, [helpDialogOpen]);
 
   // Check user authentication
   useEffect(() => {
@@ -661,6 +698,19 @@ export default function CartPage() {
                   />
                 </PayPalScriptProvider>
               )}
+
+              {/* Help Button */}
+              {user && validateForm() && PAYPAL_CLIENT_ID && total > 0.01 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setHelpDialogOpen(true)}
+                  className="w-full mt-3 border-slate-600 text-black hover:bg-slate-700 hover:text-white"
+                >
+                  <HelpCircle className="h-4 w-4 ml-2" />
+                  ماعرفت تدفع؟
+                </Button>
+              )}
               
               {!user && (
                 <div className="p-4 bg-yellow-900/20 border border-yellow-700 rounded-lg text-center">
@@ -685,6 +735,51 @@ export default function CartPage() {
         onOpenChange={setAuthDialogOpen}
         onSuccess={() => router.refresh()}
       />
+
+      {/* Payment Help Dialog */}
+      <Dialog open={helpDialogOpen} onOpenChange={setHelpDialogOpen}>
+        <DialogContent 
+          className="bg-slate-800 border-slate-700 max-w-3xl max-h-[90vh] overflow-y-auto" 
+          style={{ zIndex: 99999 }}
+        >
+          <DialogHeader>
+            <DialogTitle className="text-white text-xl">تعليمات الدفع</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-6 mt-4">
+            {/* Payment Instructions Image */}
+            <div className="flex justify-center">
+              <img 
+                src="https://c.top4top.io/p_3606er3pw1.jpg" 
+                alt="Payment Instructions" 
+                className="max-w-full h-auto rounded-lg shadow-lg"
+              />
+            </div>
+            
+            {/* Go Back and Complete Payment Button */}
+            <Button
+              onClick={() => setHelpDialogOpen(false)}
+              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
+              size="lg"
+            >
+              ارجع وأكمل الدفع
+            </Button>
+            
+            {/* WhatsApp Contact Button */}
+            <Button
+              onClick={() => {
+                const whatsappNumber = '966542668201';
+                const message = encodeURIComponent('مرحباً، أحتاج مساعدة في الدفع');
+                window.open(`https://wa.me/${whatsappNumber}?text=${message}`, '_blank');
+              }}
+              className="w-full bg-green-600 hover:bg-green-700 text-white"
+              size="lg"
+            >
+              <MessageCircle className="h-5 w-5 ml-2" />
+              باقي ماعرفت ؟ كلمنا واتس اب
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
