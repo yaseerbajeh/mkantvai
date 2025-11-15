@@ -260,31 +260,56 @@ export default function OrderDetailsPage() {
 
           {/* Subscription Details (if approved or paid with subscription) */}
           {(order.status === 'approved' || (order.status === 'paid' && order.assigned_subscription)) && order.assigned_subscription && (
-            <Card className="mb-6 bg-blue-900/20 border-blue-700">
-              <CardHeader>
-                <CardTitle className="text-2xl text-white">تفاصيل الاشتراك</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex justify-between items-center py-2 border-b border-blue-700">
-                  <span className="text-blue-300">رمز الاشتراك:</span>
-                  <span className="text-white font-mono text-lg font-bold bg-slate-900 px-4 py-2 rounded">
-                    {order.assigned_subscription.code}
-                  </span>
-                </div>
+            <div className="mb-6">
+              <h2 className="text-2xl text-white font-bold mb-4">تفاصيل الاشتراك</h2>
+              <div className="space-y-3">
+                {/* Subscription Code Box */}
+                <Card className="bg-blue-900/20 border-blue-700">
+                  <CardContent className="pt-6">
+                    <div className="space-y-2">
+                      <span className="text-blue-300 text-sm font-medium">رمز الاشتراك</span>
+                      <div className="bg-slate-900 px-4 py-3 rounded-lg border border-blue-600/50">
+                        <pre className="text-white font-mono text-lg font-bold whitespace-pre-wrap break-words overflow-x-auto">
+                          {order.assigned_subscription.code}
+                        </pre>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Duration Box */}
                 {order.assigned_subscription.meta?.duration && (
-                  <div className="flex justify-between items-center py-2 border-b border-blue-700">
-                    <span className="text-blue-300">مدة الاشتراك:</span>
-                    <span className="text-white">{order.assigned_subscription.meta.duration}</span>
-                  </div>
+                  <Card className="bg-blue-900/20 border-blue-700">
+                    <CardContent className="pt-6">
+                      <div className="space-y-2">
+                        <span className="text-blue-300 text-sm font-medium">مدة الاشتراك</span>
+                        <div className="bg-slate-900 px-4 py-3 rounded-lg border border-blue-600/50">
+                          <span className="text-white text-lg font-semibold">
+                            {order.assigned_subscription.meta.duration}
+                          </span>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
                 )}
+
+                {/* Type Box */}
                 {order.assigned_subscription.meta?.type && (
-                  <div className="flex justify-between items-center py-2">
-                    <span className="text-blue-300">نوع الاشتراك:</span>
-                    <span className="text-white">{order.assigned_subscription.meta.type}</span>
-                  </div>
+                  <Card className="bg-blue-900/20 border-blue-700">
+                    <CardContent className="pt-6">
+                      <div className="space-y-2">
+                        <span className="text-blue-300 text-sm font-medium">نوع الاشتراك</span>
+                        <div className="bg-slate-900 px-4 py-3 rounded-lg border border-blue-600/50">
+                          <span className="text-white text-lg font-semibold">
+                            {order.assigned_subscription.meta.type}
+                          </span>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
                 )}
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           )}
 
           {/* WhatsApp Button (for pending orders) */}
