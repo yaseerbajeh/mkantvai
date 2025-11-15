@@ -10,7 +10,7 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/lib/supabase';
-import { Loader2, Package, ShoppingCart, ArrowLeft, CreditCard, Trash2, Tag, Calendar, MessageCircle, Key, UserPlus } from 'lucide-react';
+import { Loader2, Package, ShoppingCart, ArrowLeft, CreditCard, Trash2, Tag, Calendar, MessageCircle, Key, UserPlus, TrendingUp } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
 
 function AdminDashboardPageContent() {
@@ -88,12 +88,12 @@ function AdminDashboardPageContent() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900">
+      <div className="min-h-screen bg-gray-50">
         <Header />
         <main className="container mx-auto px-4 py-24 pt-32">
           <div className="max-w-6xl mx-auto text-center">
-            <Loader2 className="h-8 w-8 animate-spin text-white mx-auto" />
-            <p className="text-slate-300 mt-4">جاري التحميل...</p>
+            <Loader2 className="h-8 w-8 animate-spin text-gray-600 mx-auto" />
+            <p className="text-gray-600 mt-4">جاري التحميل...</p>
           </div>
         </main>
         <Footer />
@@ -106,32 +106,32 @@ function AdminDashboardPageContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900">
+    <div className="min-h-screen bg-gray-50">
       <Header />
       <main className="container mx-auto px-4 py-24 pt-32">
         <div className="max-w-4xl mx-auto">
           <div className="mb-8">
-            <h1 className="text-4xl font-bold text-white mb-2">لوحة تحكم الإدارة</h1>
-            <p className="text-slate-300">إدارة المنتجات والطلبات</p>
+            <h1 className="text-4xl font-bold text-gray-900 mb-2">لوحة تحكم الإدارة</h1>
+            <p className="text-gray-600">إدارة المنتجات والطلبات</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {/* Product Inventory Card */}
             <Link href="/admin/products">
-              <Card className="bg-slate-800/50 border-slate-700 hover:border-blue-500 transition-all duration-300 hover:shadow-xl hover:shadow-blue-500/20 cursor-pointer h-full">
+              <Card className="bg-white border-gray-200 hover:border-blue-500 transition-all duration-300 hover:shadow-xl hover:shadow-blue-500/20 cursor-pointer h-full">
                 <CardHeader>
                   <div className="flex items-center gap-4">
-                    <div className="p-3 bg-blue-500/20 rounded-lg">
-                      <Package className="h-8 w-8 text-blue-400" />
+                    <div className="p-3 bg-blue-100 rounded-lg">
+                      <Package className="h-8 w-8 text-blue-600" />
                     </div>
-                    <CardTitle className="text-2xl text-white">مخزون المنتجات</CardTitle>
+                    <CardTitle className="text-2xl text-gray-900">مخزون المنتجات</CardTitle>
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-slate-300 mb-4">
+                  <p className="text-gray-600 mb-4">
                     إدارة المنتجات والاشتراكات. يمكنك إضافة وتعديل وحذف المنتجات وإدارة رموز الاشتراكات.
                   </p>
-                  <div className="flex items-center text-blue-400 font-semibold">
+                  <div className="flex items-center text-blue-600 font-semibold">
                     الانتقال إلى المخزون
                     <ArrowLeft className="h-4 w-4 mr-2" />
                   </div>
@@ -141,20 +141,20 @@ function AdminDashboardPageContent() {
 
             {/* Orders Management Card */}
             <Link href="/admin/orders">
-              <Card className="bg-slate-800/50 border-slate-700 hover:border-green-500 transition-all duration-300 hover:shadow-xl hover:shadow-green-500/20 cursor-pointer h-full">
+              <Card className="bg-white border-gray-200 hover:border-green-500 transition-all duration-300 hover:shadow-xl hover:shadow-green-500/20 cursor-pointer h-full">
                 <CardHeader>
                   <div className="flex items-center gap-4">
-                    <div className="p-3 bg-green-500/20 rounded-lg">
-                      <ShoppingCart className="h-8 w-8 text-green-400" />
+                    <div className="p-3 bg-green-100 rounded-lg">
+                      <ShoppingCart className="h-8 w-8 text-green-600" />
                     </div>
-                    <CardTitle className="text-2xl text-white">إدارة الطلبات</CardTitle>
+                    <CardTitle className="text-2xl text-gray-900">إدارة الطلبات</CardTitle>
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-slate-300 mb-4">
+                  <p className="text-gray-600 mb-4">
                     عرض وإدارة جميع الطلبات. قبول أو رفض الطلبات وعرض التحليلات والإحصائيات.
                   </p>
-                  <div className="flex items-center text-green-400 font-semibold">
+                  <div className="flex items-center text-green-600 font-semibold">
                     الانتقال إلى الطلبات
                     <ArrowLeft className="h-4 w-4 mr-2" />
                   </div>
@@ -164,20 +164,20 @@ function AdminDashboardPageContent() {
 
             {/* Payment System Card */}
             <Link href="/admin/payments">
-              <Card className="bg-slate-800/50 border-slate-700 hover:border-purple-500 transition-all duration-300 hover:shadow-xl hover:shadow-purple-500/20 cursor-pointer h-full">
+              <Card className="bg-white border-gray-200 hover:border-purple-500 transition-all duration-300 hover:shadow-xl hover:shadow-purple-500/20 cursor-pointer h-full">
                 <CardHeader>
                   <div className="flex items-center gap-4">
-                    <div className="p-3 bg-purple-500/20 rounded-lg">
-                      <CreditCard className="h-8 w-8 text-purple-400" />
+                    <div className="p-3 bg-purple-100 rounded-lg">
+                      <CreditCard className="h-8 w-8 text-purple-600" />
                     </div>
-                    <CardTitle className="text-2xl text-white">نظام الدفع</CardTitle>
+                    <CardTitle className="text-2xl text-gray-900">نظام الدفع</CardTitle>
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-slate-300 mb-4">
+                  <p className="text-gray-600 mb-4">
                     عرض وإدارة جميع المدفوعات عبر PayPal. تتبع الطلبات المدفوعة تلقائياً والاشتراكات المفعلة.
                   </p>
-                  <div className="flex items-center text-purple-400 font-semibold">
+                  <div className="flex items-center text-purple-600 font-semibold">
                     الانتقال إلى المدفوعات
                     <ArrowLeft className="h-4 w-4 mr-2" />
                   </div>
@@ -187,20 +187,20 @@ function AdminDashboardPageContent() {
 
             {/* Abandoned Carts Card */}
             <Link href="/admin/abandoned-carts">
-              <Card className="bg-slate-800/50 border-slate-700 hover:border-orange-500 transition-all duration-300 hover:shadow-xl hover:shadow-orange-500/20 cursor-pointer h-full">
+              <Card className="bg-white border-gray-200 hover:border-orange-500 transition-all duration-300 hover:shadow-xl hover:shadow-orange-500/20 cursor-pointer h-full">
                 <CardHeader>
                   <div className="flex items-center gap-4">
-                    <div className="p-3 bg-orange-500/20 rounded-lg">
-                      <Trash2 className="h-8 w-8 text-orange-400" />
+                    <div className="p-3 bg-orange-100 rounded-lg">
+                      <Trash2 className="h-8 w-8 text-orange-600" />
                     </div>
-                    <CardTitle className="text-2xl text-white">السلات المتروكة</CardTitle>
+                    <CardTitle className="text-2xl text-gray-900">السلات المتروكة</CardTitle>
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-slate-300 mb-4">
+                  <p className="text-gray-600 mb-4">
                     تتبع وإدارة السلات المتروكة. تواصل مع العملاء الذين لم يكملوا عملية الشراء وأرسل تذكيرات تلقائية.
                   </p>
-                  <div className="flex items-center text-orange-400 font-semibold">
+                  <div className="flex items-center text-orange-600 font-semibold">
                     الانتقال إلى السلات المتروكة
                     <ArrowLeft className="h-4 w-4 mr-2" />
                   </div>
@@ -210,20 +210,20 @@ function AdminDashboardPageContent() {
 
             {/* Promo Codes Card */}
             <Link href="/admin/promo-codes">
-              <Card className="bg-slate-800/50 border-slate-700 hover:border-yellow-500 transition-all duration-300 hover:shadow-xl hover:shadow-yellow-500/20 cursor-pointer h-full">
+              <Card className="bg-white border-gray-200 hover:border-yellow-500 transition-all duration-300 hover:shadow-xl hover:shadow-yellow-500/20 cursor-pointer h-full">
                 <CardHeader>
                   <div className="flex items-center gap-4">
-                    <div className="p-3 bg-yellow-500/20 rounded-lg">
-                      <Tag className="h-8 w-8 text-yellow-400" />
+                    <div className="p-3 bg-yellow-100 rounded-lg">
+                      <Tag className="h-8 w-8 text-yellow-600" />
                     </div>
-                    <CardTitle className="text-2xl text-white">رموز الخصم</CardTitle>
+                    <CardTitle className="text-2xl text-gray-900">رموز الخصم</CardTitle>
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-slate-300 mb-4">
+                  <p className="text-gray-600 mb-4">
                     إنشاء وإدارة رموز الخصم الترويجية. يمكنك إضافة رموز خصم بنسبة مئوية أو مبلغ ثابت، بما في ذلك رموز الخصم 100%.
                   </p>
-                  <div className="flex items-center text-yellow-400 font-semibold">
+                  <div className="flex items-center text-yellow-600 font-semibold">
                     الانتقال إلى رموز الخصم
                     <ArrowLeft className="h-4 w-4 mr-2" />
                   </div>
@@ -233,20 +233,20 @@ function AdminDashboardPageContent() {
 
             {/* Trial Codes Card */}
             <Link href="/admin/trial-codes">
-              <Card className="bg-slate-800/50 border-slate-700 hover:border-teal-500 transition-all duration-300 hover:shadow-xl hover:shadow-teal-500/20 cursor-pointer h-full">
+              <Card className="bg-white border-gray-200 hover:border-teal-500 transition-all duration-300 hover:shadow-xl hover:shadow-teal-500/20 cursor-pointer h-full">
                 <CardHeader>
                   <div className="flex items-center gap-4">
-                    <div className="p-3 bg-teal-500/20 rounded-lg">
-                      <Key className="h-8 w-8 text-teal-400" />
+                    <div className="p-3 bg-teal-100 rounded-lg">
+                      <Key className="h-8 w-8 text-teal-600" />
                     </div>
-                    <CardTitle className="text-2xl text-white">رموز التجربة</CardTitle>
+                    <CardTitle className="text-2xl text-gray-900">رموز التجربة</CardTitle>
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-slate-300 mb-4">
+                  <p className="text-gray-600 mb-4">
                     إدارة رموز التجربة المجانية. إضافة رموز التجربة مع بيانات الدخول ومتابعة طلبات المستخدمين والتحليلات.
                   </p>
-                  <div className="flex items-center text-teal-400 font-semibold">
+                  <div className="flex items-center text-teal-600 font-semibold">
                     الانتقال إلى رموز التجربة
                     <ArrowLeft className="h-4 w-4 mr-2" />
                   </div>
@@ -256,20 +256,20 @@ function AdminDashboardPageContent() {
 
             {/* Subscription Management Card */}
             <Link href="/admin/subscriptions">
-              <Card className="bg-slate-800/50 border-slate-700 hover:border-cyan-500 transition-all duration-300 hover:shadow-xl hover:shadow-cyan-500/20 cursor-pointer h-full">
+              <Card className="bg-white border-gray-200 hover:border-cyan-500 transition-all duration-300 hover:shadow-xl hover:shadow-cyan-500/20 cursor-pointer h-full">
                 <CardHeader>
                   <div className="flex items-center gap-4">
-                    <div className="p-3 bg-cyan-500/20 rounded-lg">
-                      <Calendar className="h-8 w-8 text-cyan-400" />
+                    <div className="p-3 bg-cyan-100 rounded-lg">
+                      <Calendar className="h-8 w-8 text-cyan-600" />
                     </div>
-                    <CardTitle className="text-2xl text-white">إدارة الإشتراكات</CardTitle>
+                    <CardTitle className="text-2xl text-gray-900">إدارة الإشتراكات</CardTitle>
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-slate-300 mb-4">
+                  <p className="text-gray-600 mb-4">
                     إدارة وتتبع اشتراكات العملاء. عرض الاشتراكات المنتهية قريباً، وإرسال تذكيرات، وتجديد الاشتراكات.
                   </p>
-                  <div className="flex items-center text-cyan-400 font-semibold">
+                  <div className="flex items-center text-cyan-600 font-semibold">
                     الانتقال إلى الإشتراكات
                     <ArrowLeft className="h-4 w-4 mr-2" />
                   </div>
@@ -279,20 +279,20 @@ function AdminDashboardPageContent() {
 
             {/* Tickets Management Card */}
             <Link href="/admin/tickets">
-              <Card className="bg-slate-800/50 border-slate-700 hover:border-pink-500 transition-all duration-300 hover:shadow-xl hover:shadow-pink-500/20 cursor-pointer h-full">
+              <Card className="bg-white border-gray-200 hover:border-pink-500 transition-all duration-300 hover:shadow-xl hover:shadow-pink-500/20 cursor-pointer h-full">
                 <CardHeader>
                   <div className="flex items-center gap-4">
-                    <div className="p-3 bg-pink-500/20 rounded-lg">
-                      <MessageCircle className="h-8 w-8 text-pink-400" />
+                    <div className="p-3 bg-pink-100 rounded-lg">
+                      <MessageCircle className="h-8 w-8 text-pink-600" />
                     </div>
-                    <CardTitle className="text-2xl text-white">تذاكر الدعم</CardTitle>
+                    <CardTitle className="text-2xl text-gray-900">تذاكر الدعم</CardTitle>
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-slate-300 mb-4">
+                  <p className="text-gray-600 mb-4">
                     إدارة تذاكر الدعم الفني. عرض والرد على تذاكر العملاء ومتابعة المشاكل والدعم.
                   </p>
-                  <div className="flex items-center text-pink-400 font-semibold">
+                  <div className="flex items-center text-pink-600 font-semibold">
                     الانتقال إلى التذاكر
                     <ArrowLeft className="h-4 w-4 mr-2" />
                   </div>
@@ -302,21 +302,44 @@ function AdminDashboardPageContent() {
 
             {/* CRM Leads Card */}
             <Link href="/admin/leads">
-              <Card className="bg-slate-800/50 border-slate-700 hover:border-emerald-500 transition-all duration-300 hover:shadow-xl hover:shadow-emerald-500/20 cursor-pointer h-full">
+              <Card className="bg-white border-gray-200 hover:border-emerald-500 transition-all duration-300 hover:shadow-xl hover:shadow-emerald-500/20 cursor-pointer h-full">
                 <CardHeader>
                   <div className="flex items-center gap-4">
-                    <div className="p-3 bg-emerald-500/20 rounded-lg">
-                      <UserPlus className="h-8 w-8 text-emerald-400" />
+                    <div className="p-3 bg-emerald-100 rounded-lg">
+                      <UserPlus className="h-8 w-8 text-emerald-600" />
                     </div>
-                    <CardTitle className="text-2xl text-white">إدارة العملاء المحتملين</CardTitle>
+                    <CardTitle className="text-2xl text-gray-900">إدارة العملاء المحتملين</CardTitle>
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-slate-300 mb-4">
+                  <p className="text-gray-600 mb-4">
                     تتبع وإدارة العملاء المحتملين من السلات المتروكة وواتساب. إضافة تعليقات ومتابعة العملاء.
                   </p>
-                  <div className="flex items-center text-emerald-400 font-semibold">
+                  <div className="flex items-center text-emerald-600 font-semibold">
                     الانتقال إلى العملاء المحتملين
+                    <ArrowLeft className="h-4 w-4 mr-2" />
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
+
+            {/* Commission Panel Card */}
+            <Link href="/admin/commissions">
+              <Card className="bg-white border-gray-200 hover:border-indigo-500 transition-all duration-300 hover:shadow-xl hover:shadow-indigo-500/20 cursor-pointer h-full">
+                <CardHeader>
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 bg-indigo-100 rounded-lg">
+                      <TrendingUp className="h-8 w-8 text-indigo-600" />
+                    </div>
+                    <CardTitle className="text-2xl text-gray-900">لوحة العمولات</CardTitle>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-gray-600 mb-4">
+                    إدارة المفوضين والعمولات. إضافة مفوضين جدد، تتبع الأرباح، ومعالجة المدفوعات.
+                  </p>
+                  <div className="flex items-center text-indigo-600 font-semibold">
+                    الانتقال إلى لوحة العمولات
                     <ArrowLeft className="h-4 w-4 mr-2" />
                   </div>
                 </CardContent>
@@ -334,12 +357,12 @@ function AdminDashboardPageContent() {
 export default dynamic(() => Promise.resolve(AdminDashboardPageContent), {
   ssr: false,
   loading: () => (
-    <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900">
+    <div className="min-h-screen bg-gray-50">
       <Header />
       <main className="container mx-auto px-4 py-24 pt-32">
         <div className="max-w-6xl mx-auto text-center">
-          <Loader2 className="h-8 w-8 animate-spin text-white mx-auto" />
-          <p className="text-slate-300 mt-4">جاري التحميل...</p>
+          <Loader2 className="h-8 w-8 animate-spin text-gray-600 mx-auto" />
+          <p className="text-gray-600 mt-4">جاري التحميل...</p>
         </div>
       </main>
       <Footer />

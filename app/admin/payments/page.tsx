@@ -203,17 +203,17 @@ export default function AdminPaymentsPage() {
     if (paymentMethod === 'manual') {
       return <Badge className="bg-green-900/20 text-green-400 border-green-700">Manual</Badge>;
     }
-    return <span className="text-slate-300 capitalize">{paymentMethod}</span>;
+    return <span className="text-gray-600 capitalize">{paymentMethod}</span>;
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900">
+      <div className="min-h-screen bg-gray-50">
         <Header />
         <main className="container mx-auto px-4 py-24 pt-32">
           <div className="max-w-6xl mx-auto text-center">
-            <Loader2 className="h-8 w-8 animate-spin text-white mx-auto" />
-            <p className="text-slate-300 mt-4">جاري التحميل...</p>
+            <Loader2 className="h-8 w-8 animate-spin text-gray-600 mx-auto" />
+            <p className="text-gray-600 mt-4">جاري التحميل...</p>
           </div>
         </main>
         <Footer />
@@ -226,46 +226,46 @@ export default function AdminPaymentsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900">
+    <div className="min-h-screen bg-gray-50">
       <Header />
       <main className="container mx-auto px-4 py-24 pt-32">
         <div className="max-w-7xl mx-auto">
           <div className="mb-8">
-            <h1 className="text-4xl font-bold text-white mb-2">نظام الدفع</h1>
-            <p className="text-slate-300">عرض وإدارة جميع المدفوعات (PayPal و Manual)</p>
+            <h1 className="text-4xl font-bold text-gray-900 mb-2">نظام الدفع</h1>
+            <p className="text-gray-600">عرض وإدارة جميع المدفوعات (PayPal و Manual)</p>
           </div>
 
           {/* Statistics Cards */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-            <Card className="bg-slate-800/50 border-slate-700">
+            <Card className="bg-white border-gray-200">
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-slate-400 text-sm mb-1">إجمالي المدفوعات</p>
-                    <p className="text-2xl font-bold text-white">{stats.totalPayments}</p>
+                    <p className="text-gray-500 text-sm mb-1">إجمالي المدفوعات</p>
+                    <p className="text-2xl font-bold text-gray-900">{stats.totalPayments}</p>
                   </div>
                   <CreditCard className="h-8 w-8 text-blue-400" />
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="bg-slate-800/50 border-slate-700">
+            <Card className="bg-white border-gray-200">
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-slate-400 text-sm mb-1">إجمالي الإيرادات</p>
-                    <p className="text-2xl font-bold text-white">{stats.totalRevenue.toFixed(2)} ريال</p>
+                    <p className="text-gray-500 text-sm mb-1">إجمالي الإيرادات</p>
+                    <p className="text-2xl font-bold text-gray-900">{stats.totalRevenue.toFixed(2)} ريال</p>
                   </div>
                   <DollarSign className="h-8 w-8 text-green-400" />
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="bg-slate-800/50 border-slate-700">
+            <Card className="bg-white border-gray-200">
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-slate-400 text-sm mb-1">طلبات مدفوعة</p>
+                    <p className="text-gray-500 text-sm mb-1">طلبات مدفوعة</p>
                     <p className="text-2xl font-bold text-blue-400">{stats.paidOrders}</p>
                   </div>
                   <CheckCircle2 className="h-8 w-8 text-blue-400" />
@@ -273,11 +273,11 @@ export default function AdminPaymentsPage() {
               </CardContent>
             </Card>
 
-            <Card className="bg-slate-800/50 border-slate-700">
+            <Card className="bg-white border-gray-200">
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-slate-400 text-sm mb-1">طلبات مقبولة</p>
+                    <p className="text-gray-500 text-sm mb-1">طلبات مقبولة</p>
                     <p className="text-2xl font-bold text-green-400">{stats.approvedOrders}</p>
                   </div>
                   <TrendingUp className="h-8 w-8 text-green-400" />
@@ -287,17 +287,17 @@ export default function AdminPaymentsPage() {
           </div>
 
           {/* Search and Filter */}
-          <Card className="bg-slate-800/50 border-slate-700 mb-6">
+          <Card className="bg-white border-gray-200 mb-6">
             <CardContent className="pt-6">
               <div className="flex items-center gap-4">
                 <div className="relative flex-1">
-                  <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                   <Input
                     type="text"
                     placeholder="ابحث بالاسم، البريد الإلكتروني، المنتج، أو رقم الطلب..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="bg-slate-900 border-slate-700 text-white pr-10"
+                    className="bg-white border-gray-300 text-gray-900 pr-10"
                     dir="rtl"
                   />
                 </div>
@@ -306,15 +306,15 @@ export default function AdminPaymentsPage() {
           </Card>
 
           {/* Payments Table */}
-          <Card className="bg-slate-800/50 border-slate-700">
+          <Card className="bg-white border-gray-200">
             <CardHeader>
-              <CardTitle className="text-2xl text-white">قائمة المدفوعات</CardTitle>
+              <CardTitle className="text-2xl text-gray-900">قائمة المدفوعات</CardTitle>
             </CardHeader>
             <CardContent>
               {filteredPayments.length === 0 ? (
                 <div className="text-center py-12">
-                  <CreditCard className="h-16 w-16 text-slate-500 mx-auto mb-4" />
-                  <p className="text-slate-300 text-lg">
+                  <CreditCard className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-600 text-lg">
                     {searchQuery ? 'لا توجد نتائج للبحث' : 'لا توجد مدفوعات حتى الآن'}
                   </p>
                 </div>
@@ -322,28 +322,28 @@ export default function AdminPaymentsPage() {
                 <div className="overflow-x-auto">
                   <Table>
                     <TableHeader>
-                      <TableRow className="border-slate-700">
-                        <TableHead className="text-slate-300">رقم الطلب</TableHead>
-                        <TableHead className="text-slate-300">الاسم</TableHead>
-                        <TableHead className="text-slate-300">البريد الإلكتروني</TableHead>
-                        <TableHead className="text-slate-300">المنتج</TableHead>
-                        <TableHead className="text-slate-300">السعر</TableHead>
-                        <TableHead className="text-slate-300">الحالة</TableHead>
-                        <TableHead className="text-slate-300">طريقة الدفع</TableHead>
-                        <TableHead className="text-slate-300">معرف الدفع</TableHead>
-                        <TableHead className="text-slate-300">الاشتراك</TableHead>
-                        <TableHead className="text-slate-300">التاريخ</TableHead>
+                      <TableRow className="border-gray-200">
+                        <TableHead className="text-gray-900">رقم الطلب</TableHead>
+                        <TableHead className="text-gray-900">الاسم</TableHead>
+                        <TableHead className="text-gray-900">البريد الإلكتروني</TableHead>
+                        <TableHead className="text-gray-900">المنتج</TableHead>
+                        <TableHead className="text-gray-900">السعر</TableHead>
+                        <TableHead className="text-gray-900">الحالة</TableHead>
+                        <TableHead className="text-gray-900">طريقة الدفع</TableHead>
+                        <TableHead className="text-gray-900">معرف الدفع</TableHead>
+                        <TableHead className="text-gray-900">الاشتراك</TableHead>
+                        <TableHead className="text-gray-900">التاريخ</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {filteredPayments.map((payment) => (
-                        <TableRow key={payment.id} className="border-slate-700">
-                          <TableCell className="font-mono text-sm text-white">
+                        <TableRow key={payment.id} className="border-gray-200">
+                          <TableCell className="font-mono text-sm text-gray-900">
                             {payment.order_number || payment.id.slice(0, 8).toUpperCase()}
                           </TableCell>
-                          <TableCell className="text-white">{payment.name}</TableCell>
-                          <TableCell className="text-slate-300">{payment.email}</TableCell>
-                          <TableCell className="text-white">
+                          <TableCell className="text-gray-900">{payment.name}</TableCell>
+                          <TableCell className="text-gray-600">{payment.email}</TableCell>
+                          <TableCell className="text-gray-900">
                             {payment.is_cart_order && payment.order_items && payment.order_items.length > 0 ? (
                               <div className="space-y-1">
                                 <div className="font-semibold text-indigo-400 mb-1">

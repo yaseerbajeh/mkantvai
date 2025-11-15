@@ -642,12 +642,12 @@ export default function AdminProductsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900">
+      <div className="min-h-screen bg-gray-50">
         <Header />
         <main className="container mx-auto px-4 py-24 pt-32">
           <div className="max-w-6xl mx-auto text-center">
-            <Loader2 className="h-8 w-8 animate-spin text-white mx-auto" />
-            <p className="text-slate-300 mt-4">جاري التحميل...</p>
+            <Loader2 className="h-8 w-8 animate-spin text-gray-600 mx-auto" />
+            <p className="text-gray-600 mt-4">جاري التحميل...</p>
           </div>
         </main>
         <Footer />
@@ -660,12 +660,12 @@ export default function AdminProductsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900">
+    <div className="min-h-screen bg-gray-50">
       <Header />
       <main className="container mx-auto px-4 py-24 pt-32">
         <div className="max-w-7xl mx-auto">
           <div className="flex justify-between items-center mb-8">
-            <h1 className="text-3xl font-bold text-white">إدارة المنتجات والاشتراكات</h1>
+            <h1 className="text-3xl font-bold text-gray-900">إدارة المنتجات والاشتراكات</h1>
             <Button onClick={handleCreateProduct} className="bg-blue-600 hover:bg-blue-700">
               <Plus className="h-4 w-4 ml-2" />
               إضافة منتج جديد
@@ -673,16 +673,16 @@ export default function AdminProductsPage() {
           </div>
 
           <Tabs defaultValue="products" className="w-full">
-            <TabsList className="bg-slate-800 border-slate-700">
-              <TabsTrigger value="products" className="data-[state=active]:bg-slate-700">
+            <TabsList className="bg-white border-gray-200">
+              <TabsTrigger value="products" className="data-[state=active]:bg-gray-100">
                 <Package className="h-4 w-4 ml-2" />
                 المنتجات
               </TabsTrigger>
-              <TabsTrigger value="subscription-codes" className="data-[state=active]:bg-slate-700">
+              <TabsTrigger value="subscription-codes" className="data-[state=active]:bg-gray-100">
                 <Key className="h-4 w-4 ml-2" />
                 رموز الاشتراكات
               </TabsTrigger>
-              <TabsTrigger value="categories" className="data-[state=active]:bg-slate-700">
+              <TabsTrigger value="categories" className="data-[state=active]:bg-gray-100">
                 <FolderTree className="h-4 w-4 ml-2" />
                 إدارة التصنيفات
               </TabsTrigger>
@@ -690,20 +690,20 @@ export default function AdminProductsPage() {
 
             <TabsContent value="products" className="mt-6">
               {/* Filters */}
-              <Card className="bg-slate-800/50 border-slate-700 mb-6">
+              <Card className="bg-white border-gray-200 mb-6">
                 <CardContent className="pt-6">
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="relative">
-                      <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+                      <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                       <Input
                         placeholder="بحث بالاسم أو الكود..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="pr-10 bg-slate-900 border-slate-700 text-white"
+                        className="pr-10 bg-white border-gray-300 text-gray-900"
                       />
                     </div>
                     <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                      <SelectTrigger className="bg-slate-900 border-slate-700 text-white">
+                      <SelectTrigger className="bg-white border-gray-300 text-gray-900">
                         <SelectValue placeholder="التصنيف" />
                       </SelectTrigger>
                       <SelectContent>
@@ -719,7 +719,7 @@ export default function AdminProductsPage() {
                       </SelectContent>
                     </Select>
                     <Select value={activeFilter} onValueChange={setActiveFilter}>
-                      <SelectTrigger className="bg-slate-900 border-slate-700 text-white">
+                      <SelectTrigger className="bg-white border-gray-300 text-gray-900">
                         <SelectValue placeholder="الحالة" />
                       </SelectTrigger>
                       <SelectContent>
@@ -733,38 +733,38 @@ export default function AdminProductsPage() {
               </Card>
 
               {/* Products Table */}
-              <Card className="bg-slate-800/50 border-slate-700">
+              <Card className="bg-white border-gray-200">
                 <CardHeader>
-                  <CardTitle className="text-2xl text-white">
+                  <CardTitle className="text-2xl text-gray-900">
                     المنتجات ({filteredProducts.length})
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   {filteredProducts.length === 0 ? (
-                    <p className="text-slate-300 text-center py-8">لا توجد منتجات</p>
+                    <p className="text-gray-600 text-center py-8">لا توجد منتجات</p>
                   ) : (
                     <div className="overflow-x-auto">
                       <Table>
                         <TableHeader>
-                          <TableRow className="border-slate-700">
-                            <TableHead className="text-white">الكود</TableHead>
-                            <TableHead className="text-white">الاسم</TableHead>
-                            <TableHead className="text-white">السعر</TableHead>
-                            <TableHead className="text-white">القسم</TableHead>
-                            <TableHead className="text-white">المخزون</TableHead>
-                            <TableHead className="text-white">الحالة</TableHead>
-                            <TableHead className="text-white">الإجراءات</TableHead>
+                          <TableRow className="border-gray-200">
+                            <TableHead className="text-gray-900">الكود</TableHead>
+                            <TableHead className="text-gray-900">الاسم</TableHead>
+                            <TableHead className="text-gray-900">السعر</TableHead>
+                            <TableHead className="text-gray-900">القسم</TableHead>
+                            <TableHead className="text-gray-900">المخزون</TableHead>
+                            <TableHead className="text-gray-900">الحالة</TableHead>
+                            <TableHead className="text-gray-900">الإجراءات</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
                           {filteredProducts.map((product) => (
-                            <TableRow key={product.id} className="border-slate-700">
-                              <TableCell className="font-mono text-sm text-white">
+                            <TableRow key={product.id} className="border-gray-200">
+                              <TableCell className="font-mono text-sm text-gray-900">
                                 {product.product_code}
                               </TableCell>
-                              <TableCell className="text-white">{product.name}</TableCell>
-                              <TableCell className="text-white">{product.price} ريال</TableCell>
-                              <TableCell className="text-slate-300">
+                              <TableCell className="text-gray-900">{product.name}</TableCell>
+                              <TableCell className="text-gray-900">{product.price} ريال</TableCell>
+                              <TableCell className="text-gray-600">
                                 {product.categories?.name || product.section_title || 'غير محدد'}
                               </TableCell>
                               <TableCell>
@@ -808,7 +808,7 @@ export default function AdminProductsPage() {
                                     size="sm"
                                     variant="outline"
                                     onClick={() => handleToggleActive(product)}
-                                    className="bg-slate-800 border-slate-700 text-white"
+                                    className="bg-white border-gray-300 text-gray-900"
                                   >
                                     {product.is_active ? (
                                       <ToggleLeft className="h-4 w-4" />
@@ -820,7 +820,7 @@ export default function AdminProductsPage() {
                                     size="sm"
                                     variant="outline"
                                     onClick={() => handleEditProduct(product)}
-                                    className="bg-slate-800 border-slate-700 text-white"
+                                    className="bg-white border-gray-300 text-gray-900"
                                   >
                                     <Edit className="h-4 w-4" />
                                   </Button>
@@ -849,10 +849,10 @@ export default function AdminProductsPage() {
             </TabsContent>
 
             <TabsContent value="subscription-codes" className="mt-6">
-              <Card className="bg-slate-800/50 border-slate-700 mb-6">
+              <Card className="bg-white border-gray-200 mb-6">
                 <CardHeader>
                   <div className="flex justify-between items-center">
-                    <CardTitle className="text-2xl text-white">رموز الاشتراكات</CardTitle>
+                    <CardTitle className="text-2xl text-gray-900">رموز الاشتراكات</CardTitle>
                     <Button
                       onClick={() => {
                         setSelectedProductCode('');
@@ -869,14 +869,14 @@ export default function AdminProductsPage() {
                 <CardContent>
                   <div className="space-y-6">
                     {Object.entries(subscriptionCounts).map(([productCode, count]) => (
-                      <Card key={productCode} className="bg-slate-800/50 border-slate-700">
+                      <Card key={productCode} className="bg-white border-gray-200">
                         <CardHeader className="pb-4">
                           <div className="flex justify-between items-center">
                             <div className="flex items-center gap-3">
                               <Package className="h-5 w-5 text-blue-400" />
                               <div>
-                                <h3 className="text-xl font-bold text-white">رمز المنتج: {productCode}</h3>
-                                <p className="text-slate-400 text-sm mt-1">
+                                <h3 className="text-xl font-bold text-gray-900">رمز المنتج: {productCode}</h3>
+                                <p className="text-gray-500 text-sm mt-1">
                                   {count} اشتراك متاح
                                 </p>
                               </div>
@@ -899,16 +899,16 @@ export default function AdminProductsPage() {
                                   : codeLines.slice(0, 3).join('\n') + (codeLines.length > 3 ? '\n...' : '');
                                 
                                 return (
-                                  <Card key={code.id} className="bg-slate-900/50 border-slate-600">
+                                  <Card key={code.id} className="bg-gray-50 border-gray-300">
                                     <CardContent className="pt-4">
                                       <div className="flex justify-between items-start gap-4">
                                         <div className="flex-1 min-w-0">
                                           <div className="flex items-center gap-2 mb-2">
-                                            <Key className="h-4 w-4 text-slate-400 flex-shrink-0" />
-                                            <Label className="text-slate-400 text-sm">رمز الاشتراك:</Label>
+                                            <Key className="h-4 w-4 text-gray-500 flex-shrink-0" />
+                                            <Label className="text-gray-600 text-sm">رمز الاشتراك:</Label>
                                           </div>
-                                          <div className="bg-slate-950 border border-slate-700 rounded p-3">
-                                            <pre className="text-slate-200 font-mono text-sm whitespace-pre-wrap break-words overflow-x-auto max-h-[120px] overflow-y-auto">
+                                          <div className="bg-gray-100 border border-gray-300 rounded p-3">
+                                            <pre className="text-gray-700 font-mono text-sm whitespace-pre-wrap break-words overflow-x-auto max-h-[120px] overflow-y-auto">
                                               {displayCode}
                                             </pre>
                                           </div>
@@ -925,7 +925,7 @@ export default function AdminProductsPage() {
                                                 }
                                                 setExpandedSubscriptions(newExpanded);
                                               }}
-                                              className="text-slate-400 hover:text-slate-300 text-xs mt-2 h-6 px-2"
+                                              className="text-gray-500 hover:text-gray-700 text-xs mt-2 h-6 px-2"
                                             >
                                               {isExpanded ? (
                                                 <>
@@ -968,16 +968,16 @@ export default function AdminProductsPage() {
                               })}
                           </div>
                           {subscriptionCodes.filter(sc => sc.product_code === productCode).length === 0 && (
-                            <p className="text-slate-400 text-sm text-center py-4">لا توجد اشتراكات لهذا المنتج</p>
+                            <p className="text-gray-500 text-sm text-center py-4">لا توجد اشتراكات لهذا المنتج</p>
                           )}
                         </CardContent>
                       </Card>
                     ))}
                     {Object.keys(subscriptionCounts).length === 0 && (
                       <div className="text-center py-12">
-                        <Key className="h-12 w-12 text-slate-600 mx-auto mb-4" />
-                        <p className="text-slate-300 text-lg">لا توجد رموز اشتراكات</p>
-                        <p className="text-slate-400 text-sm mt-2">ابدأ بإضافة اشتراك جديد</p>
+                        <Key className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                        <p className="text-gray-600 text-lg">لا توجد رموز اشتراكات</p>
+                        <p className="text-gray-500 text-sm mt-2">ابدأ بإضافة اشتراك جديد</p>
                       </div>
                     )}
                   </div>
@@ -986,10 +986,10 @@ export default function AdminProductsPage() {
             </TabsContent>
 
             <TabsContent value="categories" className="mt-6">
-              <Card className="bg-slate-800/50 border-slate-700">
+              <Card className="bg-white border-gray-200">
                 <CardHeader>
                   <div className="flex justify-between items-center">
-                    <CardTitle className="text-2xl text-white">التصنيفات</CardTitle>
+                    <CardTitle className="text-2xl text-gray-900">التصنيفات</CardTitle>
                     <Button onClick={handleCreateCategory} className="bg-blue-600 hover:bg-blue-700">
                       <Plus className="h-4 w-4 ml-2" />
                       إضافة تصنيف جديد
@@ -999,35 +999,35 @@ export default function AdminProductsPage() {
                 <CardContent>
                   {loadingCategories ? (
                     <div className="text-center py-8">
-                      <Loader2 className="h-8 w-8 animate-spin text-white mx-auto" />
-                      <p className="text-slate-300 mt-4">جاري التحميل...</p>
+                      <Loader2 className="h-8 w-8 animate-spin text-gray-600 mx-auto" />
+                      <p className="text-gray-600 mt-4">جاري التحميل...</p>
                     </div>
                   ) : categories.length === 0 ? (
-                    <p className="text-slate-300 text-center py-8">لا توجد تصنيفات</p>
+                    <p className="text-gray-600 text-center py-8">لا توجد تصنيفات</p>
                   ) : (
                     <div className="overflow-x-auto">
                       <Table>
                         <TableHeader>
-                          <TableRow className="border-slate-700">
-                            <TableHead className="text-white">الاسم</TableHead>
-                            <TableHead className="text-white">الاسم (إنجليزي)</TableHead>
-                            <TableHead className="text-white">ترتيب العرض</TableHead>
-                            <TableHead className="text-white">الحالة</TableHead>
-                            <TableHead className="text-white">الإجراءات</TableHead>
+                          <TableRow className="border-gray-200">
+                            <TableHead className="text-gray-900">الاسم</TableHead>
+                            <TableHead className="text-gray-900">الاسم (إنجليزي)</TableHead>
+                            <TableHead className="text-gray-900">ترتيب العرض</TableHead>
+                            <TableHead className="text-gray-900">الحالة</TableHead>
+                            <TableHead className="text-gray-900">الإجراءات</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
                           {categories
                             .sort((a, b) => a.display_order - b.display_order)
                             .map((category) => (
-                              <TableRow key={category.id} className="border-slate-700">
-                                <TableCell className="text-white font-medium">
+                              <TableRow key={category.id} className="border-gray-200">
+                                <TableCell className="text-gray-900 font-medium">
                                   {category.name}
                                 </TableCell>
-                                <TableCell className="text-slate-300">
+                                <TableCell className="text-gray-600">
                                   {category.name_en || '-'}
                                 </TableCell>
-                                <TableCell className="text-slate-300">
+                                <TableCell className="text-gray-600">
                                   {category.display_order}
                                 </TableCell>
                                 <TableCell>
@@ -1095,10 +1095,10 @@ export default function AdminProductsPage() {
 
       {/* Add Subscription Dialog */}
       <Dialog open={addSubscriptionDialogOpen} onOpenChange={setAddSubscriptionDialogOpen}>
-        <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-2xl">
+        <DialogContent className="bg-white border-gray-200 text-gray-900 max-w-2xl">
           <DialogHeader>
             <DialogTitle>إضافة اشتراك جديد</DialogTitle>
-            <DialogDescription className="text-slate-400">
+            <DialogDescription className="text-gray-600">
               أدخل رمز المنتج ورمز الاشتراك. يمكن أن يحتوي رمز الاشتراك على تعليمات أو بريد إلكتروني وكلمة مرور.
             </DialogDescription>
           </DialogHeader>
@@ -1110,7 +1110,7 @@ export default function AdminProductsPage() {
                 onValueChange={setSelectedProductCode}
                 required
               >
-                <SelectTrigger className="bg-slate-900 border-slate-700 text-white mt-2">
+                <SelectTrigger className="bg-white border-gray-300 text-gray-900 mt-2">
                   <SelectValue placeholder="اختر رمز المنتج" />
                 </SelectTrigger>
                 <SelectContent>
@@ -1128,10 +1128,10 @@ export default function AdminProductsPage() {
                 value={subscriptionCode}
                 onChange={(e) => setSubscriptionCode(e.target.value)}
                 placeholder="أدخل رمز الاشتراك... يمكن أن يحتوي على تعليمات أو بريد إلكتروني وكلمة مرور"
-                className="bg-slate-900 border-slate-700 text-white mt-2 min-h-[150px] font-mono whitespace-pre-wrap break-words"
+                className="bg-white border-gray-300 text-gray-900 mt-2 min-h-[150px] font-mono whitespace-pre-wrap break-words"
                 required
               />
-              <p className="text-xs text-slate-400 mt-1">
+              <p className="text-xs text-gray-500 mt-1">
                 يمكنك إدخال عدة أسطر للتعليمات أو معلومات إضافية
               </p>
             </div>
@@ -1144,7 +1144,7 @@ export default function AdminProductsPage() {
                 setSelectedProductCode('');
                 setSubscriptionCode('');
               }}
-              className="bg-slate-700 border-slate-600 text-white"
+              className="bg-gray-200 border-gray-300 text-gray-900"
             >
               إلغاء
             </Button>
@@ -1157,10 +1157,10 @@ export default function AdminProductsPage() {
 
       {/* Edit Subscription Dialog */}
       <Dialog open={editSubscriptionDialogOpen} onOpenChange={setEditSubscriptionDialogOpen}>
-        <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-2xl">
+        <DialogContent className="bg-white border-gray-200 text-gray-900 max-w-2xl">
           <DialogHeader>
             <DialogTitle>تعديل اشتراك</DialogTitle>
-            <DialogDescription className="text-slate-400">
+            <DialogDescription className="text-gray-600">
               قم بتعديل رمز المنتج أو رمز الاشتراك
             </DialogDescription>
           </DialogHeader>
@@ -1172,7 +1172,7 @@ export default function AdminProductsPage() {
                 onValueChange={setSelectedProductCode}
                 required
               >
-                <SelectTrigger className="bg-slate-900 border-slate-700 text-white mt-2">
+                <SelectTrigger className="bg-white border-gray-300 text-gray-900 mt-2">
                   <SelectValue placeholder="اختر رمز المنتج" />
                 </SelectTrigger>
                 <SelectContent>
@@ -1190,10 +1190,10 @@ export default function AdminProductsPage() {
                 value={subscriptionCode}
                 onChange={(e) => setSubscriptionCode(e.target.value)}
                 placeholder="أدخل رمز الاشتراك... يمكن أن يحتوي على تعليمات أو بريد إلكتروني وكلمة مرور"
-                className="bg-slate-900 border-slate-700 text-white mt-2 min-h-[150px] font-mono whitespace-pre-wrap break-words"
+                className="bg-white border-gray-300 text-gray-900 mt-2 min-h-[150px] font-mono whitespace-pre-wrap break-words"
                 required
               />
-              <p className="text-xs text-slate-400 mt-1">
+              <p className="text-xs text-gray-500 mt-1">
                 يمكنك إدخال عدة أسطر للتعليمات أو معلومات إضافية
               </p>
             </div>
@@ -1207,7 +1207,7 @@ export default function AdminProductsPage() {
                 setSelectedProductCode('');
                 setSubscriptionCode('');
               }}
-              className="bg-slate-700 border-slate-600 text-white"
+              className="bg-gray-200 border-gray-300 text-gray-900"
             >
               إلغاء
             </Button>
@@ -1361,7 +1361,7 @@ function ProductFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-3xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="bg-white border-gray-200 text-gray-900 max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{product ? 'تعديل المنتج' : 'إضافة منتج جديد'}</DialogTitle>
         </DialogHeader>
@@ -1373,7 +1373,7 @@ function ProductFormDialog({
                 value={formData.product_code}
                 onChange={(e) => setFormData({ ...formData, product_code: e.target.value })}
                 required
-                className="bg-slate-900 border-slate-700 text-white mt-2"
+                className="bg-white border-gray-300 text-gray-900 mt-2"
                 disabled={!!product}
               />
             </div>
@@ -1383,7 +1383,7 @@ function ProductFormDialog({
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 required
-                className="bg-slate-900 border-slate-700 text-white mt-2"
+                className="bg-white border-gray-300 text-gray-900 mt-2"
               />
             </div>
             <div className="col-span-2">
@@ -1391,7 +1391,7 @@ function ProductFormDialog({
               <Textarea
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                className="bg-slate-900 border-slate-700 text-white mt-2 min-h-[120px]"
+                className="bg-white border-gray-300 text-gray-900 mt-2 min-h-[120px]"
                 rows={5}
                 placeholder="أدخل وصف المنتج... يمكنك استخدام أسطر متعددة"
               />
@@ -1403,7 +1403,7 @@ function ProductFormDialog({
                 value={formData.price}
                 onChange={(e) => setFormData({ ...formData, price: e.target.value })}
                 required
-                className="bg-slate-900 border-slate-700 text-white mt-2"
+                className="bg-white border-gray-300 text-gray-900 mt-2"
               />
             </div>
             <div>
@@ -1421,7 +1421,7 @@ function ProductFormDialog({
                   }
                 }}
               >
-                <SelectTrigger className="bg-slate-900 border-slate-700 text-white mt-2">
+                <SelectTrigger className="bg-white border-gray-300 text-gray-900 mt-2">
                   <SelectValue placeholder="اختر المدة" />
                 </SelectTrigger>
                 <SelectContent>
@@ -1441,7 +1441,7 @@ function ProductFormDialog({
                     setFormData({ ...formData, duration: e.target.value });
                   }}
                   placeholder="أدخل المدة (مثل: 2 شهر، 18 شهر)"
-                  className="bg-slate-900 border-slate-700 text-white mt-2"
+                  className="bg-white border-gray-300 text-gray-900 mt-2"
                   required
                 />
               )}
@@ -1453,7 +1453,7 @@ function ProductFormDialog({
                 onValueChange={(value) => setFormData({ ...formData, category_id: value })}
                 required
               >
-                <SelectTrigger className="bg-slate-900 border-slate-700 text-white mt-2">
+                <SelectTrigger className="bg-white border-gray-300 text-gray-900 mt-2">
                   <SelectValue placeholder="اختر التصنيف" />
                 </SelectTrigger>
                 <SelectContent>
@@ -1474,7 +1474,7 @@ function ProductFormDialog({
                 type="number"
                 value={formData.display_order}
                 onChange={(e) => setFormData({ ...formData, display_order: e.target.value })}
-                className="bg-slate-900 border-slate-700 text-white mt-2"
+                className="bg-white border-gray-300 text-gray-900 mt-2"
               />
             </div>
             <div>
@@ -1482,7 +1482,7 @@ function ProductFormDialog({
               <Input
                 value={formData.image}
                 onChange={(e) => setFormData({ ...formData, image: e.target.value })}
-                className="bg-slate-900 border-slate-700 text-white mt-2"
+                className="bg-white border-gray-300 text-gray-900 mt-2"
               />
             </div>
             <div>
@@ -1490,7 +1490,7 @@ function ProductFormDialog({
               <Input
                 value={formData.image2}
                 onChange={(e) => setFormData({ ...formData, image2: e.target.value })}
-                className="bg-slate-900 border-slate-700 text-white mt-2"
+                className="bg-white border-gray-300 text-gray-900 mt-2"
               />
             </div>
             <div>
@@ -1499,7 +1499,7 @@ function ProductFormDialog({
                 value={formData.gradient}
                 onChange={(e) => setFormData({ ...formData, gradient: e.target.value })}
                 placeholder="from-blue-500 to-cyan-500"
-                className="bg-slate-900 border-slate-700 text-white mt-2"
+                className="bg-white border-gray-300 text-gray-900 mt-2"
               />
             </div>
             <div>
@@ -1508,7 +1508,7 @@ function ProductFormDialog({
                 value={formData.badge_color}
                 onChange={(e) => setFormData({ ...formData, badge_color: e.target.value })}
                 placeholder="bg-blue-500"
-                className="bg-slate-900 border-slate-700 text-white mt-2"
+                className="bg-white border-gray-300 text-gray-900 mt-2"
               />
             </div>
             <div className="col-span-2">
@@ -1529,7 +1529,7 @@ function ProductFormDialog({
                 <Textarea
                   value={formData.features}
                   onChange={(e) => setFormData({ ...formData, features: e.target.value })}
-                  className="bg-slate-900 border-slate-700 text-white mt-2"
+                  className="bg-white border-gray-300 text-gray-900 mt-2"
                   placeholder="ميزة 1&#10;ميزة 2&#10;ميزة 3"
                 />
               </div>
@@ -1552,7 +1552,7 @@ function ProductFormDialog({
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
-              className="bg-slate-700 border-slate-600 text-white"
+              className="bg-gray-200 border-gray-300 text-gray-900"
             >
               إلغاء
             </Button>
@@ -1619,7 +1619,7 @@ function CategoryFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-2xl">
+      <DialogContent className="bg-white border-gray-200 text-gray-900 max-w-2xl">
         <DialogHeader>
           <DialogTitle>{category ? 'تعديل التصنيف' : 'إضافة تصنيف جديد'}</DialogTitle>
         </DialogHeader>
@@ -1657,7 +1657,7 @@ function CategoryFormDialog({
                 type="number"
                 value={formData.display_order}
                 onChange={(e) => setFormData({ ...formData, display_order: e.target.value })}
-                className="bg-slate-900 border-slate-700 text-white mt-2"
+                className="bg-white border-gray-300 text-gray-900 mt-2"
               />
             </div>
             <div className="flex items-center space-x-2 space-x-reverse pt-8">
@@ -1676,7 +1676,7 @@ function CategoryFormDialog({
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
-              className="bg-slate-700 border-slate-600 text-white"
+              className="bg-gray-200 border-gray-300 text-gray-900"
             >
               إلغاء
             </Button>

@@ -204,7 +204,9 @@ export async function POST(request: NextRequest) {
         status: 'paid',
         payment_status: 'COMPLETED',
       })
-      .eq('id', order_id);
+      .eq('id', order_id)
+      .select()
+      .single();
 
     if (updateError) {
       console.error('Error updating order:', updateError);
@@ -219,6 +221,49 @@ export async function POST(request: NextRequest) {
         },
         { status: 500 }
       );
+    }
+
+    // Calculate commission if order has commissioner
+    const updatedOrder = await supabaseAdmin
+      .from('orders')
+      .select('commissioner_id, total_amount')
+      .eq('id', order_id)
+      .single();
+
+    if (updatedOrder.data?.commissioner_id && updatedOrder.data?.total_amount) {
+      try {
+        // Check if commission already exists
+        const { data: existingCommission } = await supabaseAdmin
+          .from('commission_earnings')
+          .select('id')
+          .eq('order_id', order_id)
+          .single();
+
+        if (!existingCommission) {
+          const { data: commissioner } = await supabaseAdmin
+            .from('commissioners')
+            .select('commission_rate')
+            .eq('id', updatedOrder.data.commissioner_id)
+            .single();
+
+          if (commissioner) {
+            const commissionAmount = parseFloat(updatedOrder.data.total_amount as any) * parseFloat(commissioner.commission_rate as any);
+            await supabaseAdmin
+              .from('commission_earnings')
+              .insert({
+                commissioner_id: updatedOrder.data.commissioner_id,
+                order_id: order_id,
+                order_amount: parseFloat(updatedOrder.data.total_amount as any),
+                commission_amount: commissionAmount,
+                status: 'pending',
+              });
+            console.log('✓ Commission earnings created on payment capture:', commissionAmount);
+          }
+        }
+      } catch (commissionError) {
+        console.error('Error creating commission earnings on payment capture:', commissionError);
+        // Don't fail the payment capture if commission calculation fails
+      }
     }
 
     return NextResponse.json({

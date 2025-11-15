@@ -13,6 +13,7 @@ import Footer from '@/components/Footer';
 import MovieCard from '@/components/MovieCard';
 import MovieModal from '@/components/MovieModal';
 import { type Movie } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase';
 
 export default function Home() {
   const router = useRouter();
@@ -38,6 +39,7 @@ export default function Home() {
     cta_link: string;
   } | null>(null);
   const [bannerLoading, setBannerLoading] = useState(true);
+  const [isCommissioner, setIsCommissioner] = useState(false);
   
   const topRatedScrollRef = useRef<HTMLDivElement>(null);
   const trendingScrollRef = useRef<HTMLDivElement>(null);
@@ -291,6 +293,48 @@ export default function Home() {
     fetchReviews();
   }, []);
 
+  // Check if user is a commissioner
+  useEffect(() => {
+    const checkCommissioner = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.user?.email || !session.access_token) {
+          setIsCommissioner(false);
+          return;
+        }
+
+        const response = await fetch('/api/commissions/check', {
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          setIsCommissioner(result.isCommissioner || false);
+        } else {
+          setIsCommissioner(false);
+        }
+      } catch (error) {
+        console.error('Error checking commissioner status:', error);
+        setIsCommissioner(false);
+      }
+    };
+
+    checkCommissioner();
+
+    // Also listen for auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.access_token) {
+        checkCommissioner();
+      } else {
+        setIsCommissioner(false);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
   const scroll = (ref: React.RefObject<HTMLDivElement>, direction: 'left' | 'right') => {
     if (ref.current) {
       const scrollAmount = 400;
@@ -319,6 +363,28 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-black text-white">
       <Header />
+
+      {/* Commission Panel Link for Commissioners */}
+      {isCommissioner && (
+        <section className="bg-gradient-to-r from-indigo-600 to-purple-600 py-4 sticky top-0 z-50">
+          <div className="container mx-auto px-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <TrendingUp className="h-6 w-6 text-white" />
+                <div>
+                  <p className="text-white font-semibold">لوحة العمولات</p>
+                  <p className="text-indigo-100 text-sm">تابع أرباحك وطلبات الدفع</p>
+                </div>
+              </div>
+              <Link href="/commissions">
+                <Button className="bg-white text-indigo-600 hover:bg-indigo-50 font-semibold">
+                  عرض اللوحة
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </section>
+      )}
 
       <section className="relative min-h-[90vh] flex items-center justify-center overflow-hidden">
         {/* Background Image */}

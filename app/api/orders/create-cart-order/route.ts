@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { items, customerInfo, promoCodeId, discountAmount, totalAmount, totalAmountUsd } = body;
+    const { items, customerInfo, promoCodeId, discountAmount, totalAmount, totalAmountUsd, commissioner_promo_code } = body;
 
     if (!items || items.length === 0) {
       return NextResponse.json(
@@ -56,6 +56,23 @@ export async function POST(request: NextRequest) {
     // Calculate original subtotal before discount for order price
     const originalSubtotal = items.reduce((sum: number, item: any) => sum + (item.price * item.quantity), 0);
 
+    // Validate and get commissioner if commission code provided
+    let commissionerId = null;
+    let commissionerPromoCode = null;
+    if (commissioner_promo_code) {
+      const { data: commissioner, error: commissionerError } = await supabaseAdmin
+        .from('commissioners')
+        .select('id, promo_code, commission_rate')
+        .eq('promo_code', commissioner_promo_code.toUpperCase().trim())
+        .eq('is_active', true)
+        .single();
+
+      if (!commissionerError && commissioner) {
+        commissionerId = commissioner.id;
+        commissionerPromoCode = commissioner.promo_code;
+      }
+    }
+
     const { data: order, error: orderError } = await supabaseAdmin
       .from('orders')
       .insert({
@@ -68,6 +85,8 @@ export async function POST(request: NextRequest) {
         total_amount: totalAmount, // Store final amount after discount (can be 0 for 100% discount)
         discount_amount: discountAmount || 0,
         promo_code_id: promoCodeId || null,
+        commissioner_id: commissionerId,
+        commissioner_promo_code: commissionerPromoCode,
         status: isFreeOrder ? 'paid' : 'pending', // Set to 'paid' immediately for free orders
         payment_method: isFreeOrder ? 'promo_code_100' : 'paypal_cart',
         payment_status: isFreeOrder ? 'COMPLETED' : 'PENDING',
@@ -248,6 +267,34 @@ export async function POST(request: NextRequest) {
         // Continue anyway - order is already created
       } else {
         console.log('✓ Order status updated to paid with payment_method: promo_code_100');
+      }
+
+      // Calculate commission if order has commissioner
+      if (commissionerId && order.total_amount) {
+        try {
+          const { data: commissioner } = await supabaseAdmin
+            .from('commissioners')
+            .select('commission_rate')
+            .eq('id', commissionerId)
+            .single();
+
+          if (commissioner) {
+            const commissionAmount = parseFloat(order.total_amount as any) * parseFloat(commissioner.commission_rate as any);
+            await supabaseAdmin
+              .from('commission_earnings')
+              .insert({
+                commissioner_id: commissionerId,
+                order_id: order.id,
+                order_amount: parseFloat(order.total_amount as any),
+                commission_amount: commissionAmount,
+                status: 'pending',
+              });
+            console.log('✓ Commission earnings created:', commissionAmount);
+          }
+        } catch (commissionError) {
+          console.error('Error creating commission earnings:', commissionError);
+          // Don't fail the order if commission calculation fails
+        }
       }
 
       // Create active subscriptions for each assigned subscription
