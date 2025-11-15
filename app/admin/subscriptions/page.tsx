@@ -1229,12 +1229,12 @@ export default function AdminSubscriptionsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900">
+      <div className="min-h-screen bg-gray-50">
         <Header />
         <main className="container mx-auto px-4 py-24 pt-32">
           <div className="max-w-6xl mx-auto text-center">
-            <Loader2 className="h-8 w-8 animate-spin text-white mx-auto" />
-            <p className="text-slate-300 mt-4">جاري التحميل...</p>
+            <Loader2 className="h-8 w-8 animate-spin text-gray-600 mx-auto" />
+            <p className="text-gray-600 mt-4">جاري التحميل...</p>
           </div>
         </main>
         <Footer />
@@ -1247,49 +1247,49 @@ export default function AdminSubscriptionsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900">
+    <div className="min-h-screen bg-gray-50">
       <Header />
       <main className="container mx-auto px-4 py-24 pt-32">
         <div className="max-w-7xl mx-auto">
           {/* Header */}
           <div className="mb-8">
-            <h1 className="text-4xl font-bold text-white mb-2">إدارة الإشتراكات</h1>
-            <p className="text-slate-300">إدارة وتتبع اشتراكات العملاء</p>
+            <h1 className="text-4xl font-bold text-gray-900 mb-2">إدارة الإشتراكات</h1>
+            <p className="text-gray-600">إدارة وتتبع اشتراكات العملاء</p>
           </div>
 
           {/* Statistics Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            <Card className="bg-slate-800/50 border-slate-700">
+            <Card className="bg-white border-gray-200">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-slate-300">إجمالي الاشتراكات</CardTitle>
+                <CardTitle className="text-sm font-medium text-gray-600">إجمالي الاشتراكات</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-white">{stats.total}</div>
+                <div className="text-2xl font-bold text-gray-900">{stats.total}</div>
               </CardContent>
             </Card>
-            <Card className="bg-slate-800/50 border-slate-700">
+            <Card className="bg-white border-gray-200">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-slate-300">على وشك الانتهاء (4 أيام)</CardTitle>
+                <CardTitle className="text-sm font-medium text-gray-600">على وشك الانتهاء (4 أيام)</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-orange-400">{stats.expiringSoon}</div>
               </CardContent>
             </Card>
-            <Card className="bg-slate-800/50 border-slate-700">
+            <Card className="bg-white border-gray-200">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-slate-300">منتهية</CardTitle>
+                <CardTitle className="text-sm font-medium text-gray-600">منتهية</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-red-400">{stats.expired}</div>
               </CardContent>
             </Card>
-            <Card className="bg-slate-800/50 border-slate-700">
+            <Card className="bg-white border-gray-200">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-slate-300">معدل التجديد</CardTitle>
+                <CardTitle className="text-sm font-medium text-gray-600">معدل التجديد</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-green-400">{stats.renewalRate}%</div>
-                <div className="text-xs text-slate-400 mt-1">{stats.renewed} من {stats.total}</div>
+                <div className="text-xs text-gray-500 mt-1">{stats.renewed} من {stats.total}</div>
               </CardContent>
             </Card>
           </div>
@@ -1308,12 +1308,12 @@ export default function AdminSubscriptionsPage() {
                   {expiringSoon.map((sub) => (
                     <div
                       key={sub.id}
-                      className="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg"
+                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
                     >
                       <div className="flex-1">
-                        <div className="text-white font-medium">{sub.customer_name}</div>
-                        <div className="text-sm text-slate-300">{sub.customer_email}</div>
-                        <div className="text-xs text-slate-400">
+                        <div className="text-gray-900 font-medium">{sub.customer_name}</div>
+                        <div className="text-sm text-gray-600">{sub.customer_email}</div>
+                        <div className="text-xs text-gray-500">
                           {sub.subscription_type || 'غير محدد'} • ينتهي في {sub.due_days} يوم
                         </div>
                       </div>
@@ -1363,17 +1363,17 @@ export default function AdminSubscriptionsPage() {
           <div className="flex flex-wrap items-center gap-4 mb-6">
             <div className="flex-1 min-w-[200px]">
               <div className="relative">
-                <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 h-4 w-4" />
+                <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                 <Input
                   placeholder="بحث برقم الاشتراك (#)، الاسم، البريد الإلكتروني، أو رمز الاشتراك..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pr-10 bg-slate-800/50 border-slate-700 text-white"
+                  className="pr-10 bg-white border-gray-300 text-gray-900"
                 />
               </div>
             </div>
             <Select value={typeFilter} onValueChange={setTypeFilter}>
-              <SelectTrigger className="w-[180px] bg-slate-800/50 border-slate-700 text-white">
+              <SelectTrigger className="w-[180px] bg-white border-gray-300 text-gray-900">
                 <SelectValue placeholder="نوع الاشتراك" />
               </SelectTrigger>
               <SelectContent>
@@ -1396,7 +1396,7 @@ export default function AdminSubscriptionsPage() {
             <Button
               onClick={() => setCsvImportDialogOpen(true)}
               variant="outline"
-              className="border-slate-600 text-slate-300 hover:bg-slate-700"
+              className="border-gray-300 text-gray-600 hover:bg-gray-100"
             >
               <Upload className="h-4 w-4 mr-2" />
               استيراد CSV
@@ -1412,7 +1412,7 @@ export default function AdminSubscriptionsPage() {
             <Button
               onClick={fetchSubscriptions}
               variant="outline"
-              className="border-slate-600 text-slate-300 hover:bg-slate-700"
+              className="border-gray-300 text-gray-600 hover:bg-gray-100"
             >
               <RefreshCw className="h-4 w-4 mr-2" />
               تحديث
@@ -1429,38 +1429,38 @@ export default function AdminSubscriptionsPage() {
           </div>
 
           {/* Subscriptions Table */}
-          <Card className="bg-slate-800/50 border-slate-700">
+          <Card className="bg-white border-gray-200">
             <CardContent className="p-0">
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
-                    <TableRow className="border-slate-700">
-                      <TableHead className="text-slate-300">العميل</TableHead>
-                      <TableHead className="text-slate-300">نوع الاشتراك</TableHead>
-                      <TableHead className="text-slate-300">رمز الاشتراك</TableHead>
-                      <TableHead className="text-slate-300">تاريخ البدء</TableHead>
-                      <TableHead className="text-slate-300">تاريخ الانتهاء</TableHead>
-                      <TableHead className="text-slate-300">الأيام المتبقية</TableHead>
-                      <TableHead className="text-slate-300">التجديد</TableHead>
-                      <TableHead className="text-slate-300">الإجراءات</TableHead>
+                    <TableRow className="border-gray-200">
+                      <TableHead className="text-gray-900">العميل</TableHead>
+                      <TableHead className="text-gray-900">نوع الاشتراك</TableHead>
+                      <TableHead className="text-gray-900">رمز الاشتراك</TableHead>
+                      <TableHead className="text-gray-900">تاريخ البدء</TableHead>
+                      <TableHead className="text-gray-900">تاريخ الانتهاء</TableHead>
+                      <TableHead className="text-gray-900">الأيام المتبقية</TableHead>
+                      <TableHead className="text-gray-900">التجديد</TableHead>
+                      <TableHead className="text-gray-900">الإجراءات</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredSubscriptions.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={8} className="text-center text-slate-400 py-8">
+                        <TableCell colSpan={8} className="text-center text-gray-500 py-8">
                           لا توجد اشتراكات
                         </TableCell>
                       </TableRow>
                     ) : (
                       filteredSubscriptions.map((sub) => (
-                        <TableRow key={sub.id} className="border-slate-700">
+                        <TableRow key={sub.id} className="border-gray-200">
                           <TableCell>
                             <div>
-                              <div className="text-white font-medium">{sub.customer_name}</div>
-                              <div className="text-sm text-slate-400">{sub.customer_email}</div>
+                              <div className="text-gray-900 font-medium">{sub.customer_name}</div>
+                              <div className="text-sm text-gray-500">{sub.customer_email}</div>
                               {sub.customer_phone && (
-                                <div className="text-xs text-slate-500">{sub.customer_phone}</div>
+                                <div className="text-xs text-gray-500">{sub.customer_phone}</div>
                               )}
                             </div>
                           </TableCell>
@@ -1483,7 +1483,7 @@ export default function AdminSubscriptionsPage() {
                               {sub.subscription_type || 'غير محدد'}
                             </Badge>
                           </TableCell>
-                          <TableCell className="text-slate-300">
+                          <TableCell className="text-gray-600">
                             <Button
                               variant="ghost"
                               size="sm"
@@ -1497,10 +1497,10 @@ export default function AdminSubscriptionsPage() {
                               عرض
                             </Button>
                           </TableCell>
-                          <TableCell className="text-slate-300">
+                          <TableCell className="text-gray-600">
                             {format(new Date(sub.start_date), 'yyyy-MM-dd', { locale: ar })}
                           </TableCell>
-                          <TableCell className="text-slate-300">
+                          <TableCell className="text-gray-600">
                             {sub.expiration_date ? format(new Date(sub.expiration_date), 'yyyy-MM-dd', { locale: ar }) : 'N/A'}
                           </TableCell>
                           <TableCell>
@@ -1523,7 +1523,7 @@ export default function AdminSubscriptionsPage() {
                               {sub.due_days <= 0 ? 'منتهي' : `${sub.due_days} يوم`}
                             </Badge>
                           </TableCell>
-                          <TableCell className="text-slate-300">
+                          <TableCell className="text-gray-600">
                             {(sub.renewal_count || 0) > 0 ? (
                               <Badge variant="outline" className="border-green-500 text-green-400">
                                 تم التجديد ({sub.renewal_count})
@@ -1642,7 +1642,7 @@ export default function AdminSubscriptionsPage() {
 
       {/* Manual Entry Dialog */}
       <Dialog open={manualEntryDialogOpen} onOpenChange={setManualEntryDialogOpen}>
-        <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="bg-white border-gray-200 text-gray-900 max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>إضافة اشتراك يدوياً</DialogTitle>
             <DialogDescription className="text-slate-400">
@@ -1859,7 +1859,7 @@ export default function AdminSubscriptionsPage() {
 
       {/* Edit Subscription Dialog */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-        <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="bg-white border-gray-200 text-gray-900 max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>تعديل اشتراك</DialogTitle>
             <DialogDescription className="text-slate-400">
@@ -2090,7 +2090,7 @@ export default function AdminSubscriptionsPage() {
 
       {/* CSV Import Dialog */}
       <Dialog open={csvImportDialogOpen} onOpenChange={setCsvImportDialogOpen}>
-        <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="bg-white border-gray-200 text-gray-900 max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>استيراد CSV</DialogTitle>
             <DialogDescription className="text-slate-400">
@@ -2191,7 +2191,7 @@ export default function AdminSubscriptionsPage() {
 
       {/* Renew Dialog */}
       <Dialog open={renewDialogOpen} onOpenChange={setRenewDialogOpen}>
-        <DialogContent className="bg-slate-800 border-slate-700 text-white">
+        <DialogContent className="bg-white border-gray-200 text-gray-900">
           <DialogHeader>
             <DialogTitle>تجديد الاشتراك</DialogTitle>
             <DialogDescription className="text-slate-400">
@@ -2289,7 +2289,7 @@ export default function AdminSubscriptionsPage() {
 
       {/* Refresh Subscription Dialog */}
       <Dialog open={refreshDialogOpen} onOpenChange={setRefreshDialogOpen}>
-        <DialogContent className="bg-slate-800 border-slate-700 text-white">
+        <DialogContent className="bg-white border-gray-200 text-gray-900">
           <DialogHeader>
             <DialogTitle>إرسال اشتراك محدث</DialogTitle>
             <DialogDescription className="text-slate-400">
