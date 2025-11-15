@@ -65,18 +65,22 @@ export async function POST(request: NextRequest) {
     });
 
     // Calculate new dates - renewal extends from CURRENT EXPIRATION DATE
-    // IMPORTANT: Start date is set to today, but expiration extends from the current expiration date
+    // IMPORTANT: Start date is set to the CURRENT EXPIRATION DATE (not today)
+    // This ensures the renewal period begins from where the subscription would have expired
     const now = new Date();
     const currentExpirationDate = new Date(originalSubscription.expiration_date);
     
-    // Use current date/time for start date
-    const newStartDate = new Date(now);
+    // Start date should be the current expiration date (where the subscription ends)
+    // Example: If expiration is 11/19/2025, start_date becomes 11/19/2025
+    const newStartDate = new Date(currentExpirationDate);
     console.log('Renewal calculation setup:', {
       today: now.toISOString(),
       currentExpiration: currentExpirationDate.toISOString(),
       currentExpirationDateOnly: currentExpirationDate.toDateString(),
       newStartDate: newStartDate.toISOString(),
+      newStartDateOnly: newStartDate.toDateString(),
       oldStartDate: originalSubscription.start_date,
+      oldExpiration: originalSubscription.expiration_date,
     });
     
     let newExpiration: Date;
@@ -125,6 +129,7 @@ export async function POST(request: NextRequest) {
         startDate: newStartDate.toISOString(),
         startDateLocal: newStartDate.toLocaleString(),
         startDateOnly: newStartDate.toDateString(),
+        startDateIsCurrentExpiration: newStartDate.toDateString() === currentExpirationDate.toDateString(),
         daysToAdd,
         calculatedExpiration: newExpiration.toISOString(),
         calculatedExpirationLocal: newExpiration.toLocaleString(),
@@ -164,13 +169,28 @@ export async function POST(request: NextRequest) {
     // This preserves the subscription state before renewal
     console.log('Copying subscription to renewed_subscriptions table:', subscriptionId);
     
+    // Provide fallback values for required fields that might be null
+    // renewed_subscriptions requires customer_name and customer_email to be NOT NULL
+    const customerName = originalSubscription.customer_name || 
+                        originalSubscription.subscription_code || 
+                        'Unknown Customer';
+    const customerEmail = originalSubscription.customer_email || 
+                         `subscription-${originalSubscription.subscription_code}@unknown.local`;
+    
+    console.log('Customer data for renewal snapshot:', {
+      originalCustomerName: originalSubscription.customer_name,
+      originalCustomerEmail: originalSubscription.customer_email,
+      fallbackCustomerName: customerName,
+      fallbackCustomerEmail: customerEmail,
+    });
+    
     const { data: renewedSnapshot, error: copyError } = await supabaseAdmin
       .from('renewed_subscriptions')
       .insert({
         original_subscription_id: subscriptionId,
         order_id: originalSubscription.order_id,
-        customer_name: originalSubscription.customer_name,
-        customer_email: originalSubscription.customer_email,
+        customer_name: customerName,
+        customer_email: customerEmail,
         customer_phone: originalSubscription.customer_phone,
         subscription_code: originalSubscription.subscription_code,
         subscription_type: originalSubscription.subscription_type,
@@ -209,10 +229,13 @@ export async function POST(request: NextRequest) {
     // This updates the subscription with new expiration date and start date
     console.log('Updating existing subscription row in active_subscriptions:', subscriptionId);
     
-    // CRITICAL: Always update start_date to TODAY for renewal
+    // CRITICAL: Start date is set to CURRENT EXPIRATION DATE (not today)
     // Expiration date extends from the CURRENT expiration date by the selected duration
+    // Example: If expiration is 11/19/2025 and renewing for 3 months:
+    //   - start_date becomes: 11/19/2025 (current expiration)
+    //   - expiration_date becomes: 02/19/2026 (11/19/2025 + 3 months)
     const updateData: any = {
-      start_date: newStartDate.toISOString(), // ALWAYS set to today
+      start_date: newStartDate.toISOString(), // Set to current expiration date
       expiration_date: newExpiration.toISOString(), // Extends from current expiration + duration
       subscription_duration: renewalDuration,
       renewal_count: (originalSubscription.renewal_count || 0) + 1,
@@ -225,10 +248,19 @@ export async function POST(request: NextRequest) {
     };
     
     // Verify the dates are correct before updating
+    const oldStartTimestamp = new Date(originalSubscription.start_date).getTime();
+    const newStartTimestamp = newStartDate.getTime();
+    const startDateWillChange = oldStartTimestamp !== newStartTimestamp;
+    
     console.log('Update payload verification:', {
       startDate: updateData.start_date,
       expirationDate: updateData.expiration_date,
       duration: updateData.subscription_duration,
+      oldStartDate: originalSubscription.start_date,
+      newStartDate: updateData.start_date,
+      oldStartTimestamp,
+      newStartTimestamp,
+      startDateWillChange,
       startDateIsToday: new Date(updateData.start_date).toDateString() === new Date().toDateString(),
       expirationIsFuture: new Date(updateData.expiration_date) > new Date(updateData.start_date),
     });
@@ -236,6 +268,8 @@ export async function POST(request: NextRequest) {
     // Note: updated_at is handled by the database trigger
     console.log('Update data to be sent:', JSON.stringify(updateData, null, 2));
     console.log('Update will target subscription ID:', subscriptionId);
+    console.log('Start date (current expiration):', updateData.start_date);
+    console.log('New expiration date:', updateData.expiration_date);
 
     // Perform the update and return the updated row
     const { data: renewedSubscription, error: updateError } = await supabaseAdmin
@@ -294,29 +328,39 @@ export async function POST(request: NextRequest) {
       customer: renewedSubscription.customer_name,
       oldStartDate: originalSubscription.start_date,
       newStartDate: renewedSubscription.start_date,
+      expectedStartDate: newStartDate.toISOString(),
       oldExpiration: originalSubscription.expiration_date,
       newExpiration: renewedSubscription.expiration_date,
+      expectedExpiration: newExpiration.toISOString(),
       oldDuration: originalSubscription.subscription_duration,
       newDuration: renewedSubscription.subscription_duration,
       oldRenewalCount: originalSubscription.renewal_count,
       newRenewalCount: renewedSubscription.renewal_count,
       startDateChanged: renewedSubscription.start_date !== originalSubscription.start_date,
       expirationChanged: renewedSubscription.expiration_date !== originalSubscription.expiration_date,
-      expectedStartDate: newStartDate.toISOString(),
-      expectedExpiration: newExpiration.toISOString(),
       startDateMatches: renewedSubscription.start_date === newStartDate.toISOString() || 
                         Math.abs(new Date(renewedSubscription.start_date).getTime() - newStartDate.getTime()) < 1000,
       expirationMatches: renewedSubscription.expiration_date === newExpiration.toISOString() ||
                          Math.abs(new Date(renewedSubscription.expiration_date).getTime() - newExpiration.getTime()) < 1000,
+      startDateWasUpdated: new Date(renewedSubscription.start_date).getTime() !== new Date(originalSubscription.start_date).getTime(),
     });
 
-    // Compare dates by date only (ignore time) to see if they actually changed
+    // Compare dates by both date and timestamp to verify the update
     const oldExpDateOnly = new Date(originalSubscription.expiration_date).toDateString();
     const newExpDateOnly = new Date(renewedSubscription.expiration_date).toDateString();
     const expectedExpDateOnly = newExpiration.toDateString();
     const oldStartDateOnly = new Date(originalSubscription.start_date).toDateString();
     const newStartDateOnly = new Date(renewedSubscription.start_date).toDateString();
+    
+    // Get the expected timestamp (current expiration date)
+    const expectedStartTimestamp = newStartDate.getTime();
     const expectedStartDateOnly = newStartDate.toDateString();
+    
+    // Verify start_date timestamp was actually updated
+    const actualStartTimestamp = new Date(renewedSubscription.start_date).getTime();
+    const oldStartTimestampValue = new Date(originalSubscription.start_date).getTime();
+    const startTimestampChanged = Math.abs(actualStartTimestamp - expectedStartTimestamp) < 1000; // Within 1 second
+    const startTimestampActuallyChanged = actualStartTimestamp !== oldStartTimestampValue;
     
     // Verify the update was successful (compare dates, not strings, since format may differ)
     if (renewedSubscription && renewedSubscription.expiration_date) {
@@ -336,17 +380,39 @@ export async function POST(request: NextRequest) {
         });
       } else {
         console.log('✓ Expiration date updated correctly');
-        console.log('Date comparison:', {
-          oldExpirationDateOnly: oldExpDateOnly,
-          newExpirationDateOnly: newExpDateOnly,
-          expectedExpirationDateOnly: expectedExpDateOnly,
-          expirationDateActuallyChanged: newExpDateOnly !== oldExpDateOnly,
-          oldStartDateOnly,
-          newStartDateOnly,
-          expectedStartDateOnly,
-          startDateActuallyChanged: newStartDateOnly !== oldStartDateOnly,
-        });
       }
+      
+      // Verify start_date was updated
+      if (!startTimestampChanged) {
+        console.warn('Warning: Start date timestamp may not have updated correctly!', {
+          expectedStartTimestamp,
+          actualStartTimestamp,
+          differenceMs: Math.abs(actualStartTimestamp - expectedStartTimestamp),
+          oldStartDate: originalSubscription.start_date,
+          newStartDate: renewedSubscription.start_date,
+          expectedStartDate: newStartDate.toISOString(),
+        });
+      } else {
+        console.log('✓ Start date updated correctly');
+      }
+      
+      console.log('Date comparison:', {
+        oldExpirationDateOnly: oldExpDateOnly,
+        newExpirationDateOnly: newExpDateOnly,
+        expectedExpirationDateOnly: expectedExpDateOnly,
+        expirationDateActuallyChanged: newExpDateOnly !== oldExpDateOnly,
+        oldStartDateOnly,
+        newStartDateOnly,
+        expectedStartDateOnly,
+        startDateActuallyChanged: newStartDateOnly !== oldStartDateOnly,
+        startTimestampChanged,
+        startTimestampActuallyChanged,
+        oldStartTimestamp: oldStartTimestampValue,
+        newStartTimestamp: actualStartTimestamp,
+        expectedStartTimestamp: expectedStartTimestamp,
+        startDateWasUpdated: startTimestampActuallyChanged,
+        startDateIsCurrentExpiration: newStartDateOnly === new Date(originalSubscription.expiration_date).toDateString(),
+      });
     }
 
     // Final verification: ensure we updated the same row, not created a new one
