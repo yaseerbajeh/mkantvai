@@ -34,7 +34,6 @@ import {
 } from 'lucide-react';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import dynamic from 'next/dynamic';
 
 interface Commissioner {
   id: string;
@@ -311,7 +310,7 @@ function AdminCommissionsPageContent() {
   });
 
   const getCommissionerId = (id: string) => {
-    return `WKR${String(id).slice(0, 8).toUpperCase().padStart(3, '0')}`;
+    return `WKR${String(id).slice(0, 8).toUpperCase()}`;
   };
 
   const getInitials = (name: string | null, email: string) => {
@@ -416,9 +415,11 @@ function AdminCommissionsPageContent() {
             <h2 className="text-2xl font-bold text-gray-900 mb-4">ملفات العمال</h2>
             <div className="space-y-4">
               {filteredCommissioners.map((commissioner) => {
-                const targetMet = commissioner.total_earnings > 0 
-                  ? Math.min(100, (commissioner.total_earnings / (commissioner.total_earnings + 1000)) * 100)
+                const totalEarnings = Number(commissioner.total_earnings) || 0;
+                const targetMet = totalEarnings > 0 
+                  ? Math.min(100, Math.max(0, (totalEarnings / (totalEarnings + 1000)) * 100))
                   : 0;
+                const validTargetMet = isNaN(targetMet) || !isFinite(targetMet) ? 0 : Math.max(0, Math.min(100, targetMet));
                 
                 return (
                   <Card key={commissioner.id} className="bg-white border-0">
@@ -454,12 +455,12 @@ function AdminCommissionsPageContent() {
                               )}
                             </div>
                           </div>
-                          {targetMet > 0 && (
+                          {validTargetMet > 0 && (
                             <div className="mt-2">
                               <div className="flex items-center justify-between mb-1">
-                                <span className="text-xs text-gray-600">تحقيق الهدف: {targetMet.toFixed(0)}%</span>
+                                <span className="text-xs text-gray-600">تحقيق الهدف: {validTargetMet.toFixed(0)}%</span>
                               </div>
-                              <Progress value={targetMet} className="h-2" />
+                              <Progress value={validTargetMet} className="h-2" />
                             </div>
                           )}
                         </div>
@@ -676,21 +677,5 @@ function AdminCommissionsPageContent() {
   );
 }
 
-// Export with dynamic import to prevent build errors
-const AdminCommissionsPage = dynamic(
-  () => Promise.resolve(AdminCommissionsPageContent),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin text-gray-600 mx-auto" />
-          <p className="text-gray-600 mt-4">جاري التحميل...</p>
-        </div>
-      </div>
-    ),
-  }
-);
-
-export default AdminCommissionsPage;
+export default AdminCommissionsPageContent;
 
