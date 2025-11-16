@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import type { EmailOtpType } from '@supabase/supabase-js';
 
 export type AuthError = {
   message: string;
@@ -246,9 +247,9 @@ export async function signUpWithOtp(email: string, name?: string): Promise<AuthR
  * Verify OTP code
  * @param email - User's email address
  * @param token - OTP code received via email
- * @param type - 'email' for magic link or 'signup'/'signin' for OTP
+ * @param type - 'email' for email OTP, 'magiclink' for magic link, 'recovery' for password recovery
  */
-export async function verifyOtp(email: string, token: string, type: 'email' | 'signup' | 'signin' = 'email'): Promise<AuthResult> {
+export async function verifyOtp(email: string, token: string, type: EmailOtpType = 'email'): Promise<AuthResult> {
   try {
     const { data, error } = await supabase.auth.verifyOtp({
       email,
