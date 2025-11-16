@@ -619,9 +619,9 @@ export default function Home() {
                 if (!category || category.length === 0) return null;
                 
                 return (
-                  <div key={categoryId} id={`category-${categoryId}`} className="scroll-mt-20">
+                  <div key={categoryId} id={`category-${categoryId}`} className="scroll-mt-20 w-full">
                     {/* Category Header */}
-                    <div className="mb-8 text-center">
+                    <div className="mb-8 text-center w-full">
                       <div className="flex items-center justify-center gap-4 mb-2">
                         <h3 className="text-2xl md:text-3xl font-bold text-white inline-block">
                           {categoryTitles[categoryId] || 'غير محدد'}
@@ -641,178 +641,189 @@ export default function Home() {
                     </div>
 
                     {/* Products Grid - Packages: 2 columns (long cards), Others: 3 columns */}
-                    <div className={isPackageSection ? "grid grid-cols-2 md:grid-cols-2 gap-2 md:gap-6 max-w-4xl mx-auto" : "grid grid-cols-3 md:grid-cols-3 lg:grid-cols-4 gap-2 md:gap-4 max-w-6xl mx-auto"}>
-                      {category.slice(0, isPackageSection ? 2 : 4).map((product: any) => {
-                        const Icon = product.icon || Sparkles;
-                        
-                        // Package section - long detailed cards
-                        if (isPackageSection && product.isPackage) {
-                          return (
-                            <Card key={product.id} className="group relative overflow-hidden bg-gradient-to-br from-slate-800/90 to-slate-900/90 border-2 border-slate-700/50 hover:border-slate-500 transition-all duration-300 hover:shadow-2xl hover:shadow-amber-500/20 hover:-translate-y-2 h-full flex flex-col">
-                              <div className={`absolute inset-0 bg-gradient-to-br ${product.gradient} opacity-0 group-hover:opacity-15 transition-opacity duration-300 pointer-events-none`} />
-                              
-                              <div className="absolute top-2 md:top-4 right-2 md:right-4 z-10">
-                                <span className={`${product.badgeColor} text-white text-[10px] md:text-sm font-bold px-2 md:px-4 py-1 md:py-2 rounded-full shadow-lg`}>
-                                  {product.duration}
-                                </span>
-                              </div>
+                    {/* Separate wrapper for each type to ensure independent centering */}
+                    {isPackageSection ? (
+                      <div className="w-full flex justify-center">
+                        <div className="grid grid-cols-2 md:grid-cols-2 gap-2 md:gap-8 w-full max-w-4xl">
+                          {category.slice(0, 2).map((product: any) => {
+                            const Icon = product.icon || Sparkles;
+                            
+                            // Package section - long detailed cards
+                            return (
+                              <Card key={product.id} className="group relative overflow-hidden bg-gradient-to-br from-slate-800/90 to-slate-900/90 border-2 border-slate-700/50 hover:border-slate-500 transition-all duration-300 hover:shadow-2xl hover:shadow-amber-500/20 hover:-translate-y-2 h-full flex flex-col">
+                                <div className={`absolute inset-0 bg-gradient-to-br ${product.gradient} opacity-0 group-hover:opacity-15 transition-opacity duration-300 pointer-events-none`} />
+                                
+                                <div className="absolute top-2 md:top-4 right-2 md:right-4 z-10">
+                                  <span className={`${product.badgeColor} text-white text-[10px] md:text-sm font-bold px-2 md:px-4 py-1 md:py-2 rounded-full shadow-lg`}>
+                                    {product.duration}
+                                  </span>
+                                </div>
 
-                              <Link href={`/subscribe/${product.code}`} className="block cursor-pointer">
-                                <div className={`relative h-32 md:h-64 w-full overflow-hidden ${product.code === 'SUB-PACKAGE-LEGENDARY' ? 'bg-gradient-to-br from-slate-700 to-slate-800' : `bg-gradient-to-br ${product.gradient}`} p-3 md:p-8`}>
-                                  <div className="h-full flex flex-col justify-between">
-                                    <div className="flex items-center justify-center gap-1.5 md:gap-3 flex-nowrap w-full">
-                                      {product.logos?.map((logo: string, idx: number) => (
-                                        <div key={idx} className={`${product.code === 'SUB-PACKAGE-LEGENDARY' ? 'bg-slate-600/50' : 'bg-white/10'} backdrop-blur-sm rounded-lg p-1.5 md:p-3 border ${product.code === 'SUB-PACKAGE-LEGENDARY' ? 'border-slate-500/30' : 'border-white/20'} group-hover:scale-110 transition-transform duration-300`}>
+                                <Link href={`/subscribe/${product.code}`} className="block cursor-pointer">
+                                  <div className={`relative h-32 md:h-64 w-full overflow-hidden ${product.code === 'SUB-PACKAGE-LEGENDARY' ? 'bg-gradient-to-br from-slate-700 to-slate-800' : `bg-gradient-to-br ${product.gradient}`} p-3 md:p-8`}>
+                                    <div className="h-full flex flex-col justify-between">
+                                      <div className="flex items-center justify-center gap-1.5 md:gap-3 flex-nowrap w-full">
+                                        {product.logos?.map((logo: string, idx: number) => (
+                                          <div key={idx} className={`${product.code === 'SUB-PACKAGE-LEGENDARY' ? 'bg-slate-600/50' : 'bg-white/10'} backdrop-blur-sm rounded-lg p-1.5 md:p-3 border ${product.code === 'SUB-PACKAGE-LEGENDARY' ? 'border-slate-500/30' : 'border-white/20'} group-hover:scale-110 transition-transform duration-300`}>
+                                            <img
+                                              src={logo}
+                                              alt={`${product.name} logo ${idx + 1}`}
+                                              className={`h-6 w-6 md:h-12 md:w-12 object-contain ${logo.endsWith('.png') || logo.endsWith('.jpeg') || logo.endsWith('.jpg') ? '' : 'brightness-0 invert'}`}
+                                            />
+                                          </div>
+                                        ))}
+                                      </div>
+                                      <div className="text-center">
+                                        <h4 className="text-base md:text-2xl font-extrabold text-white mb-1 md:mb-2 line-clamp-2">{product.name}</h4>
+                                        <p className={`${product.code === 'SUB-PACKAGE-LEGENDARY' ? 'text-slate-200' : 'text-white/90'} text-xs md:text-base line-clamp-2`}>{product.description}</p>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </Link>
+
+                                <CardHeader className="pb-2 md:pb-4 pt-3 md:pt-6 px-3 md:px-8">
+                                  <Link href={`/subscribe/${product.code}`} className="block cursor-pointer">
+                                    <CardTitle className="text-sm md:text-xl text-white mb-2 md:mb-3 group-hover:text-amber-300 transition-colors">
+                                      المميزات الحصرية
+                                    </CardTitle>
+                                  </Link>
+                                  <ul className="space-y-1 md:space-y-2">
+                                    {product.features?.slice(0, 3).map((feature: string, idx: number) => (
+                                      <li key={idx} className="flex items-center text-slate-300 text-xs md:text-sm">
+                                        <Check className="h-3 w-3 md:h-4 md:w-4 text-green-400 ml-1.5 md:ml-2 flex-shrink-0" />
+                                        <span className="line-clamp-1">{feature}</span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </CardHeader>
+
+                                <CardContent className="mt-auto pb-3 md:pb-6 px-3 md:px-8">
+                                  <div className="mb-2 md:mb-4 text-center p-2 md:p-4 bg-gradient-to-br from-slate-700/50 to-slate-800/50 rounded-xl border border-slate-600/50">
+                                    <div className="flex items-baseline justify-center gap-1 md:gap-2 mb-1">
+                                      <span className="text-xl md:text-4xl font-extrabold text-white">{product.price}</span>
+                                      <span className="text-sm md:text-xl text-slate-400">ريال</span>
+                                    </div>
+                                  </div>
+
+                                  <Button
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      if (product.available_stock > 0) {
+                                        addItem({
+                                          product_code: product.code,
+                                          product_name: product.name,
+                                          price: product.price,
+                                          quantity: 1,
+                                          image: product.image,
+                                        });
+                                      }
+                                    }}
+                                    disabled={product.available_stock === 0}
+                                    className={`w-full bg-red-600 hover:bg-red-700 text-white py-2 md:py-3 text-xs md:text-sm relative z-20 ${product.available_stock === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                  >
+                                    <ShoppingCart className="mr-1.5 md:mr-2 h-3 w-3 md:h-4 md:w-4 text-white" />
+                                    <span className="text-white">{product.available_stock === 0 ? 'نفد المخزون' : 'أضف إلى السلة'}</span>
+                                  </Button>
+                                </CardContent>
+                              </Card>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="w-full flex justify-center px-4">
+                        <div className="grid grid-cols-3 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-8 lg:gap-10 max-w-6xl">
+                          {category.slice(0, 4).map((product: any) => {
+                            const Icon = product.icon || Sparkles;
+                            
+                            // Regular product cards
+                            return (
+                              <Card key={product.id} className="group relative overflow-hidden bg-gradient-to-br from-slate-800/90 to-slate-900/90 border border-slate-700/50 hover:border-slate-600 transition-all duration-300 hover:shadow-2xl hover:shadow-blue-500/20 hover:-translate-y-1 h-full flex flex-col">
+                                <div className={`absolute inset-0 bg-gradient-to-br ${product.gradient} opacity-0 group-hover:opacity-10 transition-opacity duration-300 pointer-events-none`} />
+                                
+                                <div className="absolute top-2 right-2 z-10">
+                                  <span className={`${product.badgeColor} text-white text-[10px] md:text-xs font-bold px-2 py-0.5 rounded-full shadow-lg`}>
+                                    {product.duration}
+                                  </span>
+                                </div>
+
+                                <Link href={`/subscribe/${product.code}`} className="block">
+                                  <div className="relative h-24 md:h-40 w-full overflow-hidden bg-gradient-to-br from-slate-700 to-slate-800 cursor-pointer">
+                                    {product.image ? (
+                                      product.image.endsWith('.svg') ? (
+                                        <div className="h-full w-full flex items-center justify-center bg-gradient-to-br from-slate-700 to-slate-800 p-2 md:p-4">
                                           <img
-                                            src={logo}
-                                            alt={`${product.name} logo ${idx + 1}`}
-                                            className={`h-6 w-6 md:h-12 md:w-12 object-contain ${logo.endsWith('.png') || logo.endsWith('.jpeg') || logo.endsWith('.jpg') ? '' : 'brightness-0 invert'}`}
+                                            src={product.image}
+                                            alt={product.name}
+                                            className="h-8 md:h-16 w-auto object-contain opacity-90 group-hover:opacity-100 transition-opacity"
                                           />
                                         </div>
-                                      ))}
-                                    </div>
-                                    <div className="text-center">
-                                      <h4 className="text-base md:text-2xl font-extrabold text-white mb-1 md:mb-2 line-clamp-2">{product.name}</h4>
-                                      <p className={`${product.code === 'SUB-PACKAGE-LEGENDARY' ? 'text-slate-200' : 'text-white/90'} text-xs md:text-base line-clamp-2`}>{product.description}</p>
-                                    </div>
+                                      ) : (
+                                        <div className="relative h-full w-full">
+                                          <Image
+                                            src={product.image}
+                                            alt={product.name}
+                                            fill
+                                            className="object-cover group-hover:scale-110 transition-transform duration-500"
+                                            sizes="(max-width: 768px) 33vw, 25vw"
+                                          />
+                                        </div>
+                                      )
+                                    ) : (
+                                      <div className={`h-full w-full bg-gradient-to-br ${product.gradient} flex items-center justify-center`}>
+                                        <ImageIcon className="w-6 h-6 md:w-8 md:h-8 text-white/30" />
+                                      </div>
+                                    )}
                                   </div>
-                                </div>
-                              </Link>
-
-                              <CardHeader className="pb-2 md:pb-4 pt-3 md:pt-6 px-3 md:px-8">
-                                <Link href={`/subscribe/${product.code}`} className="block cursor-pointer">
-                                  <CardTitle className="text-sm md:text-xl text-white mb-2 md:mb-3 group-hover:text-amber-300 transition-colors">
-                                    المميزات الحصرية
-                                  </CardTitle>
                                 </Link>
-                                <ul className="space-y-1 md:space-y-2">
-                                  {product.features?.slice(0, 3).map((feature: string, idx: number) => (
-                                    <li key={idx} className="flex items-center text-slate-300 text-xs md:text-sm">
-                                      <Check className="h-3 w-3 md:h-4 md:w-4 text-green-400 ml-1.5 md:ml-2 flex-shrink-0" />
-                                      <span className="line-clamp-1">{feature}</span>
-                                    </li>
-                                  ))}
-                                </ul>
-                              </CardHeader>
 
-                              <CardContent className="mt-auto pb-3 md:pb-6 px-3 md:px-8">
-                                <div className="mb-2 md:mb-4 text-center p-2 md:p-4 bg-gradient-to-br from-slate-700/50 to-slate-800/50 rounded-xl border border-slate-600/50">
-                                  <div className="flex items-baseline justify-center gap-1 md:gap-2 mb-1">
-                                    <span className="text-xl md:text-4xl font-extrabold text-white">{product.price}</span>
-                                    <span className="text-sm md:text-xl text-slate-400">ريال</span>
-                                  </div>
-                                </div>
+                                <CardHeader className="pb-1 md:pb-2 pt-2 md:pt-3 px-2 md:px-3">
+                                  <Link href={`/subscribe/${product.code}`} className="block cursor-pointer">
+                                    <CardTitle className="text-xs md:text-base text-white mb-0.5 md:mb-1 group-hover:text-blue-300 transition-colors line-clamp-2">
+                                      {product.name}
+                                    </CardTitle>
+                                    <CardDescription className="text-slate-400 text-[10px] md:text-xs line-clamp-2">
+                                      {product.description}
+                                    </CardDescription>
+                                  </Link>
+                                </CardHeader>
 
-                                <Button
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    if (product.available_stock > 0) {
-                                      addItem({
-                                        product_code: product.code,
-                                        product_name: product.name,
-                                        price: product.price,
-                                        quantity: 1,
-                                        image: product.image,
-                                      });
-                                    }
-                                  }}
-                                  disabled={product.available_stock === 0}
-                                  className={`w-full bg-red-600 hover:bg-red-700 text-white py-2 md:py-3 text-xs md:text-sm relative z-20 ${product.available_stock === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                >
-                                  <ShoppingCart className="mr-1.5 md:mr-2 h-3 w-3 md:h-4 md:w-4 text-white" />
-                                  <span className="text-white">{product.available_stock === 0 ? 'نفد المخزون' : 'أضف إلى السلة'}</span>
-                                </Button>
-                              </CardContent>
-                            </Card>
-                          );
-                        }
-                        
-                        // Regular product cards
-                        return (
-                          <Card key={product.id} className="group relative overflow-hidden bg-gradient-to-br from-slate-800/90 to-slate-900/90 border border-slate-700/50 hover:border-slate-600 transition-all duration-300 hover:shadow-2xl hover:shadow-blue-500/20 hover:-translate-y-1 h-full flex flex-col">
-                            <div className={`absolute inset-0 bg-gradient-to-br ${product.gradient} opacity-0 group-hover:opacity-10 transition-opacity duration-300 pointer-events-none`} />
-                            
-                            <div className="absolute top-2 right-2 z-10">
-                              <span className={`${product.badgeColor} text-white text-[10px] md:text-xs font-bold px-2 py-0.5 rounded-full shadow-lg`}>
-                                {product.duration}
-                              </span>
-                            </div>
-
-                            <Link href={`/subscribe/${product.code}`} className="block">
-                              <div className="relative h-24 md:h-40 w-full overflow-hidden bg-gradient-to-br from-slate-700 to-slate-800 cursor-pointer">
-                                {product.image ? (
-                                  product.image.endsWith('.svg') ? (
-                                    <div className="h-full w-full flex items-center justify-center bg-gradient-to-br from-slate-700 to-slate-800 p-2 md:p-4">
-                                      <img
-                                        src={product.image}
-                                        alt={product.name}
-                                        className="h-8 md:h-16 w-auto object-contain opacity-90 group-hover:opacity-100 transition-opacity"
-                                      />
+                                <CardContent className="mt-auto pb-2 md:pb-3 px-2 md:px-3">
+                                  <div className="mb-2 md:mb-3 text-center">
+                                    <div className="flex items-baseline justify-center gap-0.5 md:gap-1">
+                                      <span className="text-base md:text-2xl font-extrabold text-white">{product.price}</span>
+                                      <span className="text-[10px] md:text-sm text-slate-400">ريال</span>
                                     </div>
-                                  ) : (
-                                    <div className="relative h-full w-full">
-                                      <Image
-                                        src={product.image}
-                                        alt={product.name}
-                                        fill
-                                        className="object-cover group-hover:scale-110 transition-transform duration-500"
-                                        sizes="(max-width: 768px) 33vw, 25vw"
-                                      />
-                                    </div>
-                                  )
-                                ) : (
-                                  <div className={`h-full w-full bg-gradient-to-br ${product.gradient} flex items-center justify-center`}>
-                                    <ImageIcon className="w-6 h-6 md:w-8 md:h-8 text-white/30" />
                                   </div>
-                                )}
-                              </div>
-                            </Link>
 
-                            <CardHeader className="pb-1 md:pb-2 pt-2 md:pt-3 px-2 md:px-3">
-                              <Link href={`/subscribe/${product.code}`} className="block cursor-pointer">
-                                <CardTitle className="text-xs md:text-base text-white mb-0.5 md:mb-1 group-hover:text-blue-300 transition-colors line-clamp-2">
-                                  {product.name}
-                                </CardTitle>
-                                <CardDescription className="text-slate-400 text-[10px] md:text-xs line-clamp-2">
-                                  {product.description}
-                                </CardDescription>
-                              </Link>
-                            </CardHeader>
-
-                            <CardContent className="mt-auto pb-2 md:pb-3 px-2 md:px-3">
-                              <div className="mb-2 md:mb-3 text-center">
-                                <div className="flex items-baseline justify-center gap-0.5 md:gap-1">
-                                  <span className="text-base md:text-2xl font-extrabold text-white">{product.price}</span>
-                                  <span className="text-[10px] md:text-sm text-slate-400">ريال</span>
-                                </div>
-                              </div>
-
-                              <Button
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  if (product.available_stock > 0) {
-                                    addItem({
-                                      product_code: product.code,
-                                      product_name: product.name,
-                                      price: product.price,
-                                      quantity: 1,
-                                      image: product.image,
-                                    });
-                                  }
-                                }}
-                                disabled={product.available_stock === 0}
-                                className={`w-full bg-red-600 hover:bg-red-700 text-white py-1.5 md:py-2 text-[10px] md:text-xs relative z-20 ${product.available_stock === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
-                              >
-                                <ShoppingCart className="mr-1 h-2.5 w-2.5 md:h-3 md:w-3 text-white" />
-                                <span className="text-white">{product.available_stock === 0 ? 'نفد' : 'أضف إلى السلة'}</span>
-                              </Button>
-                            </CardContent>
-                          </Card>
-                        );
-                      })}
-                    </div>
+                                  <Button
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      if (product.available_stock > 0) {
+                                        addItem({
+                                          product_code: product.code,
+                                          product_name: product.name,
+                                          price: product.price,
+                                          quantity: 1,
+                                          image: product.image,
+                                        });
+                                      }
+                                    }}
+                                    disabled={product.available_stock === 0}
+                                    className={`w-full bg-red-600 hover:bg-red-700 text-white py-1.5 md:py-2 text-[10px] md:text-xs relative z-20 ${product.available_stock === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                  >
+                                    <ShoppingCart className="mr-1 h-2.5 w-2.5 md:h-3 md:w-3 text-white" />
+                                    <span className="text-white">{product.available_stock === 0 ? 'نفد' : 'أضف إلى السلة'}</span>
+                                  </Button>
+                                </CardContent>
+                              </Card>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })}
