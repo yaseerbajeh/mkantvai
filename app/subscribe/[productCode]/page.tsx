@@ -744,10 +744,6 @@ export default function ProductDetailPage() {
                 <Button 
                   disabled={product.available_stock === 0}
                   onClick={() => {
-                    if (!user) {
-                      router.push('/auth');
-                      return;
-                    }
                     if (product.available_stock > 0) {
                       addItem({
                         product_code: product.code,
@@ -762,18 +758,14 @@ export default function ProductDetailPage() {
                   className={`w-full bg-gradient-to-r ${product.gradient} hover:opacity-90 text-white font-bold py-7 text-xl shadow-2xl hover:shadow-3xl transition-all duration-300 hover:scale-105 ${product.available_stock === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
                   <span>
-                    {!user ? 'يرجى تسجيل الدخول' : product.available_stock === 0 ? 'نفد المخزون' : 'اطلب الان'}
+                    {product.available_stock === 0 ? 'نفد المخزون' : 'اطلب الان'}
                   </span>
-                  {user && product.available_stock > 0 && <ArrowRight className="mr-2 h-6 w-6" />}
+                  {product.available_stock > 0 && <ArrowRight className="mr-2 h-6 w-6" />}
                 </Button>
                 
                 {/* Add to Cart Button */}
                 <Button
                   onClick={() => {
-                    if (!user) {
-                      router.push('/auth');
-                      return;
-                    }
                     if (product && product.available_stock > 0) {
                       addItem({
                         product_code: product.code,

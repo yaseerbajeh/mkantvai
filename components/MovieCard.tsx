@@ -262,27 +262,9 @@ export default function MovieCard({ movie, onWatchlistChange, onCardClick }: Mov
       </div>
 
       <div className="p-4">
-        {/* Title with Watchlist Button */}
-        <div className="flex items-center justify-between gap-2 mb-2">
-          <h3 className="font-semibold text-lg truncate flex-1">{movie.title}</h3>
-          
-          {/* Watchlist Button - Next to Title */}
-          <button
-            onClick={handleWatchlistToggle}
-            disabled={isLoading}
-            className={`flex-shrink-0 p-2 rounded-full transition-all ${
-              isInWatchlist
-                ? 'bg-red-500/90 hover:bg-red-600 text-white'
-                : 'bg-slate-700 hover:bg-slate-600 text-white'
-            } disabled:opacity-50 disabled:cursor-not-allowed`}
-            title={isInWatchlist ? 'إزالة من قائمة المشاهدة' : 'إضافة إلى قائمة المشاهدة'}
-          >
-            <Heart
-              className={`w-4 h-4 transition-all ${
-                isInWatchlist ? 'fill-white' : ''
-              }`}
-            />
-          </button>
+        {/* Title */}
+        <div className="mb-2">
+          <h3 className="font-semibold text-lg truncate">{movie.title}</h3>
         </div>
         
         {/* Movie Info Pills - Year, Duration, Rating */}
@@ -331,7 +313,7 @@ export default function MovieCard({ movie, onWatchlistChange, onCardClick }: Mov
               تسجيل الدخول مطلوب
             </AlertDialogTitle>
             <AlertDialogDescription className="text-slate-300 text-right">
-              يجب عليك تسجيل الدخول لإضافة عناصر إلى قائمة المشاهدة الخاصة بك.
+              يجب عليك تسجيل الدخول للمتابعة.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="flex-row-reverse gap-2">

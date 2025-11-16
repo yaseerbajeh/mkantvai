@@ -63,7 +63,7 @@ export default function Header() {
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-black/80 backdrop-blur-sm border-b border-slate-800">
       <nav className="container mx-auto px-4 h-12 flex items-center justify-between overflow-visible">
-        {/* Left side: Logo, الرئيسية, and Watchlist */}
+        {/* Left side: Logo and الرئيسية */}
         <div className="flex items-center gap-4">
           {/* Logo - Size is independent from header height (h-10) */}
           {/* Change logo size by modifying the h-* class below without affecting header height */}
@@ -79,14 +79,6 @@ export default function Header() {
           <Link href="/" className="hidden md:block text-slate-300 hover:text-white transition">
             الرئيسية
           </Link>
-          
-          {/* Watchlist - Next to logo for both desktop and mobile */}
-          {user && (
-            <Link href="/watchlist" className="text-slate-300 hover:text-white transition flex items-center gap-2">
-              <Heart className="w-4 h-4" />
-              <span className="hidden md:inline text-sm md:text-base">قائمة المشاهدة</span>
-            </Link>
-          )}
         </div>
 
         {/* Right side: My Orders, Store, and User info/Auth */}
@@ -205,14 +197,6 @@ export default function Header() {
                     لوحة الإدارة
                   </Link>
                 )}
-                <Link
-                  href="/watchlist"
-                  className="text-slate-300 hover:text-white transition py-2 flex items-center gap-2"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  <Heart className="w-4 h-4" />
-                  قائمة المشاهدة
-                </Link>
                 <Link
                   href="/my-orders"
                   className="text-slate-300 hover:text-white transition py-2 flex items-center gap-2"

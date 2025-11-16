@@ -36,29 +36,71 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const { toast } = useToast();
 
+  // Merge two cart item arrays, combining quantities for duplicates
+  const mergeCartItems = (guestItems: CartItem[], userItems: CartItem[]): CartItem[] => {
+    const merged = [...userItems];
+    
+    guestItems.forEach(guestItem => {
+      const existing = merged.find(item => item.product_code === guestItem.product_code);
+      if (existing) {
+        // If item exists in user cart, combine quantities
+        existing.quantity += guestItem.quantity;
+      } else {
+        // If item doesn't exist, add it
+        merged.push({ ...guestItem });
+      }
+    });
+    
+    return merged;
+  };
+
   // Load cart for a specific user
-  const loadCartForUser = (userId: string | null) => {
+  const loadCartForUser = (userId: string | null, mergeGuestCart = false) => {
     if (typeof window === 'undefined') return;
 
     const cartKey = getCartKey(userId);
     const saved = localStorage.getItem(cartKey);
     
+    let userCartItems: CartItem[] = [];
+    
     if (saved) {
       try {
         const parsedItems = JSON.parse(saved);
         if (Array.isArray(parsedItems) && parsedItems.length > 0) {
-          setItems(parsedItems);
-        } else {
-          setItems([]);
+          userCartItems = parsedItems;
         }
       } catch (e) {
         console.error('Error loading cart:', e);
         localStorage.removeItem(cartKey);
-        setItems([]);
       }
-    } else {
-      setItems([]);
     }
+    
+    // If merging guest cart (login scenario), load and merge guest cart
+    if (mergeGuestCart && userId) {
+      const guestCartKey = 'cart_guest';
+      const guestSaved = localStorage.getItem(guestCartKey);
+      
+      if (guestSaved) {
+        try {
+          const guestParsedItems = JSON.parse(guestSaved);
+          if (Array.isArray(guestParsedItems) && guestParsedItems.length > 0) {
+            // Merge guest cart with user cart
+            const mergedItems = mergeCartItems(guestParsedItems, userCartItems);
+            userCartItems = mergedItems;
+            
+            // Save merged cart to user's localStorage
+            localStorage.setItem(cartKey, JSON.stringify(mergedItems));
+            
+            // Clear guest cart
+            localStorage.removeItem(guestCartKey);
+          }
+        } catch (e) {
+          console.error('Error merging guest cart:', e);
+        }
+      }
+    }
+    
+    setItems(userCartItems);
     
     // Mark as initialized after loading
     setIsInitialized(true);
@@ -85,12 +127,17 @@ export function CartProvider({ children }: { children: ReactNode }) {
       
       // Use a ref-like approach - check if userId actually changed
       setCurrentUserId(prevUserId => {
-        // If user changed (login, logout, or switch), clear old cart and load new one
+        // If user changed (login, logout, or switch), handle cart merge/switch
         if (prevUserId !== newUserId) {
-          // Clear the old cart from state
+          // Check if this is a login (prevUserId is null, newUserId is not null)
+          const isLogin = prevUserId === null && newUserId !== null;
+          
+          // Clear the old cart from state temporarily
           setItems([]);
+          
           // Load cart for the new user (or guest)
-          setTimeout(() => loadCartForUser(newUserId), 0);
+          // If logging in, merge guest cart with user cart
+          setTimeout(() => loadCartForUser(newUserId, isLogin), 0);
           return newUserId;
         }
         return prevUserId;

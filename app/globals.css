@@ -351,6 +351,51 @@
       margin-right: auto !important;
     }
   }
+
+  /* Hide PayPal button, keep credit/debit card only */
+  .paypal-rtl-wrapper button[aria-label*="PayPal"],
+  .paypal-rtl-wrapper button[aria-label*="Pay with PayPal"],
+  [data-funding-source="paypal"],
+  button[data-funding-source="paypal"],
+  [class*="paypal-button"][aria-label*="PayPal"],
+  iframe[title*="PayPal"][title*="PayPal Button"],
+  iframe[title*="Pay with PayPal"] {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    width: 0 !important;
+    height: 0 !important;
+    overflow: hidden !important;
+  }
+
+  /* PayPal RTL Support */
+  .paypal-rtl-wrapper,
+  .paypal-rtl-wrapper *,
+  .paypal-rtl-wrapper iframe,
+  .paypal-rtl-wrapper form,
+  .paypal-rtl-wrapper [id*="paypal"],
+  .paypal-rtl-wrapper [id*="zoid"] {
+    direction: rtl !important;
+    text-align: right !important;
+  }
+
+  .paypal-rtl-wrapper iframe[src*="paypal"] {
+    direction: rtl !important;
+  }
+
+  /* Ensure credit/debit card form is visible and RTL */
+  .paypal-rtl-wrapper [class*="card-form"],
+  .paypal-rtl-wrapper [id*="card-form"],
+  .paypal-rtl-wrapper [class*="credit-card"],
+  .paypal-rtl-wrapper form[action*="paypal"],
+  .paypal-rtl-wrapper [data-funding-source="card"],
+  button[data-funding-source="card"] {
+    direction: rtl !important;
+    text-align: right !important;
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
 }
 
 /* Promotional Banner Styles */
