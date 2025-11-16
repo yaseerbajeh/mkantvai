@@ -84,6 +84,7 @@ export default function LatestPage() {
           const combined = [...moviesMapped, ...seriesMapped];
           setMovies(combined);
           setTotal(combined.length);
+          return; // Early return since 'both' case is fully handled
         } else if (type === 'series') {
           // For series: use discover with provider filters (Netflix, HBO Max, Amazon Prime, Apple TV+)
           // TMDB Provider IDs: Netflix=8, HBO Max=384, Amazon Prime=9, Apple TV+=350
@@ -126,6 +127,12 @@ export default function LatestPage() {
           // For movies: use now-playing
           resp = await fetch(`/api/tmdb/now-playing?type=movie&lang=ar`);
         }
+        
+        // Type guard: resp should always be defined here, but TypeScript needs assurance
+        if (!resp) {
+          throw new Error('No response received');
+        }
+        
         const data = (resp as any)._parsed || (await resp.json());
         if (data.error) {
           console.error('Error fetching:', data.error);
