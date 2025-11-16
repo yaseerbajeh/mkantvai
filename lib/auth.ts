@@ -191,3 +191,79 @@ export async function signInWithTwitter(): Promise<AuthResult> {
   }
 }
 
+/**
+ * Sign in with OTP (passwordless login)
+ * This will send an OTP code to the user's email
+ */
+export async function signInWithOtp(email: string): Promise<AuthResult> {
+  try {
+    const { data, error } = await supabase.auth.signInWithOtp({
+      email,
+      options: {
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
+      },
+    });
+
+    if (error) {
+      return { error: { message: error.message, code: error.status?.toString() || error.name } };
+    }
+
+    return { error: null, data };
+  } catch (err: any) {
+    console.error('Sign in with OTP error:', err);
+    return { error: { message: err?.message || 'حدث خطأ غير متوقع' } };
+  }
+}
+
+/**
+ * Sign up with OTP (passwordless signup)
+ * This will send an OTP code to the user's email for verification
+ */
+export async function signUpWithOtp(email: string, name?: string): Promise<AuthResult> {
+  try {
+    const { data, error } = await supabase.auth.signInWithOtp({
+      email,
+      options: {
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
+        data: {
+          full_name: name || '',
+        },
+      },
+    });
+
+    if (error) {
+      return { error: { message: error.message, code: error.status?.toString() || error.name } };
+    }
+
+    return { error: null, data };
+  } catch (err: any) {
+    console.error('Sign up with OTP error:', err);
+    return { error: { message: err?.message || 'حدث خطأ غير متوقع' } };
+  }
+}
+
+/**
+ * Verify OTP code
+ * @param email - User's email address
+ * @param token - OTP code received via email
+ * @param type - 'email' for magic link or 'signup'/'signin' for OTP
+ */
+export async function verifyOtp(email: string, token: string, type: 'email' | 'signup' | 'signin' = 'email'): Promise<AuthResult> {
+  try {
+    const { data, error } = await supabase.auth.verifyOtp({
+      email,
+      token,
+      type,
+    });
+
+    if (error) {
+      return { error: { message: error.message, code: error.status?.toString() || error.name } };
+    }
+
+    return { error: null, data };
+  } catch (err: any) {
+    console.error('Verify OTP error:', err);
+    return { error: { message: err?.message || 'حدث خطأ غير متوقع' } };
+  }
+}
+

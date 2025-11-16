@@ -18,6 +18,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Trash2, Plus, Minus, ShoppingBag, Tag, X, CheckCircle2, Loader2, MessageCircle, HelpCircle } from 'lucide-react';
+import Image from 'next/image';
 import { supabase } from '@/lib/supabase';
 import type { User } from '@supabase/supabase-js';
 import AuthDialog from '@/components/AuthDialog';
@@ -385,49 +386,63 @@ export default function CartPage() {
       <Header />
       <main className="container mx-auto px-4 py-24 pt-32">
         <div className="max-w-6xl mx-auto">
-          <h1 className="text-3xl font-bold text-white mb-6">السلة</h1>
+          <h1 className="text-2xl md:text-3xl font-bold text-white mb-4 md:mb-6">السلة</h1>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 md:gap-6">
             {/* Cart Items */}
-            <div className="lg:col-span-2 space-y-4">
+            <div className="col-span-1 lg:col-span-2 space-y-3 md:space-y-4 order-2 lg:order-1">
               {items.map((item) => (
                 <Card key={item.product_code} className="bg-slate-800/50 border-slate-700">
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <h3 className="text-lg font-semibold text-white">{item.product_name}</h3>
-                        <p className="text-slate-400">{item.price} ريال</p>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => updateQuantity(item.product_code, item.quantity - 1)}
-                          className="border-slate-600 bg-white text-black hover:bg-slate-200"
-                        >
-                          <Minus className="h-4 w-4" />
-                        </Button>
-                        <span className="text-white w-8 text-center">{item.quantity}</span>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => updateQuantity(item.product_code, item.quantity + 1)}
-                          className="border-slate-600 bg-white text-black hover:bg-slate-200"
-                        >
-                          <Plus className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => removeItem(item.product_code)}
-                          className="text-red-400 hover:text-red-300"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                  <CardContent className="p-2 md:p-4">
+                    <div className="flex items-center gap-2 md:gap-4">
+                      {/* Product Image */}
+                      {item.image && (
+                        <div className="relative w-16 h-16 md:w-24 md:h-24 flex-shrink-0 rounded-lg overflow-hidden bg-slate-700">
+                          <Image
+                            src={item.image}
+                            alt={item.product_name}
+                            fill
+                            className="object-cover"
+                            sizes="(max-width: 768px) 64px, 96px"
+                          />
+                        </div>
+                      )}
+                      <div className="flex-1 flex flex-col gap-1 md:flex-row md:items-center md:justify-between min-w-0">
+                        <div className="flex-1 min-w-0">
+                          <h3 className="text-sm md:text-lg font-semibold text-white truncate">{item.product_name}</h3>
+                          <p className="text-xs md:text-base text-slate-400">{item.price} ريال</p>
+                        </div>
+                        <div className="flex items-center gap-1.5 md:gap-3">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => updateQuantity(item.product_code, item.quantity - 1)}
+                            className="border-slate-600 bg-white text-black hover:bg-slate-200 h-7 w-7 md:h-9 md:w-9 p-0"
+                          >
+                            <Minus className="h-3 w-3 md:h-4 md:w-4" />
+                          </Button>
+                          <span className="text-white w-6 md:w-8 text-center text-xs md:text-base">{item.quantity}</span>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => updateQuantity(item.product_code, item.quantity + 1)}
+                            className="border-slate-600 bg-white text-black hover:bg-slate-200 h-7 w-7 md:h-9 md:w-9 p-0"
+                          >
+                            <Plus className="h-3 w-3 md:h-4 md:w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeItem(item.product_code)}
+                            className="text-red-400 hover:text-red-300 h-7 w-7 md:h-9 md:w-9 p-0"
+                          >
+                            <Trash2 className="h-3 w-3 md:h-4 md:w-4" />
+                          </Button>
+                        </div>
                       </div>
                     </div>
-                    <div className="mt-2 text-right">
-                      <p className="text-white font-semibold">
+                    <div className="mt-1 md:mt-2 text-right">
+                      <p className="text-white font-semibold text-xs md:text-base">
                         المجموع: {item.price * item.quantity} ريال
                       </p>
                     </div>
@@ -437,34 +452,34 @@ export default function CartPage() {
             </div>
 
             {/* Checkout Section */}
-            <div className="space-y-6">
+            <div className="space-y-3 md:space-y-6 order-1 lg:order-2">
               {/* User Info Display */}
               {user ? (
                 <Card className="bg-slate-800/50 border-slate-700">
-                  <CardHeader>
-                    <CardTitle className="text-white">معلومات العميل</CardTitle>
+                  <CardHeader className="p-3 md:p-6">
+                    <CardTitle className="text-white text-sm md:text-base">معلومات العميل</CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="bg-slate-700/50 p-3 rounded border border-slate-600">
+                  <CardContent className="space-y-2 md:space-y-4 p-3 md:p-6 pt-0">
+                    <div className="bg-slate-700/50 p-2 md:p-3 rounded border border-slate-600">
                       <p className="text-xs text-slate-400 mb-1">الاسم</p>
-                      <p className="text-white font-medium">{user.user_metadata?.full_name || user.email || '-'}</p>
+                      <p className="text-white font-medium text-xs md:text-sm truncate">{user.user_metadata?.full_name || user.email || '-'}</p>
                     </div>
-                    <div className="bg-slate-700/50 p-3 rounded border border-slate-600">
+                    <div className="bg-slate-700/50 p-2 md:p-3 rounded border border-slate-600">
                       <p className="text-xs text-slate-400 mb-1">البريد الإلكتروني</p>
-                      <p className="text-white font-medium">{user.email || '-'}</p>
+                      <p className="text-white font-medium text-xs md:text-sm truncate">{user.email || '-'}</p>
                     </div>
                   </CardContent>
                 </Card>
               ) : (
                 <Card className="bg-slate-800/50 border-slate-700">
-                  <CardHeader>
-                    <CardTitle className="text-white">تسجيل الدخول مطلوب</CardTitle>
+                  <CardHeader className="p-3 md:p-6">
+                    <CardTitle className="text-white text-sm md:text-base">تسجيل الدخول لإتمام الطلب</CardTitle>
                   </CardHeader>
-                  <CardContent>
-                    <p className="text-slate-300 mb-4">يرجى تسجيل الدخول لإتمام الطلب</p>
+                  <CardContent className="p-3 md:p-6 pt-0">
+                    <p className="text-slate-300 mb-3 md:mb-4 text-xs md:text-sm">يرجى تسجيل الدخول لإتمام عملية الدفع</p>
                     <Button
                       onClick={() => setAuthDialogOpen(true)}
-                      className="w-full bg-blue-600 hover:bg-blue-700"
+                      className="w-full bg-blue-600 hover:bg-blue-700 text-xs md:text-base py-2 md:py-3"
                     >
                       تسجيل الدخول / إنشاء حساب
                     </Button>
@@ -475,15 +490,15 @@ export default function CartPage() {
               {/* WhatsApp Collection Card */}
               {items.length > 0 && (
                 <Card className="bg-slate-800/50 border-slate-700">
-                  <CardHeader>
-                    <CardTitle className="text-white">رقم الواتساب</CardTitle>
+                  <CardHeader className="p-3 md:p-6">
+                    <CardTitle className="text-white text-sm md:text-base">رقم الواتساب</CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-3">
-                    <p className="text-sm text-slate-300">اكتب رقمك الواتس للتواصل معك بعد الشراء</p>
+                  <CardContent className="space-y-2 md:space-y-3 p-3 md:p-6 pt-0">
+                    <p className="text-xs md:text-sm text-slate-300">اكتب رقمك الواتس للتواصل معك بعد الشراء</p>
                     <p className="text-xs text-slate-400">اكتب رقمك بدون الصفر. مثال 542668201</p>
-                    <div className="flex gap-2">
+                    <div className="flex gap-1.5 md:gap-2">
                       <div className="flex-1 relative">
-                        <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 text-sm">966</span>
+                        <span className="absolute right-2 md:right-3 top-1/2 transform -translate-y-1/2 text-slate-400 text-xs md:text-sm">966</span>
                         <Input
                           placeholder="542668201"
                           value={whatsappConfirm.replace(/^966/, '')}
@@ -493,7 +508,7 @@ export default function CartPage() {
                             setWhatsappConfirm(cleaned);
                           }}
                           maxLength={9}
-                          className="bg-slate-700 border-slate-600 text-white pr-12"
+                          className="bg-slate-700 border-slate-600 text-white pr-10 md:pr-12 text-xs md:text-sm h-8 md:h-10"
                           dir="ltr"
                           disabled={confirmingPhone || !user}
                         />
@@ -501,10 +516,10 @@ export default function CartPage() {
                       <Button
                         onClick={handleConfirmPhone}
                         disabled={confirmingPhone || !user || !whatsappConfirm.trim() || whatsappConfirm.replace(/\D/g, '').length !== 9}
-                        className="bg-blue-600 hover:bg-blue-700"
+                        className="bg-blue-600 hover:bg-blue-700 text-xs md:text-sm px-2 md:px-4 h-8 md:h-10"
                       >
                         {confirmingPhone ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
+                          <Loader2 className="h-3 w-3 md:h-4 md:w-4 animate-spin" />
                         ) : (
                           'تأكيد'
                         )}
@@ -519,16 +534,16 @@ export default function CartPage() {
 
               {/* Promo Code */}
               <Card className="bg-slate-800/50 border-slate-700">
-                <CardHeader>
-                  <CardTitle className="text-white flex items-center gap-2">
-                    <Tag className="h-5 w-5" />
+                <CardHeader className="p-3 md:p-6">
+                  <CardTitle className="text-white text-sm md:text-base flex items-center gap-1.5 md:gap-2">
+                    <Tag className="h-4 w-4 md:h-5 md:w-5" />
                     رمز الخصم
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-3">
+                <CardContent className="space-y-2 md:space-y-3 p-3 md:p-6 pt-0">
                   {!appliedPromo ? (
                     <>
-                      <div className="flex gap-2">
+                      <div className="flex gap-1.5 md:gap-2">
                         <Input
                           placeholder="أدخل رمز الخصم"
                           value={promoCode}
@@ -536,7 +551,7 @@ export default function CartPage() {
                             setPromoCode(e.target.value);
                             setPromoError('');
                           }}
-                          className="bg-slate-700 border-slate-600 text-white"
+                          className="bg-slate-700 border-slate-600 text-white text-xs md:text-sm h-8 md:h-10"
                           onKeyPress={(e) => {
                             if (e.key === 'Enter') {
                               handleApplyPromo();
@@ -545,33 +560,33 @@ export default function CartPage() {
                         />
                         <Button 
                           onClick={handleApplyPromo} 
-                          className="bg-blue-600 hover:bg-blue-700"
+                          className="bg-blue-600 hover:bg-blue-700 text-xs md:text-sm px-2 md:px-4 h-8 md:h-10"
                           disabled={promoLoading}
                         >
-                          {promoLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'تطبيق'}
+                          {promoLoading ? <Loader2 className="h-3 w-3 md:h-4 md:w-4 animate-spin" /> : 'تطبيق'}
                         </Button>
                       </div>
                       {promoError && (
-                        <p className="text-red-400 text-sm">{promoError}</p>
+                        <p className="text-red-400 text-xs md:text-sm">{promoError}</p>
                       )}
                     </>
                   ) : (
-                    <div className="bg-green-900/30 border border-green-700 rounded p-3">
+                    <div className="bg-green-900/30 border border-green-700 rounded p-2 md:p-3">
                       <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <CheckCircle2 className="h-5 w-5 text-green-400" />
-                          <span className="text-green-300 font-semibold">{appliedPromo.code}</span>
+                        <div className="flex items-center gap-1.5 md:gap-2">
+                          <CheckCircle2 className="h-4 w-4 md:h-5 md:w-5 text-green-400" />
+                          <span className="text-green-300 font-semibold text-xs md:text-sm">{appliedPromo.code}</span>
                         </div>
                         <Button
                           variant="ghost"
                           size="sm"
                           onClick={handleRemovePromo}
-                          className="text-red-400 hover:text-red-300"
+                          className="text-red-400 hover:text-red-300 h-6 w-6 md:h-8 md:w-8 p-0"
                         >
-                          <X className="h-4 w-4" />
+                          <X className="h-3 w-3 md:h-4 md:w-4" />
                         </Button>
                       </div>
-                      <p className="text-green-200 text-sm mt-2">
+                      <p className="text-green-200 text-xs md:text-sm mt-1 md:mt-2">
                         خصم: {appliedPromo.discount_type === 'percentage' 
                           ? `${appliedPromo.discount_value}%` 
                           : `${appliedPromo.discount_value} ريال`}
@@ -583,34 +598,34 @@ export default function CartPage() {
 
               {/* Order Summary */}
               <Card className="bg-slate-800/50 border-slate-700">
-                <CardHeader>
-                  <CardTitle className="text-white">ملخص الطلب</CardTitle>
+                <CardHeader className="p-3 md:p-6">
+                  <CardTitle className="text-white text-sm md:text-base">ملخص الطلب</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="flex justify-between text-slate-300">
+                <CardContent className="space-y-2 md:space-y-3 p-3 md:p-6 pt-0">
+                  <div className="flex justify-between text-slate-300 text-xs md:text-sm">
                     <span>المجموع الفرعي</span>
                     <span>{subtotal.toFixed(2)} ريال</span>
                   </div>
                   {discount > 0 && (
-                    <div className="flex justify-between text-green-400">
+                    <div className="flex justify-between text-green-400 text-xs md:text-sm">
                       <span>الخصم</span>
                       <span>-{discount.toFixed(2)} ريال</span>
                     </div>
                   )}
-                  <div className="border-t border-slate-700 pt-3 flex justify-between text-white font-bold text-lg">
+                  <div className="border-t border-slate-700 pt-2 md:pt-3 flex justify-between text-white font-bold text-sm md:text-lg">
                     <span>المجموع</span>
                     <div className="text-right">
                       {total === 0 || total <= 0.01 ? (
                         <div className="text-green-400">
-                          <div>مجاناً</div>
-                          <div className="text-sm text-green-300 font-normal mt-1">
+                          <div className="text-xs md:text-base">مجاناً</div>
+                          <div className="text-xs md:text-sm text-green-300 font-normal mt-1">
                             رمز خصم 100% مطبق
                           </div>
                         </div>
                       ) : (
                         <>
-                          <div>{total.toFixed(2)} ريال</div>
-                          <div className="text-sm text-slate-400 font-normal mt-1">
+                          <div className="text-xs md:text-base">{total.toFixed(2)} ريال</div>
+                          <div className="text-xs md:text-sm text-slate-400 font-normal mt-1">
                             ما يساوي ${convertSarToUsd(total).toFixed(2)} دولار أمريكي
                           </div>
                         </>
@@ -632,16 +647,16 @@ export default function CartPage() {
                     }
                   }}
                   disabled={creatingOrder}
-                  className="w-full bg-green-600 hover:bg-green-700 text-white py-6 text-lg font-semibold"
+                  className="w-full bg-green-600 hover:bg-green-700 text-white py-3 md:py-6 text-sm md:text-lg font-semibold"
                 >
                   {creatingOrder ? (
                     <>
-                      <Loader2 className="h-5 w-5 animate-spin ml-2" />
+                      <Loader2 className="h-4 w-4 md:h-5 md:w-5 animate-spin ml-2" />
                       جاري المعالجة...
                     </>
                   ) : (
                     <>
-                      <CheckCircle2 className="h-5 w-5 ml-2" />
+                      <CheckCircle2 className="h-4 w-4 md:h-5 md:w-5 ml-2" />
                       إتمام الطلب مجاناً
                     </>
                   )}
@@ -649,55 +664,70 @@ export default function CartPage() {
               )}
 
               {/* PayPal Checkout (for paid orders) */}
+              {!user && PAYPAL_CLIENT_ID && total > 0.01 && (
+                <Card className="bg-slate-800/50 border-slate-700">
+                  <CardContent className="p-3 md:p-6 pt-3 md:pt-6">
+                    <p className="text-slate-300 mb-3 md:mb-4 text-center text-xs md:text-sm">يرجى تسجيل الدخول لإتمام عملية الدفع</p>
+                    <Button
+                      onClick={() => setAuthDialogOpen(true)}
+                      className="w-full bg-blue-600 hover:bg-blue-700 text-xs md:text-base py-2 md:py-3"
+                    >
+                      تسجيل الدخول / إنشاء حساب
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
               {user && validateForm() && PAYPAL_CLIENT_ID && total > 0.01 && (
-                <PayPalScriptProvider
-                  options={{
-                    clientId: PAYPAL_CLIENT_ID,
-                    currency: 'USD',
-                    
-                  }}
-                >
-                  <PayPalButtons
-                    createOrder={async (data, actions) => {
-                      try {
-                        const orderId = await createOrder();
-                        // Verify the orderId is a valid PayPal order ID format
-                        if (!orderId || typeof orderId !== 'string') {
-                          throw new Error('Invalid PayPal order ID received');
+                <div dir="rtl" className="paypal-rtl-wrapper scale-90 md:scale-100 origin-top">
+                  <PayPalScriptProvider
+                    options={{
+                      clientId: PAYPAL_CLIENT_ID,
+                      currency: 'USD',
+                      locale: 'ar_SA',
+                    }}
+                  >
+                    <PayPalButtons
+                      createOrder={async (data, actions) => {
+                        try {
+                          const orderId = await createOrder();
+                          // Verify the orderId is a valid PayPal order ID format
+                          if (!orderId || typeof orderId !== 'string') {
+                            throw new Error('Invalid PayPal order ID received');
+                          }
+                          console.log('Returning PayPal order ID to SDK:', orderId);
+                          return orderId;
+                        } catch (error: any) {
+                          console.error('PayPal createOrder error:', error);
+                          toast({
+                            title: 'خطأ في إنشاء الطلب',
+                            description: error.message || 'حدث خطأ أثناء إنشاء طلب PayPal',
+                            variant: 'destructive',
+                          });
+                          // Return empty string to prevent PayPal from proceeding
+                          return '';
                         }
-                        console.log('Returning PayPal order ID to SDK:', orderId);
-                        return orderId;
-                      } catch (error: any) {
-                        console.error('PayPal createOrder error:', error);
+                      }}
+                      onApprove={onApprove}
+                      onError={(err) => {
+                        console.error('PayPal Buttons onError:', err);
                         toast({
-                          title: 'خطأ في إنشاء الطلب',
-                          description: error.message || 'حدث خطأ أثناء إنشاء طلب PayPal',
+                          title: 'خطأ في الدفع',
+                          description: 'حدث خطأ أثناء معالجة الدفع',
                           variant: 'destructive',
                         });
-                        // Return empty string to prevent PayPal from proceeding
-                        return '';
-                      }
-                    }}
-                    onApprove={onApprove}
-                    onError={(err) => {
-                      console.error('PayPal Buttons onError:', err);
-                      toast({
-                        title: 'خطأ في الدفع',
-                        description: 'حدث خطأ أثناء معالجة الدفع',
-                        variant: 'destructive',
-                      });
-                    }}
-                    onCancel={(data) => {
-                      console.log('PayPal payment cancelled:', data);
-                    }}
-                    style={{
-                      layout: 'vertical',
-                      color: 'blue',
-                      shape: 'rect',
-                      label: 'paypal',
-                    }}
-                  />
-                </PayPalScriptProvider>
+                      }}
+                      onCancel={(data) => {
+                        console.log('PayPal payment cancelled:', data);
+                      }}
+                      style={{
+                        layout: 'vertical',
+                        color: 'blue',
+                        shape: 'rect',
+                        label: 'paypal',
+                      }}
+                    />
+                  </PayPalScriptProvider>
+                </div>
               )}
 
               {/* Help Button */}
@@ -706,17 +736,11 @@ export default function CartPage() {
                   variant="outline"
                   size="sm"
                   onClick={() => setHelpDialogOpen(true)}
-                  className="w-full mt-3 border-slate-600 text-black hover:bg-slate-700 hover:text-white"
+                  className="w-full mt-2 md:mt-3 border-slate-600 text-black hover:bg-slate-700 hover:text-white text-xs md:text-sm py-2 md:py-3"
                 >
-                  <HelpCircle className="h-4 w-4 ml-2" />
+                  <HelpCircle className="h-3 w-3 md:h-4 md:w-4 ml-2" />
                   ماعرفت تدفع؟
                 </Button>
-              )}
-              
-              {!user && (
-                <div className="p-4 bg-yellow-900/20 border border-yellow-700 rounded-lg text-center">
-                  <p className="text-yellow-400 text-sm">يرجى تسجيل الدخول لإتمام الطلب</p>
-                </div>
               )}
               
               {user && validateForm() && !PAYPAL_CLIENT_ID && total > 0.01 && (

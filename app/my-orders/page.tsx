@@ -84,20 +84,42 @@ export default function MyOrdersPage() {
 
       setUser(session.user);
 
-      // Fetch user's orders by email
+      // Fetch user's orders by email (case-insensitive to handle Gmail/Hotmail differences)
       try {
+        const userEmail = session.user.email?.toLowerCase() || '';
+        let ordersData: Order[] = [];
+        
+        // Try case-insensitive match first
         const { data, error } = await supabase
           .from('orders')
           .select('*')
-          .eq('email', session.user.email)
+          .ilike('email', userEmail)
           .order('created_at', { ascending: false });
 
         if (error) {
-          console.error('Error fetching orders:', error);
-          throw error;
+          console.error('Error fetching orders with ilike:', error);
         }
 
-        const ordersData = (data as Order[]) || [];
+        ordersData = (data as Order[]) || [];
+        
+        // If no orders found, try exact match as fallback
+        if (!ordersData || ordersData.length === 0) {
+          console.log('No orders found for email (case-insensitive):', userEmail);
+          const { data: exactMatchData, error: exactError } = await supabase
+            .from('orders')
+            .select('*')
+            .eq('email', session.user.email || '')
+            .order('created_at', { ascending: false });
+          
+          if (exactError) {
+            console.error('Error fetching orders with exact match:', exactError);
+          }
+          
+          if (exactMatchData && exactMatchData.length > 0) {
+            console.log('Found orders with exact match:', session.user.email);
+            ordersData = (exactMatchData as Order[]) || [];
+          }
+        }
         
         // Check which orders already have reviews
         const orderIds = ordersData.map(o => o.id);

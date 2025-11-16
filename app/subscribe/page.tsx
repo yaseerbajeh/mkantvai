@@ -310,9 +310,21 @@ export default function SubscribePage() {
                 <div key={categoryId} id={`category-${categoryId}`} className="mb-20 scroll-mt-20">
                   {/* Category Header */}
                   <div className="mb-8 text-center">
-                    <h2 className="text-3xl md:text-4xl font-bold text-white mb-2 inline-block">
-                      {categoryTitles[categoryId] || 'غير محدد'}
-                    </h2>
+                    <div className="flex items-center justify-center gap-4 mb-2">
+                      <h2 className="text-3xl md:text-4xl font-bold text-white inline-block">
+                        {categoryTitles[categoryId] || 'غير محدد'}
+                      </h2>
+                      <Link href={`/subscribe/category/${categoryId}`}>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="border-blue-600 text-blue-400 hover:bg-blue-600 hover:text-white text-sm md:text-base"
+                        >
+                          عرض الكل
+                          <ArrowRight className="h-4 w-4 mr-2" />
+                        </Button>
+                      </Link>
+                    </div>
                     <div className={`h-1 w-24 mx-auto mt-4 bg-gradient-to-r ${category[0].gradient} rounded-full`} />
                   </div>
 
@@ -431,10 +443,6 @@ export default function SubscribePage() {
                                 onClick={(e) => {
                                   e.preventDefault();
                                   e.stopPropagation(); // Prevent navigation to product page
-                                  if (!user) {
-                                    setAuthDialogOpen(true);
-                                    return;
-                                  }
                                   if (product.available_stock > 0) {
                                     addItem({
                                       product_code: product.code,
@@ -606,10 +614,6 @@ export default function SubscribePage() {
                                 onClick={(e) => {
                                   e.preventDefault();
                                   e.stopPropagation();
-                                  if (!user) {
-                                    setAuthDialogOpen(true);
-                                    return;
-                                  }
                                   if (product.available_stock > 0) {
                                     addItem({
                                       product_code: product.code,

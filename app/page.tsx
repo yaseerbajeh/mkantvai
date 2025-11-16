@@ -4,16 +4,19 @@ import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Clapperboard, Target, Sparkles, ChevronLeft, ChevronRight, Film, ArrowLeft, ShoppingCart, Tv, Smartphone, Monitor, Laptop, CheckCircle2, Shield, Zap, Bot, TrendingUp, Star, Languages, Download } from 'lucide-react';
+import { Clapperboard, Target, Sparkles, ChevronLeft, ChevronRight, Film, ArrowLeft, ArrowRight, ShoppingCart, Tv, Smartphone, Monitor, Laptop, CheckCircle2, Shield, Zap, Bot, TrendingUp, Star, Languages, Download, Check, Package, Loader2, ImageIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import MovieCard from '@/components/MovieCard';
 import MovieModal from '@/components/MovieModal';
 import { type Movie } from '@/lib/supabase';
 import { supabase } from '@/lib/supabase';
+import { useCart } from '@/lib/cart-context';
+import Image from 'next/image';
 
 export default function Home() {
   const router = useRouter();
@@ -40,9 +43,30 @@ export default function Home() {
   } | null>(null);
   const [bannerLoading, setBannerLoading] = useState(true);
   const [isCommissioner, setIsCommissioner] = useState(false);
+  const [productsByCategory, setProductsByCategory] = useState<{ [key: string]: any[] }>({});
+  const [categoryTitles, setCategoryTitles] = useState<{ [key: string]: string }>({});
+  const [productsLoading, setProductsLoading] = useState(true);
   
+  const { addItem } = useCart();
   const topRatedScrollRef = useRef<HTMLDivElement>(null);
   const trendingScrollRef = useRef<HTMLDivElement>(null);
+
+  // Icon mapping for products
+  const iconMap: { [key: string]: any } = {
+    sparkles: Sparkles,
+    star: Star,
+    check: Check,
+    package: Package,
+    crown: CheckCircle2,
+    zap: Zap,
+  };
+
+  const sectionGradients = [
+    'from-purple-600/20 via-blue-600/20 to-purple-600/20',
+    'from-red-600/20 via-rose-200/20 to-red-600/20',
+    'from-green-600/20 via-emerald-600/20 to-green-600/20',
+    'from-blue-600/20 via-cyan-600/20 to-teal-600/20',
+  ];
   
   // Fetch promotional banner
   useEffect(() => {
@@ -92,6 +116,77 @@ export default function Home() {
     
     return () => clearInterval(interval);
   }, [promotionalBanner]);
+
+  // Fetch products
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        const response = await fetch('/api/products', {
+          cache: 'no-store',
+          headers: {
+            'Cache-Control': 'no-cache',
+          },
+        });
+        const result = await response.json();
+        
+        if (!response.ok) {
+          throw new Error(result.error || 'فشل في جلب المنتجات');
+        }
+
+        // Group products by category
+        const grouped: { [key: string]: any[] } = {};
+        const titles: { [key: string]: string } = {};
+
+        const productsToGroup = result.productsByCategory || result.productsBySection || {};
+        const titlesToUse = result.categoryTitles || result.sectionTitles || {};
+
+        if (result.productsByCategory) {
+          Object.keys(result.productsByCategory).forEach((categoryId) => {
+            const categoryProducts = result.productsByCategory[categoryId];
+            grouped[categoryId] = categoryProducts.map((product: any) => ({
+              ...product,
+              code: product.product_code,
+              badgeColor: product.badge_color,
+              isPackage: product.is_package,
+              icon: iconMap[product.icon_name] || Sparkles,
+              available_stock: product.available_stock || 0,
+              purchase_count: product.purchase_count || 0,
+            }));
+            const firstProduct = categoryProducts[0];
+            titles[categoryId] = titlesToUse[categoryId] || firstProduct?.categories?.name || firstProduct?.section_title || 'غير محدد';
+          });
+        } else {
+          result.products?.forEach((product: any) => {
+            const categoryId = product.category_id || `section-${product.section}`;
+            const categoryName = product.categories?.name || product.section_title || `القسم ${product.section}`;
+            
+            if (!grouped[categoryId]) {
+              grouped[categoryId] = [];
+              titles[categoryId] = categoryName;
+            }
+            grouped[categoryId].push({
+              ...product,
+              code: product.product_code,
+              badgeColor: product.badge_color,
+              isPackage: product.is_package,
+              icon: iconMap[product.icon_name] || Sparkles,
+              available_stock: product.available_stock || 0,
+              purchase_count: product.purchase_count || 0,
+            });
+          });
+        }
+
+        setProductsByCategory(grouped);
+        setCategoryTitles(titles);
+      } catch (error: any) {
+        console.error('Error fetching products:', error);
+      } finally {
+        setProductsLoading(false);
+      }
+    };
+
+    fetchProducts();
+  }, []);
 
   useEffect(() => {
     const fetchLatestContent = async () => {
@@ -506,118 +601,225 @@ export default function Home() {
         </section>
       )}
 
-      <section id="how-it-works" className="py-20 bg-black/50">
-        <div className="container mx-auto px-4">
-          <h2 className="text-4xl md:text-5xl font-bold text-center mb-4">
-            اكتشف ما نقدمه
-          </h2>
-          <p className="text-center text-slate-400 text-lg mb-16">
-            أدوات ذكية لمساعدتك في العثور على أفضل محتوى لمشاهدتك
-          </p>
+      {/* Products Section */}
+      {!productsLoading && Object.keys(productsByCategory).length > 0 && (
+        <section className="py-16 bg-black/30">
+          <div className="container mx-auto px-4">
+            <div className="mb-12 text-center">
+              <h2 className="text-3xl md:text-4xl font-bold text-white mb-2">المنتجات المتاحة</h2>
+              <p className="text-slate-400">اشترك واحصل على أفضل الخطط</p>
+            </div>
 
-          <div className="max-w-7xl mx-auto space-y-4 md:space-y-8">
-            {/* Large Featured Card - AI Movie Finder */}
-            <Link href="/browse" className="block group">
-              <div className="bg-gradient-to-br from-blue-600/20 via-purple-600/20 to-pink-600/20 border-2 border-blue-500/30 rounded-xl md:rounded-2xl p-4 md:p-8 lg:p-12 hover:border-blue-400/50 transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl hover:shadow-blue-500/20">
-                <div className="flex flex-col md:flex-row items-center gap-4 md:gap-8">
-                  {/* Icon/Illustration */}
-                  <div className="flex-shrink-0">
-                    <div className="w-20 h-20 md:w-32 md:h-32 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl md:rounded-2xl flex items-center justify-center shadow-2xl shadow-blue-500/30 group-hover:scale-110 transition-transform duration-300">
-                      <Bot className="w-10 h-10 md:w-16 md:h-16 text-white" />
+            <div className="space-y-20">
+              {Object.keys(productsByCategory).map((categoryId, categoryIndex) => {
+                const category = productsByCategory[categoryId];
+                const sectionIndex = categoryIndex % sectionGradients.length;
+                const isPackageSection = category.some((p: any) => p.isPackage || p.is_package);
+                
+                if (!category || category.length === 0) return null;
+                
+                return (
+                  <div key={categoryId} id={`category-${categoryId}`} className="scroll-mt-20">
+                    {/* Category Header */}
+                    <div className="mb-8 text-center">
+                      <div className="flex items-center justify-center gap-4 mb-2">
+                        <h3 className="text-2xl md:text-3xl font-bold text-white inline-block">
+                          {categoryTitles[categoryId] || 'غير محدد'}
+                        </h3>
+                        <Link href={`/subscribe/category/${categoryId}`}>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="border-blue-600 text-blue-400 hover:bg-blue-600 hover:text-white text-sm md:text-base"
+                          >
+                            عرض الكل
+                            <ArrowRight className="h-4 w-4 mr-2" />
+                          </Button>
+                        </Link>
+                      </div>
+                      <div className={`h-1 w-24 mx-auto mt-4 bg-gradient-to-r ${category[0].gradient || 'from-blue-600 to-cyan-600'} rounded-full`} />
+                    </div>
+
+                    {/* Products Grid - Packages: 2 columns (long cards), Others: 3 columns */}
+                    <div className={isPackageSection ? "grid grid-cols-2 md:grid-cols-2 gap-2 md:gap-6 max-w-4xl mx-auto" : "grid grid-cols-3 md:grid-cols-3 lg:grid-cols-4 gap-2 md:gap-4 max-w-6xl mx-auto"}>
+                      {category.slice(0, isPackageSection ? 2 : 4).map((product: any) => {
+                        const Icon = product.icon || Sparkles;
+                        
+                        // Package section - long detailed cards
+                        if (isPackageSection && product.isPackage) {
+                          return (
+                            <Card key={product.id} className="group relative overflow-hidden bg-gradient-to-br from-slate-800/90 to-slate-900/90 border-2 border-slate-700/50 hover:border-slate-500 transition-all duration-300 hover:shadow-2xl hover:shadow-amber-500/20 hover:-translate-y-2 h-full flex flex-col">
+                              <div className={`absolute inset-0 bg-gradient-to-br ${product.gradient} opacity-0 group-hover:opacity-15 transition-opacity duration-300 pointer-events-none`} />
+                              
+                              <div className="absolute top-2 md:top-4 right-2 md:right-4 z-10">
+                                <span className={`${product.badgeColor} text-white text-[10px] md:text-sm font-bold px-2 md:px-4 py-1 md:py-2 rounded-full shadow-lg`}>
+                                  {product.duration}
+                                </span>
+                              </div>
+
+                              <Link href={`/subscribe/${product.code}`} className="block cursor-pointer">
+                                <div className={`relative h-32 md:h-64 w-full overflow-hidden ${product.code === 'SUB-PACKAGE-LEGENDARY' ? 'bg-gradient-to-br from-slate-700 to-slate-800' : `bg-gradient-to-br ${product.gradient}`} p-3 md:p-8`}>
+                                  <div className="h-full flex flex-col justify-between">
+                                    <div className="flex items-center justify-center gap-1.5 md:gap-3 flex-nowrap w-full">
+                                      {product.logos?.map((logo: string, idx: number) => (
+                                        <div key={idx} className={`${product.code === 'SUB-PACKAGE-LEGENDARY' ? 'bg-slate-600/50' : 'bg-white/10'} backdrop-blur-sm rounded-lg p-1.5 md:p-3 border ${product.code === 'SUB-PACKAGE-LEGENDARY' ? 'border-slate-500/30' : 'border-white/20'} group-hover:scale-110 transition-transform duration-300`}>
+                                          <img
+                                            src={logo}
+                                            alt={`${product.name} logo ${idx + 1}`}
+                                            className={`h-6 w-6 md:h-12 md:w-12 object-contain ${logo.endsWith('.png') || logo.endsWith('.jpeg') || logo.endsWith('.jpg') ? '' : 'brightness-0 invert'}`}
+                                          />
+                                        </div>
+                                      ))}
+                                    </div>
+                                    <div className="text-center">
+                                      <h4 className="text-base md:text-2xl font-extrabold text-white mb-1 md:mb-2 line-clamp-2">{product.name}</h4>
+                                      <p className={`${product.code === 'SUB-PACKAGE-LEGENDARY' ? 'text-slate-200' : 'text-white/90'} text-xs md:text-base line-clamp-2`}>{product.description}</p>
+                                    </div>
+                                  </div>
+                                </div>
+                              </Link>
+
+                              <CardHeader className="pb-2 md:pb-4 pt-3 md:pt-6 px-3 md:px-8">
+                                <Link href={`/subscribe/${product.code}`} className="block cursor-pointer">
+                                  <CardTitle className="text-sm md:text-xl text-white mb-2 md:mb-3 group-hover:text-amber-300 transition-colors">
+                                    المميزات الحصرية
+                                  </CardTitle>
+                                </Link>
+                                <ul className="space-y-1 md:space-y-2">
+                                  {product.features?.slice(0, 3).map((feature: string, idx: number) => (
+                                    <li key={idx} className="flex items-center text-slate-300 text-xs md:text-sm">
+                                      <Check className="h-3 w-3 md:h-4 md:w-4 text-green-400 ml-1.5 md:ml-2 flex-shrink-0" />
+                                      <span className="line-clamp-1">{feature}</span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </CardHeader>
+
+                              <CardContent className="mt-auto pb-3 md:pb-6 px-3 md:px-8">
+                                <div className="mb-2 md:mb-4 text-center p-2 md:p-4 bg-gradient-to-br from-slate-700/50 to-slate-800/50 rounded-xl border border-slate-600/50">
+                                  <div className="flex items-baseline justify-center gap-1 md:gap-2 mb-1">
+                                    <span className="text-xl md:text-4xl font-extrabold text-white">{product.price}</span>
+                                    <span className="text-sm md:text-xl text-slate-400">ريال</span>
+                                  </div>
+                                </div>
+
+                                <Button
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    if (product.available_stock > 0) {
+                                      addItem({
+                                        product_code: product.code,
+                                        product_name: product.name,
+                                        price: product.price,
+                                        quantity: 1,
+                                        image: product.image,
+                                      });
+                                    }
+                                  }}
+                                  disabled={product.available_stock === 0}
+                                  className={`w-full bg-red-600 hover:bg-red-700 text-white py-2 md:py-3 text-xs md:text-sm relative z-20 ${product.available_stock === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                >
+                                  <ShoppingCart className="mr-1.5 md:mr-2 h-3 w-3 md:h-4 md:w-4 text-white" />
+                                  <span className="text-white">{product.available_stock === 0 ? 'نفد المخزون' : 'أضف إلى السلة'}</span>
+                                </Button>
+                              </CardContent>
+                            </Card>
+                          );
+                        }
+                        
+                        // Regular product cards
+                        return (
+                          <Card key={product.id} className="group relative overflow-hidden bg-gradient-to-br from-slate-800/90 to-slate-900/90 border border-slate-700/50 hover:border-slate-600 transition-all duration-300 hover:shadow-2xl hover:shadow-blue-500/20 hover:-translate-y-1 h-full flex flex-col">
+                            <div className={`absolute inset-0 bg-gradient-to-br ${product.gradient} opacity-0 group-hover:opacity-10 transition-opacity duration-300 pointer-events-none`} />
+                            
+                            <div className="absolute top-2 right-2 z-10">
+                              <span className={`${product.badgeColor} text-white text-[10px] md:text-xs font-bold px-2 py-0.5 rounded-full shadow-lg`}>
+                                {product.duration}
+                              </span>
+                            </div>
+
+                            <Link href={`/subscribe/${product.code}`} className="block">
+                              <div className="relative h-24 md:h-40 w-full overflow-hidden bg-gradient-to-br from-slate-700 to-slate-800 cursor-pointer">
+                                {product.image ? (
+                                  product.image.endsWith('.svg') ? (
+                                    <div className="h-full w-full flex items-center justify-center bg-gradient-to-br from-slate-700 to-slate-800 p-2 md:p-4">
+                                      <img
+                                        src={product.image}
+                                        alt={product.name}
+                                        className="h-8 md:h-16 w-auto object-contain opacity-90 group-hover:opacity-100 transition-opacity"
+                                      />
+                                    </div>
+                                  ) : (
+                                    <div className="relative h-full w-full">
+                                      <Image
+                                        src={product.image}
+                                        alt={product.name}
+                                        fill
+                                        className="object-cover group-hover:scale-110 transition-transform duration-500"
+                                        sizes="(max-width: 768px) 33vw, 25vw"
+                                      />
+                                    </div>
+                                  )
+                                ) : (
+                                  <div className={`h-full w-full bg-gradient-to-br ${product.gradient} flex items-center justify-center`}>
+                                    <ImageIcon className="w-6 h-6 md:w-8 md:h-8 text-white/30" />
+                                  </div>
+                                )}
+                              </div>
+                            </Link>
+
+                            <CardHeader className="pb-1 md:pb-2 pt-2 md:pt-3 px-2 md:px-3">
+                              <Link href={`/subscribe/${product.code}`} className="block cursor-pointer">
+                                <CardTitle className="text-xs md:text-base text-white mb-0.5 md:mb-1 group-hover:text-blue-300 transition-colors line-clamp-2">
+                                  {product.name}
+                                </CardTitle>
+                                <CardDescription className="text-slate-400 text-[10px] md:text-xs line-clamp-2">
+                                  {product.description}
+                                </CardDescription>
+                              </Link>
+                            </CardHeader>
+
+                            <CardContent className="mt-auto pb-2 md:pb-3 px-2 md:px-3">
+                              <div className="mb-2 md:mb-3 text-center">
+                                <div className="flex items-baseline justify-center gap-0.5 md:gap-1">
+                                  <span className="text-base md:text-2xl font-extrabold text-white">{product.price}</span>
+                                  <span className="text-[10px] md:text-sm text-slate-400">ريال</span>
+                                </div>
+                              </div>
+
+                              <Button
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  if (product.available_stock > 0) {
+                                    addItem({
+                                      product_code: product.code,
+                                      product_name: product.name,
+                                      price: product.price,
+                                      quantity: 1,
+                                      image: product.image,
+                                    });
+                                  }
+                                }}
+                                disabled={product.available_stock === 0}
+                                className={`w-full bg-red-600 hover:bg-red-700 text-white py-1.5 md:py-2 text-[10px] md:text-xs relative z-20 ${product.available_stock === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                              >
+                                <ShoppingCart className="mr-1 h-2.5 w-2.5 md:h-3 md:w-3 text-white" />
+                                <span className="text-white">{product.available_stock === 0 ? 'نفد' : 'أضف إلى السلة'}</span>
+                              </Button>
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
                     </div>
                   </div>
-                  
-                  {/* Content */}
-                  <div className="flex-1 text-center md:text-right w-full">
-                    <h3 className="text-xl md:text-3xl lg:text-4xl font-bold mb-2 md:mb-4 text-white">
-                      الذكاء الاصطناعي لإيجاد الفيلم المثالي
-                    </h3>
-                    <p className="text-sm md:text-lg lg:text-xl text-slate-300 mb-4 md:mb-6 max-w-2xl mx-auto md:mx-0">
-                      تحدث مع مساعدنا الذكي! أخبرنا عن حالتك المزاجية، التصنيفات المفضلة، والمنصات المتاحة لديك، وسنجد لك أفضل 3 اقتراحات مخصصة لك
-                    </p>
-                    <Button 
-                      size="lg" 
-                      className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white text-sm md:text-lg px-6 md:px-8 py-4 md:py-6 shadow-lg hover:shadow-xl transition-all w-full md:w-auto"
-                    >
-                      جرب الآن
-                      <Sparkles className="w-4 h-4 md:w-5 md:h-5 mr-2" />
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            </Link>
-
-            {/* Two Smaller Cards - Trending Movies and Store */}
-            <div className="grid grid-cols-2 md:grid-cols-2 gap-3 md:gap-8">
-              {/* Trending Movies Card */}
-              <div 
-                onClick={() => {
-                  const trendingSection = document.getElementById('trending-movies');
-                  if (trendingSection) {
-                    trendingSection.scrollIntoView({ behavior: 'smooth' });
-                  }
-                }}
-                className="cursor-pointer group"
-              >
-                <div className="bg-gradient-to-br from-orange-600/20 via-red-600/20 to-pink-600/20 border-2 border-orange-500/30 rounded-xl md:rounded-2xl p-4 md:p-8 hover:border-orange-400/50 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-orange-500/20 h-full">
-                  <div className="flex flex-col items-center text-center h-full">
-                    {/* Icon */}
-                    <div className="w-16 h-16 md:w-24 md:h-24 bg-gradient-to-br from-orange-500 to-red-600 rounded-lg md:rounded-xl flex items-center justify-center mb-3 md:mb-6 shadow-xl shadow-orange-500/30 group-hover:scale-110 transition-transform duration-300">
-                      <TrendingUp className="w-8 h-8 md:w-12 md:h-12 text-white" />
-                    </div>
-                    
-                    {/* Content */}
-                    <h3 className="text-base md:text-2xl lg:text-3xl font-bold mb-2 md:mb-4 text-white">
-                      الأفلام الأكثر رواجاً
-                    </h3>
-                    <p className="text-xs md:text-base text-slate-300 mb-3 md:mb-6 flex-grow">
-                      اكتشف قائمة الأفلام الأكثر شعبية ورواجاً حالياً على جميع المنصات. تحديث يومي لأفضل المحتوى
-                    </p>
-                    <Button 
-                      variant="outline"
-                      size="sm"
-                      className="border-orange-500/50 text-orange-400 hover:bg-orange-500/20 hover:text-white hover:border-orange-400 text-xs md:text-lg px-3 md:px-6 py-2 md:py-4 transition-all w-full md:w-auto"
-                    >
-                      <span className="hidden md:inline">عرض القائمة</span>
-                      <span className="md:hidden">القائمة</span>
-                      <ArrowLeft className="w-3 h-3 md:w-5 md:h-5 mr-1 md:mr-2" />
-                    </Button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Subscription Store Card */}
-              <Link href="/subscribe" className="block group">
-                <div className="bg-gradient-to-br from-green-600/20 via-emerald-600/20 to-teal-600/20 border-2 border-green-500/30 rounded-xl md:rounded-2xl p-4 md:p-8 hover:border-green-400/50 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-green-500/20 h-full">
-                  <div className="flex flex-col items-center text-center h-full">
-                    {/* Icon */}
-                    <div className="w-16 h-16 md:w-24 md:h-24 bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg md:rounded-xl flex items-center justify-center mb-3 md:mb-6 shadow-xl shadow-green-500/30 group-hover:scale-110 transition-transform duration-300">
-                      <ShoppingCart className="w-8 h-8 md:w-12 md:h-12 text-white" />
-                    </div>
-                    
-                    {/* Content */}
-                    <h3 className="text-base md:text-2xl lg:text-3xl font-bold mb-2 md:mb-4 text-white">
-                      متجر الاشتراكات
-                    </h3>
-                    <p className="text-xs md:text-base text-slate-300 mb-3 md:mb-6 flex-grow">
-                      احصل على اشتراكات بأسعار مميزة لجميع المنصات. Netflix، Disney+، HBO Max، وأكثر. تسليم فوري وضمان كامل
-                    </p>
-                    <Button 
-                      variant="outline"
-                      size="sm"
-                      className="border-green-500/50 text-green-400 hover:bg-green-500/20 hover:text-white hover:border-green-400 text-xs md:text-lg px-3 md:px-6 py-2 md:py-4 transition-all w-full md:w-auto"
-                    >
-                      <span className="hidden md:inline">زيارة المتجر</span>
-                      <span className="md:hidden">المتجر</span>
-                      <ShoppingCart className="w-3 h-3 md:w-5 md:h-5 mr-1 md:mr-2" />
-                    </Button>
-                  </div>
-                </div>
-              </Link>
+                );
+              })}
             </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* Trending Movies */}
       <section id="trending-movies" className="py-14 bg-black/40">
@@ -674,15 +876,15 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Latest Movies Section */}
+      {/* Latest Movies and Series Section */}
       <section className="py-16 bg-black/30">
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between mb-8">
             <div>
-              <h2 className="text-3xl md:text-4xl font-bold mb-2">أحدث الأفلام</h2>
-              <p className="text-slate-400">أفلام تو نازلة</p>
+              <h2 className="text-3xl md:text-4xl font-bold mb-2">احدث الافلام والمسلسلات في أروما</h2>
+              <p className="text-slate-400">أفلام ومسلسلات تو نازلة</p>
             </div>
-            <Link href="/latest?type=movie&new=oct">
+            <Link href="/latest?type=both">
               <Button variant="outline" className="border-blue-600 text-blue-400 hover:bg-blue-600 hover:text-white">
                 عرض الكل ←
               </Button>
@@ -695,140 +897,15 @@ export default function Home() {
                 <div key={i} className="bg-slate-800/50 rounded-lg h-[400px] animate-pulse" />
               ))}
             </div>
-          ) : latestMovies.length > 0 ? (
+          ) : [...latestMovies, ...latestSeries].length > 0 ? (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-              {latestMovies.map((movie) => (
-                <MovieCard key={movie.id} movie={movie} onCardClick={() => handleCardClick(movie)} />
+              {[...latestMovies, ...latestSeries].slice(0, 6).map((item) => (
+                <MovieCard key={item.id} movie={item} onCardClick={() => handleCardClick(item)} />
               ))}
             </div>
           ) : (
             <div className="text-center py-12 text-slate-400">
-              لا توجد أفلام جديدة هذا الشهر
-            </div>
-          )}
-        </div>
-      </section>
-
-      {/* Latest Series Section */}
-      <section className="py-16 bg-black/50">
-        <div className="container mx-auto px-4">
-          <div className="flex items-center justify-between mb-8">
-            <div>
-              <h2 className="text-3xl md:text-4xl font-bold mb-2">أحدث المسلسلات</h2>
-              <p className="text-slate-400">مسلسلات نتفلكس شاهد واشتراك اروما</p>
-            </div>
-            <Link href="/latest?type=series">
-              <Button variant="outline" className="border-blue-600 text-blue-400 hover:bg-blue-600 hover:text-white">
-                عرض الكل ←
-              </Button>
-            </Link>
-          </div>
-
-          {loading ? (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-              {[...Array(6)].map((_, i) => (
-                <div key={i} className="bg-slate-800/50 rounded-lg h-[400px] animate-pulse" />
-              ))}
-            </div>
-          ) : latestSeries.length > 0 ? (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-              {latestSeries.map((series) => (
-                <MovieCard key={series.id} movie={series} onCardClick={() => handleCardClick(series)} />
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-12 text-slate-400">
-              لا توجد مسلسلات جديدة هذا الشهر
-            </div>
-          )}
-        </div>
-      </section>
-
-      {/* Top 10 Rated Section - Combined Movies & Series */}
-      <section className="py-16 bg-black/30">
-        <div className="container mx-auto px-4">
-          <div className="mb-8">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-3xl md:text-4xl font-bold"> أفضل الأفلام والمسلسلات تقييما </h2>
-              
-              {/* Show More Button */}
-              <Button
-                onClick={handleShowMore}
-                variant="outline"
-                className="border-blue-600 text-blue-400 hover:bg-blue-600 hover:text-white"
-              >
-                عرض المزيد
-                <ArrowLeft className="w-4 h-4 mr-2" />
-              </Button>
-            </div>
-            
-            {/* Tabs for Movies/Series */}
-            <div className="flex gap-4 justify-center mb-6">
-              <button
-                onClick={() => setTopRatedTab('movies')}
-                className={`px-8 py-3 rounded-xl text-lg font-semibold transition-all ${
-                  topRatedTab === 'movies'
-                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/50 scale-105'
-                    : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-                }`}
-              >
-                🎬 أفلام
-              </button>
-              <button
-                onClick={() => setTopRatedTab('series')}
-                className={`px-8 py-3 rounded-xl text-lg font-semibold transition-all ${
-                  topRatedTab === 'series'
-                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/50 scale-105'
-                    : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-                }`}
-              >
-                📺 مسلسلات
-              </button>
-            </div>
-          </div>
-
-          {loading ? (
-            <div className="flex gap-4 overflow-hidden">
-              {[...Array(5)].map((_, i) => (
-                <div key={i} className="bg-slate-800/50 rounded-lg h-[400px] min-w-[200px] animate-pulse" />
-              ))}
-            </div>
-          ) : topRatedContent.length > 0 ? (
-            <div className="relative group">
-              {/* Scroll Left Button */}
-              <button
-                onClick={() => scroll(topRatedScrollRef, 'left')}
-                className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-black/90 hover:bg-slate-800 text-white p-3 rounded-full shadow-xl opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-0"
-                aria-label="Scroll left"
-              >
-                <ChevronLeft className="w-6 h-6" />
-              </button>
-
-              {/* Scrollable Container */}
-              <div
-                ref={topRatedScrollRef}
-                className="flex gap-4 overflow-x-auto scrollbar-hide scroll-smooth"
-                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-              >
-                {topRatedContent.map((item) => (
-                  <div key={item.id} className="min-w-[200px] md:min-w-[250px]">
-                    <MovieCard movie={item} onCardClick={() => handleCardClick(item)} />
-                  </div>
-                ))}
-              </div>
-
-              {/* Scroll Right Button */}
-              <button
-                onClick={() => scroll(topRatedScrollRef, 'right')}
-                className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-black/90 hover:bg-slate-800 text-white p-3 rounded-full shadow-xl opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-0"
-                aria-label="Scroll right"
-              >
-                <ChevronRight className="w-6 h-6" />
-              </button>
-            </div>
-          ) : (
-            <div className="text-center py-12 text-slate-400">
-              {topRatedTab === 'movies' ? 'لا توجد أفلام متاحة' : 'لا توجد مسلسلات متاحة'}
+              لا يوجد محتوى جديد هذا الشهر
             </div>
           )}
         </div>

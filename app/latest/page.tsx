@@ -25,7 +25,66 @@ export default function LatestPage() {
       setLoading(true);
       try {
         let resp;
-        if (type === 'series') {
+        if (type === 'both') {
+          // Fetch both movies and series
+          const [moviesResp, seriesResp] = await Promise.all([
+            fetch(`/api/tmdb/now-playing?type=movie&lang=ar`),
+            (async () => {
+              const today = new Date();
+              const pastYear = new Date();
+              pastYear.setFullYear(today.getFullYear() - 1);
+              const yearMin = pastYear.getFullYear();
+              const yearMax = today.getFullYear();
+              let seriesResponse = await fetch(`/api/tmdb/discover?type=tv&with_watch_providers=8,384,9,350&watch_region=SA&yearMin=${yearMin}&yearMax=${yearMax}&sort_by=first_air_date.desc&limit=20`);
+              if (!seriesResponse.ok) {
+                seriesResponse = await fetch(`/api/tmdb/discover?type=tv&yearMin=${yearMin}&yearMax=${yearMax}&sort_by=first_air_date.desc&limit=20`);
+              }
+              if (!seriesResponse.ok) {
+                seriesResponse = await fetch(`/api/tmdb/discover?type=tv&sort_by=popularity.desc&limit=20`);
+              }
+              return seriesResponse;
+            })()
+          ]);
+
+          const moviesData = (await moviesResp.json()) || { items: [] };
+          const seriesData = (await seriesResp.json()) || { items: [] };
+
+          const moviesMapped = (moviesData.items || []).map((m: any) => ({
+            id: String(m.tmdb_id),
+            tmdb_id: m.tmdb_id,
+            type: 'movie',
+            title: m.title,
+            synopsis: m.overview,
+            year: m.year,
+            genre: null,
+            platform: null,
+            rating: String(m.rating ?? ''),
+            duration: null,
+            url: m.poster_url,
+            new: null,
+            note: null,
+          })) as unknown as Movie[];
+
+          const seriesMapped = (seriesData.items || []).map((m: any) => ({
+            id: String(m.tmdb_id),
+            tmdb_id: m.tmdb_id,
+            type: 'series',
+            title: m.title,
+            synopsis: m.overview,
+            year: m.year,
+            genre: null,
+            platform: null,
+            rating: String(m.rating ?? ''),
+            duration: null,
+            url: m.poster_url,
+            new: null,
+            note: null,
+          })) as unknown as Movie[];
+
+          const combined = [...moviesMapped, ...seriesMapped];
+          setMovies(combined);
+          setTotal(combined.length);
+        } else if (type === 'series') {
           // For series: use discover with provider filters (Netflix, HBO Max, Amazon Prime, Apple TV+)
           // TMDB Provider IDs: Netflix=8, HBO Max=384, Amazon Prime=9, Apple TV+=350
           const today = new Date();
@@ -111,12 +170,14 @@ export default function LatestPage() {
   const getTitle = () => {
     if (type === 'movie') return 'أحدث الأفلام';
     if (type === 'series') return 'أحدث المسلسلات';
+    if (type === 'both') return 'احدث الافلام والمسلسلات في أروما';
     return 'أحدث المحتوى';
   };
 
   const getSubtitle = () => {
     if (type === 'movie') return `أفلام معروضة الآن`;
     if (type === 'series') return `مسلسلات نتفلكس شاهد واشتراك اروما`;
+    if (type === 'both') return `أفلام ومسلسلات تو نازلة`;
     return '';
   };
 
