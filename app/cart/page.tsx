@@ -683,7 +683,7 @@ export default function CartPage() {
                     options={{
                       clientId: PAYPAL_CLIENT_ID,
                       currency: 'USD',
-                      locale: 'ar_EG',
+                      locale: 'ar',
                     }}
                   >
                     <PayPalButtons
