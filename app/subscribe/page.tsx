@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -50,6 +50,7 @@ export default function SubscribePage() {
     cta_link: string;
     banner_type?: 'default' | 'blackfriday';
     banner_image_url?: string;
+    is_enabled?: boolean;
   } | null>(null);
   const [countdown, setCountdown] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
   
@@ -145,21 +146,29 @@ export default function SubscribePage() {
   }, []);
 
   // Fetch promotional banner
-  useEffect(() => {
-    const fetchBanner = async () => {
-      try {
-        const response = await fetch('/api/promotional-banner');
-        const result = await response.json();
-        if (result.banner) {
-          setPromotionalBanner(result.banner);
-        }
-      } catch (error) {
-        console.error('Error fetching promotional banner:', error);
-      }
-    };
-    
-    fetchBanner();
+  const fetchBanner = useCallback(async () => {
+    try {
+      const response = await fetch(`/api/promotional-banner?ts=${Date.now()}`, {
+        cache: 'no-store',
+        headers: { 'Cache-Control': 'no-cache' },
+      });
+      const result = await response.json();
+      setPromotionalBanner(result.banner || null);
+    } catch (error) {
+      console.error('Error fetching promotional banner:', error);
+      setPromotionalBanner(null);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchBanner();
+  }, [fetchBanner]);
+
+  useEffect(() => {
+    const handleFocus = () => fetchBanner();
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [fetchBanner]);
   
   // Countdown timer for promotion
   useEffect(() => {
@@ -389,7 +398,8 @@ export default function SubscribePage() {
               
               if (!category || category.length === 0) return null;
               
-              const isBlackFridayActive = promotionalBanner?.banner_type === 'blackfriday';
+              const isBlackFridayActive =
+                promotionalBanner?.banner_type === 'blackfriday' && promotionalBanner?.is_enabled !== false;
               
               return (
                 <div key={categoryId} id={`category-${categoryId}`} className="mb-20 scroll-mt-20">
