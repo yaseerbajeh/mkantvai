@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Clapperboard, Target, Sparkles, ChevronLeft, ChevronRight, Film, ArrowLeft, ArrowRight, ShoppingCart, Tv, Smartphone, Monitor, Laptop, CheckCircle2, Shield, Zap, Bot, TrendingUp, Star, Languages, Download, Check, Package, Loader2, ImageIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -20,6 +20,7 @@ import Image from 'next/image';
 
 export default function Home() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
   const [latestMovies, setLatestMovies] = useState<Movie[]>([]);
   const [latestSeries, setLatestSeries] = useState<Movie[]>([]);
@@ -40,6 +41,8 @@ export default function Home() {
     discount_percentage: number;
     expiration_date: string;
     cta_link: string;
+    banner_type?: 'default' | 'blackfriday';
+    banner_image_url?: string;
   } | null>(null);
   const [bannerLoading, setBannerLoading] = useState(true);
   const [isCommissioner, setIsCommissioner] = useState(false);
@@ -187,6 +190,33 @@ export default function Home() {
 
     fetchProducts();
   }, []);
+
+  // Scroll to Netflix category when scrollTo=netflix parameter is present
+  useEffect(() => {
+    const scrollTo = searchParams.get('scrollTo');
+    if (scrollTo === 'netflix' && !productsLoading && Object.keys(productsByCategory).length > 0) {
+      // Find the Netflix category by checking category titles
+      const netflixCategoryId = Object.keys(productsByCategory).find((categoryId) => {
+        const title = categoryTitles[categoryId] || '';
+        const titleLower = title.toLowerCase();
+        return (titleLower.includes('نت') && (titleLower.includes('flix') || titleLower.includes('فليكس'))) || titleLower.includes('netflix');
+      });
+
+      if (netflixCategoryId) {
+        // Scroll immediately without delay
+        const element = document.getElementById(`category-${netflixCategoryId}`);
+        if (element) {
+          // Use instant scroll to jump directly to the section
+          window.scrollTo({
+            top: element.offsetTop - 100, // Offset for header
+            behavior: 'auto' // Instant scroll, no animation
+          });
+          // Remove the query parameter from URL
+          router.replace('/', { scroll: false });
+        }
+      }
+    }
+  }, [searchParams, productsLoading, productsByCategory, categoryTitles, router]);
 
   useEffect(() => {
     const fetchLatestContent = async () => {
@@ -533,70 +563,96 @@ export default function Home() {
       {promotionalBanner && !bannerLoading && (
         <section className="py-8 md:py-12 bg-black">
           <div className="container mx-auto px-4">
-            <div className="black-friday-component">
-              <div className="coupon">
-                <div className="box">
-                  <span>{promotionalBanner.discount_percentage}%</span>
-                  <span>OFF</span>
-                </div>
-                <div className="diver"></div>
-                <div className="content">
-                  <h3 className="arabic-title">
-                    {promotionalBanner.title}
-                  </h3>
-                  <p>
-                    {promotionalBanner.subtitle}
-                    <Link href={promotionalBanner.cta_link || '/subscribe'}> اضغط هنا</Link>
-                    {' '}واطلب الان
-                  </p>
+            {promotionalBanner.banner_type === 'blackfriday' ? (
+              /* Black Friday Banner Layout: Image Left, CTA Right */
+              <div className="w-full">
+                <div className="flex flex-col md:flex-row items-center gap-8 md:gap-12">
+                  {/* Image Section - Left */}
+                  <div className="flex-[2] w-full md:w-auto">
+                    <img
+                      src={promotionalBanner.banner_image_url || 'https://l.top4top.io/p_3608w917h1.png'}
+                      alt="Black Friday Offer"
+                      className="w-full h-auto object-contain"
+                    />
+                  </div>
+                  
+                  {/* CTA Section - Right */}
+                  <div className="flex-1 text-center md:text-left">
+                    <Link href="/?scrollTo=netflix">
+                      <Button size="lg" className="bg-red-600 hover:bg-red-700 text-white text-xl md:text-2xl px-12 py-8 font-bold shadow-2xl">
+                        اشتري الآن
+                      </Button>
+                    </Link>
+                  </div>
                 </div>
               </div>
-              <div className="timer">
-                <div className="item">
-                  <div className="days">
-                    <div className="day" style={{ '--days': countdown.days } as React.CSSProperties}>
-                      {Array.from({ length: 32 }, (_, i) => (
-                        <span key={i}>{String(i).padStart(2, '0')}</span>
-                      ))}
-                    </div>
+            ) : (
+              /* Default Banner Layout */
+              <div className="black-friday-component">
+                <div className="coupon">
+                  <div className="box">
+                    <span>{promotionalBanner.discount_percentage}%</span>
+                    <span>OFF</span>
                   </div>
-                  <p>يوم</p>
+                  <div className="diver"></div>
+                  <div className="content">
+                    <h3 className="arabic-title">
+                      {promotionalBanner.title}
+                    </h3>
+                    <p>
+                      {promotionalBanner.subtitle}
+                      <Link href={promotionalBanner.cta_link || '/subscribe'}> اضغط هنا</Link>
+                      {' '}واطلب الان
+                    </p>
+                  </div>
                 </div>
-                <span className="colon">:</span>
-                <div className="item">
-                  <div className="hours">
-                    <div className="hour" style={{ '--hours': countdown.hours } as React.CSSProperties}>
-                      {Array.from({ length: 24 }, (_, i) => (
-                        <span key={i}>{String(i).padStart(2, '0')}</span>
-                      ))}
+                <div className="timer">
+                  <div className="item">
+                    <div className="days">
+                      <div className="day" style={{ '--days': countdown.days } as React.CSSProperties}>
+                        {Array.from({ length: 32 }, (_, i) => (
+                          <span key={i}>{String(i).padStart(2, '0')}</span>
+                        ))}
+                      </div>
                     </div>
+                    <p>يوم</p>
                   </div>
-                  <p>ساعة</p>
-                </div>
-                <span className="colon">:</span>
-                <div className="item">
-                  <div className="minutes">
-                    <div className="min" style={{ '--minutes': countdown.minutes } as React.CSSProperties}>
-                      {Array.from({ length: 60 }, (_, i) => (
-                        <span key={i}>{String(i).padStart(2, '0')}</span>
-                      ))}
+                  <span className="colon">:</span>
+                  <div className="item">
+                    <div className="hours">
+                      <div className="hour" style={{ '--hours': countdown.hours } as React.CSSProperties}>
+                        {Array.from({ length: 24 }, (_, i) => (
+                          <span key={i}>{String(i).padStart(2, '0')}</span>
+                        ))}
+                      </div>
                     </div>
+                    <p>ساعة</p>
                   </div>
-                  <p>دقيقة</p>
-                </div>
-                <span className="colon">:</span>
-                <div className="item">
-                  <div className="seconds">
-                    <div className="sec" style={{ '--seconds': countdown.seconds } as React.CSSProperties}>
-                      {Array.from({ length: 60 }, (_, i) => (
-                        <span key={i}>{String(i).padStart(2, '0')}</span>
-                      ))}
+                  <span className="colon">:</span>
+                  <div className="item">
+                    <div className="minutes">
+                      <div className="min" style={{ '--minutes': countdown.minutes } as React.CSSProperties}>
+                        {Array.from({ length: 60 }, (_, i) => (
+                          <span key={i}>{String(i).padStart(2, '0')}</span>
+                        ))}
+                      </div>
                     </div>
+                    <p>دقيقة</p>
                   </div>
-                  <p>ثانية</p>
+                  <span className="colon">:</span>
+                  <div className="item">
+                    <div className="seconds">
+                      <div className="sec" style={{ '--seconds': countdown.seconds } as React.CSSProperties}>
+                        {Array.from({ length: 60 }, (_, i) => (
+                          <span key={i}>{String(i).padStart(2, '0')}</span>
+                        ))}
+                      </div>
+                    </div>
+                    <p>ثانية</p>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
           </div>
         </section>
       )}
@@ -617,6 +673,8 @@ export default function Home() {
                 const isPackageSection = category.some((p: any) => p.isPackage || p.is_package);
                 
                 if (!category || category.length === 0) return null;
+                
+                const isBlackFridayActive = promotionalBanner?.banner_type === 'blackfriday';
                 
                 return (
                   <div key={categoryId} id={`category-${categoryId}`} className="scroll-mt-20 w-full">
@@ -653,12 +711,15 @@ export default function Home() {
                               <Card key={product.id} className="group relative overflow-hidden bg-gradient-to-br from-slate-800/90 to-slate-900/90 border-2 border-slate-700/50 hover:border-slate-500 transition-all duration-300 hover:shadow-2xl hover:shadow-amber-500/20 hover:-translate-y-2 h-full flex flex-col">
                                 <div className={`absolute inset-0 bg-gradient-to-br ${product.gradient} opacity-0 group-hover:opacity-15 transition-opacity duration-300 pointer-events-none`} />
                                 
-                                <div className="absolute top-2 md:top-4 right-2 md:right-4 z-10">
-                                  <span className={`${product.badgeColor} text-white text-[10px] md:text-sm font-bold px-2 md:px-4 py-1 md:py-2 rounded-full shadow-lg`}>
-                                    {product.duration}
-                                  </span>
-                                </div>
-
+                                {/* Black Friday Badge */}
+                                {isBlackFridayActive && promotionalBanner && (
+                                  <div className="absolute top-2 left-0 z-20 transform -rotate-12 origin-left">
+                                    <div className="bg-gradient-to-r from-red-600 to-red-700 text-white px-4 py-1.5 shadow-lg rounded-md">
+                                      <span className="text-xs md:text-sm font-bold whitespace-nowrap">{promotionalBanner.title}</span>
+                                    </div>
+                                  </div>
+                                )}
+                                
                                 <Link href={`/subscribe/${product.code}`} className="block cursor-pointer">
                                   <div className={`relative h-32 md:h-64 w-full overflow-hidden ${product.code === 'SUB-PACKAGE-LEGENDARY' ? 'bg-gradient-to-br from-slate-700 to-slate-800' : `bg-gradient-to-br ${product.gradient}`} p-3 md:p-8`}>
                                     <div className="h-full flex flex-col justify-between">
@@ -742,12 +803,15 @@ export default function Home() {
                               <Card key={product.id} className="group relative overflow-hidden bg-gradient-to-br from-slate-800/90 to-slate-900/90 border border-slate-700/50 hover:border-slate-600 transition-all duration-300 hover:shadow-2xl hover:shadow-blue-500/20 hover:-translate-y-1 h-full flex flex-col">
                                 <div className={`absolute inset-0 bg-gradient-to-br ${product.gradient} opacity-0 group-hover:opacity-10 transition-opacity duration-300 pointer-events-none`} />
                                 
-                                <div className="absolute top-2 right-2 z-10">
-                                  <span className={`${product.badgeColor} text-white text-[10px] md:text-xs font-bold px-2 py-0.5 rounded-full shadow-lg`}>
-                                    {product.duration}
-                                  </span>
-                                </div>
-
+                                {/* Black Friday Badge */}
+                                {isBlackFridayActive && promotionalBanner && (
+                                  <div className="absolute top-2 left-0 z-20 transform -rotate-12 origin-left">
+                                    <div className="bg-gradient-to-r from-red-600 to-red-700 text-white px-3 py-1 shadow-lg rounded-md">
+                                      <span className="text-[10px] md:text-xs font-bold whitespace-nowrap">{promotionalBanner.title}</span>
+                                    </div>
+                                  </div>
+                                )}
+                                
                                 <Link href={`/subscribe/${product.code}`} className="block">
                                   <div className="relative h-24 md:h-40 w-full overflow-hidden bg-gradient-to-br from-slate-700 to-slate-800 cursor-pointer">
                                     {product.image ? (

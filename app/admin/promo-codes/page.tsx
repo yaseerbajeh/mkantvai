@@ -66,6 +66,8 @@ interface PromotionalBanner {
   discount_percentage: number;
   expiration_date: string;
   cta_link: string;
+  banner_type?: 'default' | 'blackfriday';
+  banner_image_url?: string;
   created_at: string;
   updated_at: string;
 }
@@ -95,16 +97,27 @@ export default function AdminPromoCodesPage() {
   });
   
   // Promotional Banner State
-  const [promotionalBanner, setPromotionalBanner] = useState<PromotionalBanner | null>(null);
+  const [defaultBanner, setDefaultBanner] = useState<PromotionalBanner | null>(null);
+  const [blackfridayBanner, setBlackfridayBanner] = useState<PromotionalBanner | null>(null);
   const [bannerLoading, setBannerLoading] = useState(false);
   const [bannerDialogOpen, setBannerDialogOpen] = useState(false);
-  const [bannerForm, setBannerForm] = useState({
+  const [editingBannerType, setEditingBannerType] = useState<'default' | 'blackfriday'>('default');
+  const [defaultBannerForm, setDefaultBannerForm] = useState({
     is_enabled: false,
     title: '',
     subtitle: '',
     discount_percentage: 20,
     expiration_date: '',
     cta_link: '/subscribe',
+  });
+  const [blackfridayBannerForm, setBlackfridayBannerForm] = useState({
+    is_enabled: false,
+    title: '',
+    subtitle: '',
+    discount_percentage: 20,
+    expiration_date: '',
+    cta_link: '/subscribe',
+    banner_image_url: 'https://l.top4top.io/p_3608w917h1.png',
   });
 
   useEffect(() => {
@@ -171,7 +184,7 @@ export default function AdminPromoCodesPage() {
   useEffect(() => {
     if (user) {
       fetchPromoCodes();
-      fetchPromotionalBanner();
+      fetchPromotionalBanners();
     }
   }, [user]);
 
@@ -202,39 +215,69 @@ export default function AdminPromoCodesPage() {
     }
   };
 
-  const fetchPromotionalBanner = async () => {
+  const fetchPromotionalBanners = async () => {
     try {
       setBannerLoading(true);
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
-      const response = await fetch('/api/admin/promotional-banner', {
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-      });
+      // Fetch both banner types
+      const [defaultResponse, blackfridayResponse] = await Promise.all([
+        fetch('/api/admin/promotional-banner?type=default', {
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+        }),
+        fetch('/api/admin/promotional-banner?type=blackfriday', {
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+        }),
+      ]);
 
-      const result = await response.json();
-      if (!response.ok) {
-        throw new Error(result.error || 'فشل في جلب البانر الترويجي');
+      const defaultResult = await defaultResponse.json();
+      const blackfridayResult = await blackfridayResponse.json();
+
+      if (!defaultResponse.ok && defaultResponse.status !== 404) {
+        throw new Error(defaultResult.error || 'فشل في جلب البانر الافتراضي');
+      }
+      if (!blackfridayResponse.ok && blackfridayResponse.status !== 404) {
+        throw new Error(blackfridayResult.error || 'فشل في جلب بانر الجمعة البيضاء');
       }
 
-      setPromotionalBanner(result.banner);
-      if (result.banner) {
-        setBannerForm({
-          is_enabled: result.banner.is_enabled,
-          title: result.banner.title,
-          subtitle: result.banner.subtitle,
-          discount_percentage: result.banner.discount_percentage,
-          expiration_date: result.banner.expiration_date ? new Date(result.banner.expiration_date).toISOString().split('T')[0] : '',
-          cta_link: result.banner.cta_link,
+      const defaultBannerData = defaultResult.banner || null;
+      const blackfridayBannerData = blackfridayResult.banner || null;
+
+      setDefaultBanner(defaultBannerData);
+      setBlackfridayBanner(blackfridayBannerData);
+
+      if (defaultBannerData) {
+        setDefaultBannerForm({
+          is_enabled: defaultBannerData.is_enabled,
+          title: defaultBannerData.title,
+          subtitle: defaultBannerData.subtitle,
+          discount_percentage: defaultBannerData.discount_percentage,
+          expiration_date: defaultBannerData.expiration_date ? new Date(defaultBannerData.expiration_date).toISOString().split('T')[0] : '',
+          cta_link: defaultBannerData.cta_link,
+        });
+      }
+
+      if (blackfridayBannerData) {
+        setBlackfridayBannerForm({
+          is_enabled: blackfridayBannerData.is_enabled,
+          title: blackfridayBannerData.title,
+          subtitle: blackfridayBannerData.subtitle,
+          discount_percentage: blackfridayBannerData.discount_percentage,
+          expiration_date: blackfridayBannerData.expiration_date ? new Date(blackfridayBannerData.expiration_date).toISOString().split('T')[0] : '',
+          cta_link: blackfridayBannerData.cta_link,
+          banner_image_url: blackfridayBannerData.banner_image_url || 'https://l.top4top.io/p_3608w917h1.png',
         });
       }
     } catch (error: any) {
-      console.error('Fetch promotional banner error:', error);
+      console.error('Fetch promotional banners error:', error);
       toast({
         title: 'خطأ',
-        description: error.message || 'فشل في جلب البانر الترويجي',
+        description: error.message || 'فشل في جلب البانرات الترويجية',
         variant: 'destructive',
       });
     } finally {
@@ -243,6 +286,9 @@ export default function AdminPromoCodesPage() {
   };
 
   const handleSaveBanner = async () => {
+    const bannerForm = editingBannerType === 'default' ? defaultBannerForm : blackfridayBannerForm;
+    const currentBanner = editingBannerType === 'default' ? defaultBanner : blackfridayBanner;
+
     if (bannerForm.is_enabled) {
       if (!bannerForm.title || !bannerForm.subtitle) {
         toast({
@@ -268,6 +314,14 @@ export default function AdminPromoCodesPage() {
         });
         return;
       }
+      if (editingBannerType === 'blackfriday' && !bannerForm.banner_image_url) {
+        toast({
+          title: 'خطأ',
+          description: 'يرجى إدخال رابط الصورة',
+          variant: 'destructive',
+        });
+        return;
+      }
     }
 
     try {
@@ -275,8 +329,9 @@ export default function AdminPromoCodesPage() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('غير مصرح');
 
-      const payload = {
-        id: promotionalBanner?.id || null,
+      const payload: any = {
+        id: currentBanner?.id || null,
+        banner_type: editingBannerType,
         ...bannerForm,
         expiration_date: bannerForm.expiration_date ? new Date(bannerForm.expiration_date).toISOString() : new Date().toISOString(),
       };
@@ -301,7 +356,7 @@ export default function AdminPromoCodesPage() {
       });
 
       setBannerDialogOpen(false);
-      fetchPromotionalBanner();
+      fetchPromotionalBanners();
     } catch (error: any) {
       toast({
         title: 'خطأ',
@@ -313,9 +368,17 @@ export default function AdminPromoCodesPage() {
     }
   };
 
-  const handleToggleBanner = async (enabled: boolean) => {
+  const handleToggleBanner = async (bannerType: 'default' | 'blackfriday', enabled: boolean) => {
+    const bannerForm = bannerType === 'default' ? defaultBannerForm : blackfridayBannerForm;
+    const currentBanner = bannerType === 'default' ? defaultBanner : blackfridayBanner;
     const previousState = bannerForm.is_enabled;
-    setBannerForm({ ...bannerForm, is_enabled: enabled });
+    
+    // Update local state immediately
+    if (bannerType === 'default') {
+      setDefaultBannerForm({ ...defaultBannerForm, is_enabled: enabled });
+    } else {
+      setBlackfridayBannerForm({ ...blackfridayBannerForm, is_enabled: enabled });
+    }
     
     try {
       setBannerLoading(true);
@@ -324,7 +387,8 @@ export default function AdminPromoCodesPage() {
 
       // If enabling and form is empty or no banner exists, use defaults
       let payload: any = {
-        id: promotionalBanner?.id || null,
+        id: currentBanner?.id || null,
+        banner_type: bannerType,
         is_enabled: enabled,
         title: bannerForm.title || '',
         subtitle: bannerForm.subtitle || '',
@@ -332,13 +396,21 @@ export default function AdminPromoCodesPage() {
         cta_link: bannerForm.cta_link || '/subscribe',
       };
 
+      if (bannerType === 'blackfriday') {
+        payload.banner_image_url = bannerForm.banner_image_url || 'https://l.top4top.io/p_3608w917h1.png';
+      }
+
       if (enabled) {
         // If enabling, ensure we have valid data
         if (!payload.title) {
-          payload.title = 'خصم 20% بمناسبة افتتاح المنصة 🎉';
+          payload.title = bannerType === 'default' 
+            ? 'خصم 20% بمناسبة افتتاح المنصة 🎉'
+            : 'عروض الجمعة البيضاء';
         }
         if (!payload.subtitle) {
-          payload.subtitle = 'خصم 20% على جميع المنتجات بمناسبة افتتاح المنصة استخدم كود 20A على جميع المنتجات';
+          payload.subtitle = bannerType === 'default'
+            ? 'خصم 20% على جميع المنتجات بمناسبة افتتاح المنصة استخدم كود 20A على جميع المنتجات'
+            : 'خصومات حصرية على جميع المنتجات';
         }
         if (!bannerForm.expiration_date) {
           // Default to 30 days from now
@@ -376,10 +448,10 @@ export default function AdminPromoCodesPage() {
 
       toast({
         title: 'نجح',
-        description: enabled ? 'تم تفعيل البانر الترويجي' : 'تم تعطيل البانر الترويجي',
+        description: enabled ? `تم تفعيل ${bannerType === 'default' ? 'البانر الافتراضي' : 'بانر الجمعة البيضاء'}` : `تم تعطيل ${bannerType === 'default' ? 'البانر الافتراضي' : 'بانر الجمعة البيضاء'}`,
       });
 
-      fetchPromotionalBanner();
+      fetchPromotionalBanners();
     } catch (error: any) {
       toast({
         title: 'خطأ',
@@ -387,7 +459,11 @@ export default function AdminPromoCodesPage() {
         variant: 'destructive',
       });
       // Revert the toggle on error
-      setBannerForm({ ...bannerForm, is_enabled: previousState });
+      if (bannerType === 'default') {
+        setDefaultBannerForm({ ...defaultBannerForm, is_enabled: previousState });
+      } else {
+        setBlackfridayBannerForm({ ...blackfridayBannerForm, is_enabled: previousState });
+      }
     } finally {
       setBannerLoading(false);
     }
@@ -622,64 +698,111 @@ export default function AdminPromoCodesPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {bannerLoading && !promotionalBanner ? (
+              {bannerLoading && !defaultBanner && !blackfridayBanner ? (
                 <div className="flex items-center justify-center py-8">
                   <Loader2 className="h-6 w-6 animate-spin text-gray-500" />
                 </div>
               ) : (
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <Label htmlFor="banner-toggle" className="text-gray-900 cursor-pointer">
-                        تفعيل البانر الترويجي
-                      </Label>
-                      <Switch
-                        id="banner-toggle"
-                        checked={bannerForm.is_enabled}
-                        onCheckedChange={handleToggleBanner}
-                        disabled={bannerLoading}
-                      />
+                <div className="space-y-6">
+                  {/* Default Banner Theme */}
+                  <div className="border border-gray-200 rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-semibold text-gray-900">البانر الافتراضي</h3>
+                      <div className="flex items-center gap-3">
+                        <Label htmlFor="default-banner-toggle" className="text-gray-900 cursor-pointer text-sm">
+                          {defaultBannerForm.is_enabled ? 'مفعّل' : 'معطّل'}
+                        </Label>
+                        <Switch
+                          id="default-banner-toggle"
+                          checked={defaultBannerForm.is_enabled}
+                          onCheckedChange={(enabled) => handleToggleBanner('default', enabled)}
+                          disabled={bannerLoading}
+                        />
+                        <Button
+                          onClick={() => {
+                            setEditingBannerType('default');
+                            setBannerDialogOpen(true);
+                          }}
+                          variant="outline"
+                          size="sm"
+                          className="border-gray-300 text-gray-600 hover:bg-gray-100"
+                        >
+                          <Edit className="h-4 w-4 ml-2" />
+                          تعديل
+                        </Button>
+                      </div>
                     </div>
-                    <Button
-                      onClick={() => setBannerDialogOpen(true)}
-                      variant="outline"
-                      className="border-gray-300 text-gray-600 hover:bg-gray-100"
-                    >
-                      <Edit className="h-4 w-4 ml-2" />
-                      تعديل
-                    </Button>
+                    {defaultBanner && (
+                      <div className="bg-slate-50 rounded-lg p-3 space-y-2 text-sm">
+                        <div className="flex items-center justify-between">
+                          <span className="text-gray-600">العنوان:</span>
+                          <span className="text-gray-900 font-medium">{defaultBanner.title || '-'}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-gray-600">نسبة الخصم:</span>
+                          <span className="text-gray-900 font-semibold">{defaultBanner.discount_percentage}%</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-gray-600">تاريخ الانتهاء:</span>
+                          <span className="text-gray-900">
+                            {defaultBanner.expiration_date
+                              ? format(new Date(defaultBanner.expiration_date), 'yyyy-MM-dd', { locale: ar })
+                              : '-'}
+                          </span>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
-                  {promotionalBanner && (
-                    <div className="bg-slate-900/50 rounded-lg p-4 space-y-2 border border-slate-700">
-                      <div className="flex items-center justify-between">
-                        <span className="text-gray-500">الحالة:</span>
-                        <Badge className={bannerForm.is_enabled ? 'bg-green-600' : 'bg-slate-600'}>
-                          {bannerForm.is_enabled ? 'مفعّل' : 'معطّل'}
-                        </Badge>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-gray-500">العنوان:</span>
-                        <span className="text-gray-900 text-sm">{promotionalBanner.title || '-'}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-gray-500">نسبة الخصم:</span>
-                        <span className="text-gray-900 font-semibold">{promotionalBanner.discount_percentage}%</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-gray-500">تاريخ الانتهاء:</span>
-                        <span className="text-gray-900 text-sm">
-                          {promotionalBanner.expiration_date
-                            ? format(new Date(promotionalBanner.expiration_date), 'yyyy-MM-dd', { locale: ar })
-                            : '-'}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-gray-500">رابط الزر:</span>
-                        <span className="text-gray-900 text-sm">{promotionalBanner.cta_link || '/subscribe'}</span>
+                  {/* Black Friday Banner Theme */}
+                  <div className="border border-gray-200 rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-semibold text-gray-900">عروض الجمعة البيضاء</h3>
+                      <div className="flex items-center gap-3">
+                        <Label htmlFor="blackfriday-banner-toggle" className="text-gray-900 cursor-pointer text-sm">
+                          {blackfridayBannerForm.is_enabled ? 'مفعّل' : 'معطّل'}
+                        </Label>
+                        <Switch
+                          id="blackfriday-banner-toggle"
+                          checked={blackfridayBannerForm.is_enabled}
+                          onCheckedChange={(enabled) => handleToggleBanner('blackfriday', enabled)}
+                          disabled={bannerLoading}
+                        />
+                        <Button
+                          onClick={() => {
+                            setEditingBannerType('blackfriday');
+                            setBannerDialogOpen(true);
+                          }}
+                          variant="outline"
+                          size="sm"
+                          className="border-gray-300 text-gray-600 hover:bg-gray-100"
+                        >
+                          <Edit className="h-4 w-4 ml-2" />
+                          تعديل
+                        </Button>
                       </div>
                     </div>
-                  )}
+                    {blackfridayBanner && (
+                      <div className="bg-slate-50 rounded-lg p-3 space-y-2 text-sm">
+                        <div className="flex items-center justify-between">
+                          <span className="text-gray-600">العنوان:</span>
+                          <span className="text-gray-900 font-medium">{blackfridayBanner.title || '-'}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-gray-600">نسبة الخصم:</span>
+                          <span className="text-gray-900 font-semibold">{blackfridayBanner.discount_percentage}%</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-gray-600">تاريخ الانتهاء:</span>
+                          <span className="text-gray-900">
+                            {blackfridayBanner.expiration_date
+                              ? format(new Date(blackfridayBanner.expiration_date), 'yyyy-MM-dd', { locale: ar })
+                              : '-'}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </CardContent>
@@ -1028,86 +1151,110 @@ export default function AdminPromoCodesPage() {
           <Dialog open={bannerDialogOpen} onOpenChange={setBannerDialogOpen}>
             <DialogContent className="bg-white border-gray-200 text-gray-900 max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle className="text-2xl">تعديل البانر الترويجي</DialogTitle>
+                <DialogTitle className="text-2xl">
+                  تعديل {editingBannerType === 'default' ? 'البانر الافتراضي' : 'بانر الجمعة البيضاء'}
+                </DialogTitle>
                 <DialogDescription className="text-gray-600">
                   قم بتعديل إعدادات البانر الترويجي المعروض على الصفحة الرئيسية
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-4">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="banner-enabled" className="text-gray-900">
-                    تفعيل البانر
-                  </Label>
-                  <Switch
-                    id="banner-enabled"
-                    checked={bannerForm.is_enabled}
-                    onCheckedChange={(checked) => setBannerForm({ ...bannerForm, is_enabled: checked })}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="banner-title">العنوان *</Label>
-                  <Input
-                    id="banner-title"
-                    value={bannerForm.title}
-                    onChange={(e) => setBannerForm({ ...bannerForm, title: e.target.value })}
-                    className="bg-slate-700 border-slate-600 text-white mt-1"
-                    placeholder="خصم 20% بمناسبة افتتاح المنصة 🎉"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="banner-subtitle">الوصف *</Label>
-                  <Textarea
-                    id="banner-subtitle"
-                    value={bannerForm.subtitle}
-                    onChange={(e) => setBannerForm({ ...bannerForm, subtitle: e.target.value })}
-                    className="bg-slate-700 border-slate-600 text-white mt-1"
-                    placeholder="خصم 20% على جميع المنتجات بمناسبة افتتاح المنصة استخدم كود 20A على جميع المنتجات"
-                    rows={3}
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="banner-discount">نسبة الخصم (%) *</Label>
-                    <Input
-                      id="banner-discount"
-                      type="number"
-                      min="0"
-                      max="100"
-                      value={bannerForm.discount_percentage}
-                      onChange={(e) => setBannerForm({ ...bannerForm, discount_percentage: parseInt(e.target.value) || 0 })}
-                      className="bg-slate-700 border-slate-600 text-white mt-1"
-                      placeholder="20"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="banner-expiration">تاريخ الانتهاء *</Label>
-                    <Input
-                      id="banner-expiration"
-                      type="date"
-                      value={bannerForm.expiration_date}
-                      onChange={(e) => setBannerForm({ ...bannerForm, expiration_date: e.target.value })}
-                      className="bg-slate-700 border-slate-600 text-white mt-1"
-                      min={new Date().toISOString().split('T')[0]}
-                    />
-                  </div>
-                </div>
-                <div>
-                  <Label htmlFor="banner-cta-link">رابط الزر (CTA)</Label>
-                  <Input
-                    id="banner-cta-link"
-                    value={bannerForm.cta_link}
-                    onChange={(e) => setBannerForm({ ...bannerForm, cta_link: e.target.value })}
-                    className="bg-slate-700 border-slate-600 text-white mt-1"
-                    placeholder="/subscribe"
-                  />
-                  <p className="text-xs text-slate-400 mt-1">مثال: /subscribe أو /browse</p>
-                </div>
+                {(() => {
+                  const bannerForm = editingBannerType === 'default' ? defaultBannerForm : blackfridayBannerForm;
+                  const setBannerForm = editingBannerType === 'default' ? setDefaultBannerForm : setBlackfridayBannerForm;
+                  
+                  return (
+                    <>
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="banner-enabled" className="text-gray-900">
+                          تفعيل البانر
+                        </Label>
+                        <Switch
+                          id="banner-enabled"
+                          checked={bannerForm.is_enabled}
+                          onCheckedChange={(checked) => setBannerForm({ ...bannerForm, is_enabled: checked })}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="banner-title">العنوان *</Label>
+                        <Input
+                          id="banner-title"
+                          value={bannerForm.title}
+                          onChange={(e) => setBannerForm({ ...bannerForm, title: e.target.value })}
+                          className="bg-white border-gray-300 text-gray-900 mt-1"
+                          placeholder={editingBannerType === 'default' ? 'خصم 20% بمناسبة افتتاح المنصة 🎉' : 'عروض الجمعة البيضاء'}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="banner-subtitle">الوصف *</Label>
+                        <Textarea
+                          id="banner-subtitle"
+                          value={bannerForm.subtitle}
+                          onChange={(e) => setBannerForm({ ...bannerForm, subtitle: e.target.value })}
+                          className="bg-white border-gray-300 text-gray-900 mt-1"
+                          placeholder={editingBannerType === 'default' ? 'خصم 20% على جميع المنتجات بمناسبة افتتاح المنصة استخدم كود 20A على جميع المنتجات' : 'خصومات حصرية على جميع المنتجات'}
+                          rows={3}
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="banner-discount">نسبة الخصم (%) *</Label>
+                          <Input
+                            id="banner-discount"
+                            type="number"
+                            min="0"
+                            max="100"
+                            value={bannerForm.discount_percentage}
+                            onChange={(e) => setBannerForm({ ...bannerForm, discount_percentage: parseInt(e.target.value) || 0 })}
+                            className="bg-white border-gray-300 text-gray-900 mt-1"
+                            placeholder="20"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="banner-expiration">تاريخ الانتهاء *</Label>
+                          <Input
+                            id="banner-expiration"
+                            type="date"
+                            value={bannerForm.expiration_date}
+                            onChange={(e) => setBannerForm({ ...bannerForm, expiration_date: e.target.value })}
+                            className="bg-white border-gray-300 text-gray-900 mt-1"
+                            min={new Date().toISOString().split('T')[0]}
+                          />
+                        </div>
+                      </div>
+                      {editingBannerType === 'blackfriday' && (
+                        <div>
+                          <Label htmlFor="banner-image-url">رابط الصورة *</Label>
+                          <Input
+                            id="banner-image-url"
+                            value={bannerForm.banner_image_url}
+                            onChange={(e) => setBannerForm({ ...bannerForm, banner_image_url: e.target.value })}
+                            className="bg-white border-gray-300 text-gray-900 mt-1"
+                            placeholder="https://l.top4top.io/p_3608w917h1.png"
+                          />
+                          <p className="text-xs text-gray-500 mt-1">رابط الصورة التي ستظهر في البانر</p>
+                        </div>
+                      )}
+                      <div>
+                        <Label htmlFor="banner-cta-link">رابط الزر (CTA)</Label>
+                        <Input
+                          id="banner-cta-link"
+                          value={bannerForm.cta_link}
+                          onChange={(e) => setBannerForm({ ...bannerForm, cta_link: e.target.value })}
+                          className="bg-white border-gray-300 text-gray-900 mt-1"
+                          placeholder="/subscribe"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">مثال: /subscribe أو /browse</p>
+                      </div>
+                    </>
+                  );
+                })()}
               </div>
               <DialogFooter>
                 <Button
                   variant="outline"
                   onClick={() => setBannerDialogOpen(false)}
-                  className="border-slate-600 text-slate-300"
+                  className="border-gray-300 text-gray-600"
                   disabled={bannerLoading}
                 >
                   إلغاء

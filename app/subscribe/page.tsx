@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
@@ -34,12 +34,24 @@ const iconMap: { [key: string]: any } = {
 
 export default function SubscribePage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { addItem } = useCart();
   const [productsByCategory, setProductsByCategory] = useState<{ [key: string]: any[] }>({});
   const [categoryTitles, setCategoryTitles] = useState<{ [key: string]: string }>({});
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<User | null>(null);
   const [authDialogOpen, setAuthDialogOpen] = useState(false);
+  const [promotionalBanner, setPromotionalBanner] = useState<{
+    id: string;
+    title: string;
+    subtitle: string;
+    discount_percentage: number;
+    expiration_date: string;
+    cta_link: string;
+    banner_type?: 'default' | 'blackfriday';
+    banner_image_url?: string;
+  } | null>(null);
+  const [countdown, setCountdown] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
   
   // Check user authentication
   useEffect(() => {
@@ -131,6 +143,77 @@ export default function SubscribePage() {
 
     fetchProducts();
   }, []);
+
+  // Fetch promotional banner
+  useEffect(() => {
+    const fetchBanner = async () => {
+      try {
+        const response = await fetch('/api/promotional-banner');
+        const result = await response.json();
+        if (result.banner) {
+          setPromotionalBanner(result.banner);
+        }
+      } catch (error) {
+        console.error('Error fetching promotional banner:', error);
+      }
+    };
+    
+    fetchBanner();
+  }, []);
+  
+  // Countdown timer for promotion
+  useEffect(() => {
+    if (!promotionalBanner) return;
+    
+    const targetDate = new Date(promotionalBanner.expiration_date).getTime();
+    
+    const updateCountdown = () => {
+      const now = new Date().getTime();
+      const distance = targetDate - now;
+      
+      if (distance < 0) {
+        setCountdown({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+        return;
+      }
+      
+      setCountdown({
+        days: Math.floor(distance / (1000 * 60 * 60 * 24)),
+        hours: Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
+        minutes: Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60)),
+        seconds: Math.floor((distance % (1000 * 60)) / 1000),
+      });
+    };
+    
+    updateCountdown();
+    const interval = setInterval(updateCountdown, 1000);
+    
+    return () => clearInterval(interval);
+  }, [promotionalBanner]);
+
+  // Scroll to Netflix category when scrollTo=netflix parameter is present
+  useEffect(() => {
+    const scrollTo = searchParams.get('scrollTo');
+    if (scrollTo === 'netflix' && !loading && Object.keys(productsByCategory).length > 0) {
+      // Find the Netflix category by checking category titles
+      const netflixCategoryId = Object.keys(productsByCategory).find((categoryId) => {
+        const title = categoryTitles[categoryId] || '';
+        const titleLower = title.toLowerCase();
+        return titleLower.includes('نت') && (titleLower.includes('flix') || titleLower.includes('فليكس')) || titleLower.includes('netflix');
+      });
+
+      if (netflixCategoryId) {
+        // Wait a bit for the page to render, then scroll
+        setTimeout(() => {
+          const element = document.getElementById(`category-${netflixCategoryId}`);
+          if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            // Remove the query parameter from URL after scrolling
+            router.replace('/subscribe', { scroll: false });
+          }
+        }, 500);
+      }
+    }
+  }, [searchParams, loading, productsByCategory, categoryTitles, router]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
@@ -306,6 +389,8 @@ export default function SubscribePage() {
               
               if (!category || category.length === 0) return null;
               
+              const isBlackFridayActive = promotionalBanner?.banner_type === 'blackfriday';
+              
               return (
                 <div key={categoryId} id={`category-${categoryId}`} className="mb-20 scroll-mt-20">
                   {/* Category Header */}
@@ -340,13 +425,15 @@ export default function SubscribePage() {
                             {/* Gradient overlay */}
                             <div className={`absolute inset-0 bg-gradient-to-br ${product.gradient} opacity-0 group-hover:opacity-15 transition-opacity duration-300 pointer-events-none`} />
                             
-                            {/* Badge */}
-                            <div className="absolute top-4 right-4 z-10">
-                              <span className={`${product.badgeColor} text-white text-xs md:text-sm font-bold px-4 py-2 rounded-full shadow-lg`}>
-                                {product.duration}
-                              </span>
-                            </div>
-
+                            {/* Black Friday Badge */}
+                            {isBlackFridayActive && promotionalBanner && (
+                              <div className="absolute top-2 left-0 z-20 transform -rotate-12 origin-left">
+                                <div className="bg-gradient-to-r from-red-600 to-red-700 text-white px-4 py-1.5 shadow-lg rounded-md">
+                                  <span className="text-xs md:text-sm font-bold whitespace-nowrap">{promotionalBanner.title}</span>
+                                </div>
+                              </div>
+                            )}
+                            
                             {/* Package Header with Logos - Clickable Link */}
                             <Link href={`/subscribe/${product.code}`} className="block cursor-pointer">
                               <div className={`relative h-48 md:h-64 w-full overflow-hidden ${product.code === 'SUB-PACKAGE-LEGENDARY' ? 'bg-gradient-to-br from-slate-700 to-slate-800' : `bg-gradient-to-br ${product.gradient}`} p-6 md:p-8`}>
@@ -471,13 +558,15 @@ export default function SubscribePage() {
                           {/* Gradient overlay */}
                           <div className={`absolute inset-0 bg-gradient-to-br ${product.gradient} opacity-0 group-hover:opacity-10 transition-opacity duration-300 pointer-events-none`} />
                           
-                          {/* Badge */}
-                          <div className="absolute top-2 right-2 z-10">
-                            <span className={`${product.badgeColor} text-white text-[10px] md:text-xs font-bold px-2 py-0.5 md:px-3 md:py-1 rounded-full shadow-lg`}>
-                              {product.duration}
-                            </span>
-                          </div>
-
+                          {/* Black Friday Badge */}
+                          {isBlackFridayActive && promotionalBanner && (
+                            <div className="absolute top-2 left-0 z-20 transform -rotate-12 origin-left">
+                              <div className="bg-gradient-to-r from-red-600 to-red-700 text-white px-3 py-1 shadow-lg rounded-md">
+                                <span className="text-[10px] md:text-xs font-bold whitespace-nowrap">{promotionalBanner.title}</span>
+                              </div>
+                            </div>
+                          )}
+                          
                           {/* Product Image - Clickable Link */}
                           <Link href={`/subscribe/${product.code}`} className="block">
                             <div className="relative h-32 md:h-48 w-full overflow-hidden bg-gradient-to-br from-slate-700 to-slate-800 cursor-pointer">

@@ -9,15 +9,35 @@ export async function GET() {
   try {
     const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-    // Fetch the enabled banner that hasn't expired
-    const { data, error } = await supabase
+    // Fetch the enabled banner that hasn't expired (prioritize blackfriday, then default)
+    // First try to get blackfriday banner
+    let { data, error } = await supabase
       .from('promotional_banners')
       .select('*')
       .eq('is_enabled', true)
+      .eq('banner_type', 'blackfriday')
       .gt('expiration_date', new Date().toISOString())
       .order('created_at', { ascending: false })
       .limit(1)
-      .single();
+      .maybeSingle();
+
+    // If no blackfriday banner, try default
+    if (!data || error) {
+      const defaultResult = await supabase
+        .from('promotional_banners')
+        .select('*')
+        .eq('is_enabled', true)
+        .eq('banner_type', 'default')
+        .gt('expiration_date', new Date().toISOString())
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      
+      if (defaultResult.data) {
+        data = defaultResult.data;
+        error = defaultResult.error;
+      }
+    }
 
     if (error) {
       // If no banner found, return null (not an error)

@@ -60,10 +60,23 @@ export async function GET(request: NextRequest) {
 
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
     
-    // Fetch the most recent banner (enabled or disabled)
+    // Get banner type from query params
+    const { searchParams } = new URL(request.url);
+    const bannerType = searchParams.get('type') || 'default';
+    
+    // Validate banner type
+    if (bannerType !== 'default' && bannerType !== 'blackfriday') {
+      return NextResponse.json(
+        { error: 'نوع البانر غير صحيح' },
+        { status: 400 }
+      );
+    }
+    
+    // Fetch the most recent banner of the specified type (enabled or disabled)
     const { data, error } = await supabaseAdmin
       .from('promotional_banners')
       .select('*')
+      .eq('banner_type', bannerType)
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -112,6 +125,17 @@ export async function PUT(request: NextRequest) {
     const body = await request.json();
     const { id, ...updates } = body;
 
+    // Get banner type, default to 'default' if not provided
+    const bannerType = updates.banner_type || 'default';
+    
+    // Validate banner type
+    if (bannerType !== 'default' && bannerType !== 'blackfriday') {
+      return NextResponse.json(
+        { error: 'نوع البانر غير صحيح' },
+        { status: 400 }
+      );
+    }
+
     // Validate required fields if enabling
     if (updates.is_enabled) {
       if (!updates.title || !updates.subtitle) {
@@ -140,25 +164,35 @@ export async function PUT(request: NextRequest) {
           { status: 400 }
         );
       }
+      // For blackfriday, validate image URL
+      if (bannerType === 'blackfriday' && !updates.banner_image_url) {
+        return NextResponse.json(
+          { error: 'رابط الصورة مطلوب لبانر الجمعة البيضاء' },
+          { status: 400 }
+        );
+      }
     }
 
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
-    // If enabling a banner, disable all other banners first
+    // If enabling a banner, disable the other type's enabled banner first
     if (updates.is_enabled) {
+      const otherType = bannerType === 'default' ? 'blackfriday' : 'default';
       const { error: disableError } = await supabaseAdmin
         .from('promotional_banners')
         .update({ is_enabled: false })
-        .neq('id', id || '00000000-0000-0000-0000-000000000000'); // Exclude current banner if updating
+        .eq('banner_type', otherType)
+        .eq('is_enabled', true);
 
       if (disableError) {
-        console.error('Error disabling other banners:', disableError);
+        console.error('Error disabling other banner type:', disableError);
         // Continue anyway - the unique constraint will handle it
       }
     }
 
     // Prepare update data
     const bannerData: any = {
+      banner_type: bannerType,
       title: updates.title || '',
       subtitle: updates.subtitle || '',
       discount_percentage: updates.discount_percentage || 0,
@@ -167,6 +201,11 @@ export async function PUT(request: NextRequest) {
       is_enabled: updates.is_enabled || false,
       updated_at: new Date().toISOString(),
     };
+
+    // Add banner_image_url for blackfriday type
+    if (bannerType === 'blackfriday') {
+      bannerData.banner_image_url = updates.banner_image_url || null;
+    }
 
     let result;
 
@@ -214,11 +253,14 @@ export async function PUT(request: NextRequest) {
       }
     } else {
       // Create new banner
-      // First, disable all existing banners if enabling this one
+      // First, disable the other type's enabled banner if enabling this one
       if (bannerData.is_enabled) {
+        const otherType = bannerType === 'default' ? 'blackfriday' : 'default';
         await supabaseAdmin
           .from('promotional_banners')
-          .update({ is_enabled: false });
+          .update({ is_enabled: false })
+          .eq('banner_type', otherType)
+          .eq('is_enabled', true);
       }
 
       const { data, error } = await supabaseAdmin
@@ -230,10 +272,11 @@ export async function PUT(request: NextRequest) {
       if (error) {
         console.error('Error creating promotional banner:', error);
         if (error.code === '23505') {
-          // Unique constraint violation - try to update existing enabled banner
+          // Unique constraint violation - try to update existing enabled banner of same type
           const { data: existingBanner } = await supabaseAdmin
             .from('promotional_banners')
             .select('id')
+            .eq('banner_type', bannerType)
             .eq('is_enabled', true)
             .limit(1)
             .single();
