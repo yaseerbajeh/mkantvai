@@ -314,7 +314,7 @@ export default function AdminPromoCodesPage() {
         });
         return;
       }
-      if (editingBannerType === 'blackfriday' && !bannerForm.banner_image_url) {
+      if (editingBannerType === 'blackfriday' && !blackfridayBannerForm.banner_image_url) {
         toast({
           title: 'خطأ',
           description: 'يرجى إدخال رابط الصورة',
