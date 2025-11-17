@@ -1172,7 +1172,9 @@ export default function AdminPromoCodesPage() {
                         <Switch
                           id="banner-enabled"
                           checked={bannerForm.is_enabled}
-                          onCheckedChange={(checked) => setBannerForm({ ...bannerForm, is_enabled: checked })}
+                          onCheckedChange={(checked) =>
+                            setBannerForm((prev: typeof bannerForm) => ({ ...prev, is_enabled: checked }))
+                          }
                         />
                       </div>
                       <div>
@@ -1180,7 +1182,9 @@ export default function AdminPromoCodesPage() {
                         <Input
                           id="banner-title"
                           value={bannerForm.title}
-                          onChange={(e) => setBannerForm({ ...bannerForm, title: e.target.value })}
+                          onChange={(e) =>
+                            setBannerForm((prev: typeof bannerForm) => ({ ...prev, title: e.target.value }))
+                          }
                           className="bg-white border-gray-300 text-gray-900 mt-1"
                           placeholder={editingBannerType === 'default' ? 'خصم 20% بمناسبة افتتاح المنصة 🎉' : 'عروض الجمعة البيضاء'}
                         />
@@ -1190,7 +1194,9 @@ export default function AdminPromoCodesPage() {
                         <Textarea
                           id="banner-subtitle"
                           value={bannerForm.subtitle}
-                          onChange={(e) => setBannerForm({ ...bannerForm, subtitle: e.target.value })}
+                          onChange={(e) =>
+                            setBannerForm((prev: typeof bannerForm) => ({ ...prev, subtitle: e.target.value }))
+                          }
                           className="bg-white border-gray-300 text-gray-900 mt-1"
                           placeholder={editingBannerType === 'default' ? 'خصم 20% على جميع المنتجات بمناسبة افتتاح المنصة استخدم كود 20A على جميع المنتجات' : 'خصومات حصرية على جميع المنتجات'}
                           rows={3}
@@ -1205,7 +1211,12 @@ export default function AdminPromoCodesPage() {
                             min="0"
                             max="100"
                             value={bannerForm.discount_percentage}
-                            onChange={(e) => setBannerForm({ ...bannerForm, discount_percentage: parseInt(e.target.value) || 0 })}
+                            onChange={(e) =>
+                              setBannerForm((prev: typeof bannerForm) => ({
+                                ...prev,
+                                discount_percentage: parseInt(e.target.value) || 0,
+                              }))
+                            }
                             className="bg-white border-gray-300 text-gray-900 mt-1"
                             placeholder="20"
                           />
@@ -1216,7 +1227,9 @@ export default function AdminPromoCodesPage() {
                             id="banner-expiration"
                             type="date"
                             value={bannerForm.expiration_date}
-                            onChange={(e) => setBannerForm({ ...bannerForm, expiration_date: e.target.value })}
+                            onChange={(e) =>
+                              setBannerForm((prev: typeof bannerForm) => ({ ...prev, expiration_date: e.target.value }))
+                            }
                             className="bg-white border-gray-300 text-gray-900 mt-1"
                             min={new Date().toISOString().split('T')[0]}
                           />
@@ -1228,7 +1241,12 @@ export default function AdminPromoCodesPage() {
                           <Input
                             id="banner-image-url"
                             value={bannerForm.banner_image_url}
-                            onChange={(e) => setBannerForm({ ...bannerForm, banner_image_url: e.target.value })}
+                            onChange={(e) =>
+                              setBannerForm((prev: typeof bannerForm) => ({
+                                ...prev,
+                                banner_image_url: e.target.value,
+                              }))
+                            }
                             className="bg-white border-gray-300 text-gray-900 mt-1"
                             placeholder="https://l.top4top.io/p_3608w917h1.png"
                           />
@@ -1240,7 +1258,9 @@ export default function AdminPromoCodesPage() {
                         <Input
                           id="banner-cta-link"
                           value={bannerForm.cta_link}
-                          onChange={(e) => setBannerForm({ ...bannerForm, cta_link: e.target.value })}
+                          onChange={(e) =>
+                            setBannerForm((prev: typeof bannerForm) => ({ ...prev, cta_link: e.target.value }))
+                          }
                           className="bg-white border-gray-300 text-gray-900 mt-1"
                           placeholder="/subscribe"
                         />
