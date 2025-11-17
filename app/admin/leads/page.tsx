@@ -1,13 +1,11 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Dialog,
   DialogContent,
@@ -16,23 +14,41 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import Header from '@/components/Header';
-import Footer from '@/components/Footer';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/lib/supabase';
-import LeadCard from '@/components/leads/LeadCard';
 import { 
   Loader2, 
   Search,
   Plus,
-  ShoppingCart,
-  UserPlus,
+  Mail,
   MessageCircle,
-  CheckCircle2,
-  XCircle,
-  X,
+  Edit,
+  Trash2,
+  EyeOff,
+  Eye,
+  Phone,
 } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
+import {
+  DndContext,
+  DragOverlay,
+  closestCorners,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragStartEvent,
+  DragEndEvent,
+  useDroppable,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 interface Product {
   id?: string;
@@ -57,14 +73,27 @@ interface Lead {
   products: Product[];
   total_amount: number;
   comments: Comment[];
-  status: 'new' | 'contacted' | 'converted' | 'lost' | 'non_converted';
+  status: 'new' | 'contacted' | 'client thinking about it' | 'converted' | 'lost' | 'non_converted';
   importance?: 'low' | 'medium' | 'high' | 'urgent';
   reminder_date?: string;
   converted_at?: string;
   non_converted_at?: string;
   source_reference_id?: string;
+  notes?: string;
   created_at: string;
   updated_at: string;
+}
+
+interface ExpiredSubscription {
+  id: string;
+  customer_name: string;
+  customer_email: string;
+  customer_phone: string | null;
+  subscription_type: string;
+  subscription_code: string;
+  start_date: string;
+  expiration_date: string;
+  expired_at: string;
 }
 
 interface ProductOption {
@@ -74,15 +103,260 @@ interface ProductOption {
   price: number;
 }
 
+type TabType = 'pipeline' | 'subscriptions' | 'unconverted';
+
+const COLUMNS = [
+  { id: 'new', status: 'new' as const, title: 'New Lead' },
+  { id: 'contacted', status: 'contacted' as const, title: 'Contacted' },
+  { id: 'in_progress', status: 'client thinking about it' as const, title: 'In Progress' },
+  { id: 'closed', status: 'converted' as const, title: 'Closed' },
+];
+
+function DroppableColumn({ id, children }: { id: string; children: React.ReactNode }) {
+  const { setNodeRef, isOver } = useDroppable({ id });
+  
+  return (
+    <div
+      ref={setNodeRef}
+      className={`min-h-[200px] ${isOver ? 'bg-blue-50 dark:bg-blue-900/20 rounded-lg transition-colors' : ''}`}
+    >
+      {children}
+    </div>
+  );
+}
+
+function LeadCard({ 
+  lead, 
+  onUpdateNotes,
+  onDelete,
+  onEdit,
+  onHide,
+  onContactEmail,
+  onContactWhatsApp,
+}: {
+  lead: Lead;
+  onUpdateNotes: (leadId: string, notes: string) => void;
+  onDelete: (leadId: string) => void;
+  onEdit: (lead: Lead) => void;
+  onHide: (leadId: string) => void;
+  onContactEmail: (email: string) => void;
+  onContactWhatsApp: (whatsapp: string) => void;
+}) {
+  const [notes, setNotes] = useState(lead.notes || '');
+  const [isEditingNotes, setIsEditingNotes] = useState(false);
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: lead.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  const handleNotesBlur = () => {
+    if (notes !== (lead.notes || '')) {
+      onUpdateNotes(lead.id, notes);
+    }
+    setIsEditingNotes(false);
+  };
+
+  const getSourceLabel = () => {
+    if (lead.source === 'abandoned_cart') return 'Abandoned Cart Lead';
+    if (lead.source === 'whatsapp') return 'WhatsApp Lead';
+    return 'Manual Lead';
+  };
+
+  const getImportanceBadge = () => {
+    const importance = lead.importance || 'medium';
+    const badges: Record<string, { label: string; className: string }> = {
+      high: { label: 'High', className: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300' },
+      medium: { label: 'Medium', className: 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300' },
+      low: { label: 'Low', className: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' },
+      urgent: { label: 'High', className: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300' },
+    };
+    const badge = badges[importance] || badges.medium;
+    
+    if (lead.status === 'converted') {
+      return { label: 'Won', className: 'bg-gray-100 text-gray-700 dark:bg-gray-700/40 dark:text-gray-300' };
+    }
+    
+    return badge;
+  };
+
+  const badge = getImportanceBadge();
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="bg-white dark:bg-background-dark border-b border-[#E9ECEF] dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50"
+    >
+      <div className="py-2 px-4">
+        <div
+          {...attributes}
+          {...listeners}
+          className="cursor-grab active:cursor-grabbing"
+          style={{ touchAction: 'none' }}
+          onMouseDown={(e) => {
+            // Only start drag if clicking on the content area, not buttons
+            const target = e.target as HTMLElement;
+            if (target.closest('button') || target.closest('svg') || target.closest('textarea')) {
+              e.stopPropagation();
+              return;
+            }
+          }}
+        >
+          <div className="flex items-center gap-2 mb-1">
+            <p className="text-gray-800 dark:text-gray-100 text-sm font-medium leading-normal w-[40%] truncate">
+              {lead.name}
+            </p>
+            <p className="text-gray-500 dark:text-gray-400 text-[10px] font-normal leading-normal w-[30%] truncate">
+              {getSourceLabel()}
+            </p>
+            <p className="text-gray-500 dark:text-gray-400 text-xs font-normal leading-normal w-[15%] truncate">
+              ${lead.total_amount.toLocaleString()}
+            </p>
+            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full w-[15%] text-center flex-shrink-0 ${badge.className}`}>
+              {badge.label}
+            </span>
+          </div>
+        </div>
+        {/* Buttons row under the name */}
+        <div className="flex items-center gap-1 mt-1.5" onMouseDown={(e) => e.stopPropagation()}>
+          <button
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              if (lead.email) {
+                onContactEmail(lead.email);
+              }
+            }}
+            onMouseDown={(e) => e.stopPropagation()}
+            disabled={!lead.email}
+            className={`p-1 rounded-full transition-colors ${
+              lead.email
+                ? 'text-gray-500 dark:text-gray-400 hover:text-primary dark:hover:text-primary hover:bg-gray-100 dark:hover:bg-gray-700'
+                : 'text-gray-300 dark:text-gray-600 cursor-not-allowed opacity-50'
+            }`}
+            title={lead.email ? "Contact via Email" : "No email available"}
+          >
+            <Mail className="h-4 w-4" />
+          </button>
+          <button
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              if (lead.whatsapp) {
+                onContactWhatsApp(lead.whatsapp);
+              }
+            }}
+            onMouseDown={(e) => e.stopPropagation()}
+            disabled={!lead.whatsapp}
+            className={`p-1 rounded-full transition-colors ${
+              lead.whatsapp
+                ? 'text-gray-500 dark:text-gray-400 hover:text-green-600 hover:bg-gray-100 dark:hover:bg-gray-700'
+                : 'text-gray-300 dark:text-gray-600 cursor-not-allowed opacity-50'
+            }`}
+            title={lead.whatsapp ? "Contact via WhatsApp" : "No WhatsApp available"}
+          >
+            <MessageCircle className="h-4 w-4" />
+          </button>
+          <button
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onEdit(lead);
+            }}
+            onMouseDown={(e) => e.stopPropagation()}
+            className="text-gray-500 dark:text-gray-400 hover:text-primary dark:hover:text-primary p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
+            title="Edit lead"
+          >
+            <Edit className="h-4 w-4" />
+          </button>
+          <button
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onHide(lead.id);
+            }}
+            onMouseDown={(e) => e.stopPropagation()}
+            className="text-gray-500 dark:text-gray-400 hover:text-orange-600 p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
+            title="Hide lead"
+          >
+            <EyeOff className="h-4 w-4" />
+          </button>
+          <button
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onDelete(lead.id);
+            }}
+            onMouseDown={(e) => e.stopPropagation()}
+            className="text-gray-500 dark:text-gray-400 hover:text-red-600 p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
+            title="Delete lead"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+      {/* Notes section - always visible below the card */}
+      <div className="w-full px-4 pb-2">
+        {isEditingNotes ? (
+          <Textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            onBlur={handleNotesBlur}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && e.ctrlKey) {
+                handleNotesBlur();
+              }
+            }}
+            placeholder="Add notes..."
+            className="text-xs min-h-[50px] bg-[#F8F9FA] dark:bg-gray-800/50 text-gray-800 dark:text-gray-100"
+            autoFocus
+          />
+        ) : (
+          <div
+            onClick={() => setIsEditingNotes(true)}
+            className="text-xs text-gray-500 dark:text-gray-400 cursor-text min-h-[20px] p-1 hover:bg-gray-50 dark:hover:bg-gray-800/50 rounded"
+          >
+            {notes || 'Click to add notes...'}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function CRMLeadsPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [leads, setLeads] = useState<Lead[]>([]);
+  const [expiredSubscriptions, setExpiredSubscriptions] = useState<ExpiredSubscription[]>([]);
   const [products, setProducts] = useState<ProductOption[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState('all');
+  const [activeTab, setActiveTab] = useState<TabType | string>('pipeline');
+  const [activeLead, setActiveLead] = useState<Lead | null>(null);
+  const [draggedLead, setDraggedLead] = useState<Lead | null>(null);
+  
+  // Subscription edit/delete state
+  const [editingSubscription, setEditingSubscription] = useState<ExpiredSubscription | null>(null);
+  const [subscriptionEditDialogOpen, setSubscriptionEditDialogOpen] = useState(false);
+  const [subscriptionEditForm, setSubscriptionEditForm] = useState({
+    customer_name: '',
+    customer_email: '',
+    customer_phone: '',
+    subscription_type: '',
+  });
+  const [deletingSubscriptionId, setDeletingSubscriptionId] = useState<string | null>(null);
   
   // Manual lead creation dialog
   const [manualLeadDialogOpen, setManualLeadDialogOpen] = useState(false);
@@ -100,6 +374,17 @@ export default function CRMLeadsPage() {
     product: null,
     quantity: 1,
   });
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -121,7 +406,7 @@ export default function CRMLeadsPage() {
         }
 
         setUser(session.user);
-        await Promise.all([fetchLeads(), fetchProducts()]);
+        await Promise.all([fetchLeads(), fetchProducts(), fetchExpiredSubscriptions()]);
       } catch (error: any) {
         console.error('Auth check error:', error);
         toast({
@@ -150,19 +435,7 @@ export default function CRMLeadsPage() {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        const errorMessage = errorData.error || 'فشل جلب العملاء المحتملين';
-        const errorDetails = errorData.details || '';
-        
-        if (errorMessage.includes('غير موجود') || errorMessage.includes('does not exist')) {
-          toast({
-            title: 'خطأ في قاعدة البيانات',
-            description: errorMessage + (errorDetails ? `\n${errorDetails}` : ''),
-            variant: 'destructive',
-          });
-        } else {
-          throw new Error(errorMessage);
-        }
-        return;
+        throw new Error(errorData.error || 'فشل جلب العملاء المحتملين');
       }
 
       const { leads: fetchedLeads } = await response.json();
@@ -174,6 +447,28 @@ export default function CRMLeadsPage() {
         description: error.message || 'حدث خطأ أثناء جلب العملاء المحتملين',
         variant: 'destructive',
       });
+    }
+  };
+
+  const fetchExpiredSubscriptions = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const response = await fetch('/api/admin/subscriptions/expired', {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('فشل جلب الاشتراكات المنتهية');
+      }
+
+      const { subscriptions } = await response.json();
+      setExpiredSubscriptions(subscriptions || []);
+    } catch (error: any) {
+      console.error('Fetch expired subscriptions error:', error);
     }
   };
 
@@ -197,45 +492,42 @@ export default function CRMLeadsPage() {
     }
   };
 
-  const handleAddComment = async (leadId: string, comment: string) => {
+  const handleUpdateNotes = async (leadId: string, notes: string) => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         throw new Error('غير مصرح');
       }
 
-      const response = await fetch(`/api/admin/leads/${leadId}/comment`, {
-        method: 'POST',
+      const response = await fetch(`/api/admin/leads/${leadId}`, {
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ comment }),
+        body: JSON.stringify({ notes }),
       });
-
-      const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'حدث خطأ أثناء إضافة التعليق');
+        const data = await response.json();
+        throw new Error(data.error || 'حدث خطأ أثناء تحديث الملاحظات');
       }
-
-      toast({
-        title: 'نجح',
-        description: 'تم إضافة التعليق بنجاح',
-      });
 
       await fetchLeads();
     } catch (error: any) {
       toast({
         title: 'خطأ',
-        description: error.message || 'حدث خطأ أثناء إضافة التعليق',
+        description: error.message || 'حدث خطأ أثناء تحديث الملاحظات',
         variant: 'destructive',
       });
-      throw error;
     }
   };
 
   const handleDeleteLead = async (leadId: string) => {
+    if (!confirm('هل أنت متأكد من حذف هذا العميل المحتمل؟')) {
+      return;
+    }
+
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
@@ -269,6 +561,78 @@ export default function CRMLeadsPage() {
     }
   };
 
+  const handleHideLead = async (leadId: string) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('غير مصرح');
+      }
+
+      const response = await fetch(`/api/admin/leads/${leadId}/status`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ status: 'non_converted' }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'حدث خطأ أثناء إخفاء العميل المحتمل');
+      }
+
+      toast({
+        title: 'نجح',
+        description: 'تم نقل العميل إلى قائمة غير المحولين',
+      });
+
+      await fetchLeads();
+    } catch (error: any) {
+      toast({
+        title: 'خطأ',
+        description: error.message || 'حدث خطأ أثناء إخفاء العميل المحتمل',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleUnhideLead = async (leadId: string, originalStatus: string) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('غير مصرح');
+      }
+
+      const response = await fetch(`/api/admin/leads/${leadId}/status`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ status: originalStatus || 'new' }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'حدث خطأ أثناء إظهار العميل المحتمل');
+      }
+
+      toast({
+        title: 'نجح',
+        description: 'تم إظهار العميل المحتمل',
+      });
+
+      await fetchLeads();
+    } catch (error: any) {
+      toast({
+        title: 'خطأ',
+        description: error.message || 'حدث خطأ أثناء إظهار العميل المحتمل',
+        variant: 'destructive',
+      });
+    }
+  };
+
   const handleUpdateStatus = async (leadId: string, status: string) => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -285,16 +649,10 @@ export default function CRMLeadsPage() {
         body: JSON.stringify({ status }),
       });
 
-      const data = await response.json();
-
       if (!response.ok) {
+        const data = await response.json();
         throw new Error(data.error || 'حدث خطأ أثناء تحديث الحالة');
       }
-
-      toast({
-        title: 'نجح',
-        description: 'تم تحديث الحالة بنجاح',
-      });
 
       await fetchLeads();
     } catch (error: any) {
@@ -307,75 +665,162 @@ export default function CRMLeadsPage() {
     }
   };
 
-  const handleUpdateImportance = async (leadId: string, importance: string) => {
+  const handleDragStart = (event: DragStartEvent) => {
+    const { active } = event;
+    const lead = leads.find(l => l.id === active.id);
+    setDraggedLead(lead || null);
+  };
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    setDraggedLead(null);
+
+    if (!over) return;
+
+    const leadId = active.id as string;
+    const overId = over.id as string;
+
+    // Check if dropped on a column
+    const column = COLUMNS.find(col => col.id === overId);
+    if (column) {
+      const lead = leads.find(l => l.id === leadId);
+      if (!lead || lead.status === column.status) return;
+
+      try {
+        await handleUpdateStatus(leadId, column.status);
+      } catch (error) {
+        // Error already handled in handleUpdateStatus
+      }
+      return;
+    }
+
+    // Check if dropped on another lead (get its column)
+    const droppedOnLead = leads.find(l => l.id === overId);
+    if (droppedOnLead) {
+      // Find which column this lead belongs to
+      const targetColumn = COLUMNS.find(col => col.status === droppedOnLead.status);
+      if (targetColumn) {
+        const lead = leads.find(l => l.id === leadId);
+        if (!lead || lead.status === targetColumn.status) return;
+
+        try {
+          await handleUpdateStatus(leadId, targetColumn.status);
+        } catch (error) {
+          // Error already handled in handleUpdateStatus
+        }
+      }
+    }
+  };
+
+  const handleContactEmail = (email: string) => {
+    const subject = encodeURIComponent('Follow up on your inquiry');
+    const body = encodeURIComponent('Hello,\n\nI wanted to follow up on your recent inquiry. Please let me know if you have any questions.\n\nBest regards');
+    window.open(`mailto:${email}?subject=${subject}&body=${body}`, '_blank');
+  };
+
+  const handleContactWhatsApp = (whatsapp: string) => {
+    const cleanPhone = whatsapp.replace(/[^0-9]/g, '');
+    const message = encodeURIComponent('Hello, I wanted to follow up on your recent inquiry. Please let me know if you have any questions.');
+    window.open(`https://wa.me/${cleanPhone}?text=${message}`, '_blank');
+  };
+
+  const handleEditSubscription = (subscription: ExpiredSubscription) => {
+    setEditingSubscription(subscription);
+    setSubscriptionEditForm({
+      customer_name: subscription.customer_name,
+      customer_email: subscription.customer_email,
+      customer_phone: subscription.customer_phone || '',
+      subscription_type: subscription.subscription_type,
+    });
+    setSubscriptionEditDialogOpen(true);
+  };
+
+  const handleUpdateSubscription = async () => {
+    if (!editingSubscription) return;
+
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        throw new Error('غير مصرح');
-      }
+      if (!session) return;
 
-      const response = await fetch(`/api/admin/leads/${leadId}`, {
+      const response = await fetch(`/api/admin/subscriptions/expired/${editingSubscription.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ importance }),
+        body: JSON.stringify(subscriptionEditForm),
       });
-
-      const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'حدث خطأ أثناء تحديث الأهمية');
-      }
-
-      await fetchLeads();
-    } catch (error: any) {
-      toast({
-        title: 'خطأ',
-        description: error.message || 'حدث خطأ أثناء تحديث الأهمية',
-        variant: 'destructive',
-      });
-      throw error;
-    }
-  };
-
-  const handleUpdateReminder = async (leadId: string, reminderDate: string | null) => {
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        throw new Error('غير مصرح');
-      }
-
-      const response = await fetch(`/api/admin/leads/${leadId}/reminder`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({ reminder_date: reminderDate }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'حدث خطأ أثناء تحديث التذكير');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'فشل تحديث الاشتراك');
       }
 
       toast({
         title: 'نجح',
-        description: reminderDate ? 'تم تعيين التذكير بنجاح' : 'تم إلغاء التذكير',
+        description: 'تم تحديث الاشتراك بنجاح',
       });
 
-      await fetchLeads();
+      setSubscriptionEditDialogOpen(false);
+      setEditingSubscription(null);
+      await fetchExpiredSubscriptions();
     } catch (error: any) {
+      console.error('Update subscription error:', error);
       toast({
         title: 'خطأ',
-        description: error.message || 'حدث خطأ أثناء تحديث التذكير',
+        description: error.message || 'حدث خطأ أثناء تحديث الاشتراك',
         variant: 'destructive',
       });
-      throw error;
     }
+  };
+
+  const handleDeleteSubscription = async (subscriptionId: string) => {
+    if (!confirm('Are you sure you want to delete this subscription?')) {
+      return;
+    }
+
+    setDeletingSubscriptionId(subscriptionId);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const response = await fetch(`/api/admin/subscriptions/expired/${subscriptionId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'فشل حذف الاشتراك');
+      }
+
+      toast({
+        title: 'نجح',
+        description: 'تم حذف الاشتراك بنجاح',
+      });
+
+      await fetchExpiredSubscriptions();
+    } catch (error: any) {
+      console.error('Delete subscription error:', error);
+      toast({
+        title: 'خطأ',
+        description: error.message || 'حدث خطأ أثناء حذف الاشتراك',
+        variant: 'destructive',
+      });
+    } finally {
+      setDeletingSubscriptionId(null);
+    }
+  };
+
+  const handleEditLead = (lead: Lead) => {
+    setActiveLead(lead);
+    // Open edit dialog - you can implement this
+    toast({
+      title: 'تعديل',
+      description: 'ميزة التعديل قيد التطوير',
+    });
   };
 
   const handleAddProductToManualLead = () => {
@@ -479,43 +924,27 @@ export default function CRMLeadsPage() {
     }
   };
 
-  // Helper to check if lead is within 24 hours
-  const isWithin24Hours = (createdAt: string) => {
-    const createdDate = new Date(createdAt);
-    const now = new Date();
-    const hoursDiff = (now.getTime() - createdDate.getTime()) / (1000 * 60 * 60);
-    return hoursDiff <= 24;
-  };
-
-  // Helper to check if lead is considered "new" (status is new AND within 24 hours)
-  const isNewLead = (lead: Lead) => {
-    return lead.status === 'new' && isWithin24Hours(lead.created_at);
+  const getLeadsByStatus = (status: string, leadsToFilter: Lead[] = leads) => {
+    return leadsToFilter.filter(lead => {
+      if (status === 'new') return lead.status === 'new';
+      if (status === 'contacted') return lead.status === 'contacted';
+      if (status === 'client thinking about it') return lead.status === 'client thinking about it';
+      if (status === 'converted') return lead.status === 'converted';
+      return false;
+    });
   };
 
   const filteredLeads = useMemo(() => {
     let filtered = [...leads];
 
-    // Filter by tab
-    if (activeTab === 'abandoned_cart') {
-      filtered = filtered.filter(lead => lead.source === 'abandoned_cart');
-    } else if (activeTab === 'whatsapp') {
-      filtered = filtered.filter(lead => lead.source === 'whatsapp');
-    } else if (activeTab === 'manual') {
-      filtered = filtered.filter(lead => lead.source === 'manual');
-    } else if (activeTab === 'converted') {
-      filtered = filtered.filter(lead => lead.status === 'converted');
-    } else if (activeTab === 'non_converted') {
+    if (activeTab === 'unconverted') {
       filtered = filtered.filter(lead => lead.status === 'non_converted');
-    } else {
-      // For all other tabs (including 'all'), hide converted leads
-      // They can still be viewed in the 'converted' tab
-      filtered = filtered.filter(lead => lead.status !== 'converted');
+    } else if (activeTab === 'pipeline') {
+      filtered = filtered.filter(lead => 
+        ['new', 'contacted', 'client thinking about it', 'converted'].includes(lead.status)
+      );
     }
 
-    // For "new" status filtering, only show leads that are actually new (within 24 hours)
-    // This is handled by the isNewLead function above
-
-    // Search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(lead => 
@@ -529,52 +958,88 @@ export default function CRMLeadsPage() {
     return filtered;
   }, [leads, activeTab, searchQuery]);
 
-  const statistics = useMemo(() => {
-    const total = leads.length;
-    const abandonedCart = leads.filter(l => l.source === 'abandoned_cart').length;
-    const whatsapp = leads.filter(l => l.source === 'whatsapp').length;
-    const manual = leads.filter(l => l.source === 'manual').length;
-    const newLeads = leads.filter(l => isNewLead(l)).length; // Only count leads within 24 hours
-    const contacted = leads.filter(l => l.status === 'contacted').length;
-    const converted = leads.filter(l => l.status === 'converted').length;
-    const nonConverted = leads.filter(l => l.status === 'non_converted').length;
-    const conversionRate = total > 0 ? ((converted / total) * 100).toFixed(1) : '0';
+  const expiredSubscriptionsByType = useMemo(() => {
+    const grouped: { [key: string]: ExpiredSubscription[] } = {};
+    
+    // Remove duplicates based on phone number
+    // If phone number is the same, keep only one subscription
+    const seenPhoneNumbers = new Set<string>();
+    
+    const uniqueSubscriptions = expiredSubscriptions.filter(sub => {
+      const phone = (sub.customer_phone || '').trim();
+      
+      // If no phone number, keep the subscription (can't filter by phone)
+      if (!phone) return true;
+      
+      // If phone number already seen, skip this subscription (duplicate)
+      if (seenPhoneNumbers.has(phone)) {
+        return false; // Duplicate by phone number
+      }
+      
+      seenPhoneNumbers.add(phone);
+      return true;
+    });
+    
+    uniqueSubscriptions.forEach(sub => {
+      const type = (sub.subscription_type || '').trim();
+      
+      // Normalize category names to exact matches (case-insensitive and handle variations)
+      let normalizedType: string | null = null;
+      
+      const typeLower = type.toLowerCase();
+      const typeNormalized = type.replace(/\s+/g, ' ').trim(); // Normalize whitespace
+      
+      // Check for نتـFlix (various spellings)
+      if (type.includes('نتـFlix') || type.includes('نتفليكس') || typeLower.includes('netflix')) {
+        normalizedType = 'نتـFlix';
+      } 
+      // Check for شاهـ د (with space) - check this before checking for "شاهد" alone
+      else if (type.includes('شاهـ د') || typeNormalized.includes('شاهد') || typeLower.includes('shahid')) {
+        normalizedType = 'شاهـ د';
+      } 
+      // Check for أروما - be very flexible with matching
+      else if (type.includes('أروما') || type.includes('اروما') || typeLower.includes('aroma') || typeLower === 'aroma') {
+        normalizedType = 'أروما';
+      } 
+      // Check for البكجات
+      else if (type.includes('البكجات') || type.includes('بكجات') || typeLower.includes('package') || type.includes('باقة')) {
+        normalizedType = 'البكجات';
+      }
+      
+      // Skip if not one of the allowed categories
+      if (!normalizedType) {
+        // Debug: log unmatched types to help identify issues
+        if (type) {
+          console.log('Unmatched subscription type:', type);
+        }
+        return;
+      }
+      
+      if (!grouped[normalizedType]) {
+        grouped[normalizedType] = [];
+      }
+      grouped[normalizedType].push(sub);
+    });
+    return grouped;
+  }, [expiredSubscriptions]);
 
-    return { 
-      total, 
-      abandonedCart, 
-      whatsapp, 
-      manual, 
-      newLeads, 
-      contacted, 
-      converted, 
-      nonConverted,
-      conversionRate 
-    };
-  }, [leads]);
-
-  const tabCounts = useMemo(() => {
-    return {
-      all: leads.length,
-      abandoned_cart: leads.filter(l => l.source === 'abandoned_cart').length,
-      whatsapp: leads.filter(l => l.source === 'whatsapp').length,
-      manual: leads.filter(l => l.source === 'manual').length,
-      converted: leads.filter(l => l.status === 'converted').length,
-      non_converted: leads.filter(l => l.status === 'non_converted').length,
-    };
-  }, [leads]);
+  const filteredExpiredSubscriptions = useMemo(() => {
+    if (!searchQuery) return expiredSubscriptions;
+    const query = searchQuery.toLowerCase();
+    return expiredSubscriptions.filter(sub =>
+      sub.customer_name.toLowerCase().includes(query) ||
+      sub.customer_email.toLowerCase().includes(query) ||
+      (sub.customer_phone && sub.customer_phone.toLowerCase().includes(query)) ||
+      sub.subscription_type.toLowerCase().includes(query)
+    );
+  }, [expiredSubscriptions, searchQuery]);
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900" dir="rtl">
-        <Header />
-        <main className="container mx-auto px-4 py-24 pt-32">
-          <div className="max-w-6xl mx-auto text-center">
-            <Loader2 className="h-8 w-8 animate-spin text-white mx-auto" />
-            <p className="text-slate-300 mt-4">جاري التحميل...</p>
-          </div>
-        </main>
-        <Footer />
+      <div className="min-h-screen bg-background-light dark:bg-background-dark">
+        <div className="flex items-center justify-center h-screen">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
       </div>
     );
   }
@@ -583,413 +1048,546 @@ export default function CRMLeadsPage() {
     return null;
   }
 
+  const getUserAvatar = () => {
+    // Use a default avatar or generate from email
+    return `https://ui-avatars.com/api/?name=${encodeURIComponent(user.email || 'User')}&background=4A90E2&color=fff&size=40`;
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900" dir="rtl">
-      <Header />
-      <main className="container mx-auto px-4 py-24 pt-32">
-        <div className="max-w-[1800px] mx-auto">
-          {/* Header */}
-          <div className="flex justify-between items-center mb-8">
-            <div>
-              <h1 className="text-3xl font-bold text-white mb-2">إدارة العملاء المحتملين (CRM)</h1>
-              <p className="text-slate-300">تتبع وإدارة العملاء المحتملين من مصادر مختلفة</p>
+    <div className="relative flex h-auto min-h-screen w-full flex-col group/design-root overflow-x-hidden bg-background-light dark:bg-background-dark" dir="ltr">
+      <div className="layout-container flex h-full grow flex-col">
+        {/* Header */}
+        <header className="flex items-center justify-between whitespace-nowrap border-b border-solid border-[#E9ECEF] dark:border-gray-700 px-6 sm:px-10 py-3 bg-white dark:bg-background-dark">
+          <div className="flex items-center gap-8">
+            <div className="flex items-center gap-3 text-gray-800 dark:text-gray-100">
+              <div className="size-6 text-primary">
+                <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M21 8c-1.45 0-2.26 1.44-1.93 2.51l-3.55 12.99c-.2.74-.92 1.5-1.93 1.5-.95 0-1.66-.7-1.87-1.5L8.93 10.51C8.6 9.44 7.45 8 6 8H3c-1.1 0-2 .9-2 2s.9 2 2 2h1.5l1.5 5.5c.5 1.84 2.16 3.5 4 3.5h8c1.84 0 3.5-1.66 3.5-3.5L21.5 10H23c1.1 0 2-.9 2-2s-.9-2-2-2h-2z"/>
+                </svg>
+              </div>
+              <h2 className="text-gray-800 dark:text-gray-100 text-lg font-bold leading-tight tracking-[-0.015em]">CRM Panel</h2>
             </div>
-            <Dialog open={manualLeadDialogOpen} onOpenChange={setManualLeadDialogOpen}>
-              <DialogTrigger asChild>
-                <Button className="bg-emerald-600 hover:bg-emerald-700 text-white">
-                  <Plus className="h-4 w-4 ml-2" />
-                  إضافة عميل محتمل
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="bg-slate-800 border-slate-700 max-w-3xl max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle className="text-white text-2xl">إضافة عميل محتمل جديد</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-6 mt-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label className="text-slate-300 mb-2 block">الاسم *</Label>
-                      <Input
-                        value={manualLeadForm.name}
-                        onChange={(e) => setManualLeadForm(prev => ({ ...prev, name: e.target.value }))}
-                        placeholder="اسم العميل"
-                        className="bg-slate-900 border-slate-700 text-white"
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-slate-300 mb-2 block">البريد الإلكتروني</Label>
-                      <Input
-                        type="email"
-                        value={manualLeadForm.email}
-                        onChange={(e) => setManualLeadForm(prev => ({ ...prev, email: e.target.value }))}
-                        placeholder="email@example.com"
-                        className="bg-slate-900 border-slate-700 text-white"
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-slate-300 mb-2 block">واتساب</Label>
-                      <Input
-                        value={manualLeadForm.whatsapp}
-                        onChange={(e) => setManualLeadForm(prev => ({ ...prev, whatsapp: e.target.value }))}
-                        placeholder="+966501234567"
-                        className="bg-slate-900 border-slate-700 text-white"
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-slate-300 mb-2 block">الأهمية</Label>
-                      <Select
-                        value={manualLeadForm.importance}
-                        onValueChange={(value: any) => setManualLeadForm(prev => ({ ...prev, importance: value }))}
-                      >
-                        <SelectTrigger className="bg-slate-900 border-slate-700 text-white">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="low">منخفض</SelectItem>
-                          <SelectItem value="medium">متوسط</SelectItem>
-                          <SelectItem value="high">عالي</SelectItem>
-                          <SelectItem value="urgent">عاجل</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label className="text-slate-300 mb-2 block">تاريخ التذكير (اختياري)</Label>
-                      <Input
-                        type="datetime-local"
-                        value={manualLeadForm.reminder_date}
-                        onChange={(e) => setManualLeadForm(prev => ({ ...prev, reminder_date: e.target.value }))}
-                        className="bg-slate-900 border-slate-700 text-white"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <Label className="text-slate-300 mb-2 block">المنتجات</Label>
-                    <div className="flex gap-2">
-                      <select
-                        value={selectedProduct.product?.id || ''}
-                        onChange={(e) => {
-                          const product = products.find(p => p.id === e.target.value);
-                          setSelectedProduct(prev => ({ ...prev, product: product || null }));
-                        }}
-                        className="flex-1 bg-slate-900 border border-slate-700 text-white rounded-md px-3 py-2"
-                      >
-                        <option value="">اختر منتج</option>
-                        {products.map(product => (
-                          <option key={product.id} value={product.id}>
-                            {product.name} - {product.price} ريال
-                          </option>
-                        ))}
-                      </select>
-                      <Input
-                        type="number"
-                        min="1"
-                        value={selectedProduct.quantity}
-                        onChange={(e) => setSelectedProduct(prev => ({ ...prev, quantity: parseInt(e.target.value) || 1 }))}
-                        placeholder="الكمية"
-                        className="w-24 bg-slate-900 border-slate-700 text-white"
-                      />
-                      <Button
-                        onClick={handleAddProductToManualLead}
-                        disabled={!selectedProduct.product}
-                        className="bg-blue-600 hover:bg-blue-700 text-white"
-                      >
-                        إضافة
-                      </Button>
-                    </div>
-                    {manualLeadForm.products.length > 0 && (
-                      <div className="mt-3 space-y-2">
-                        {manualLeadForm.products.map((product, index) => (
-                          <div key={index} className="flex items-center justify-between bg-slate-900 p-3 rounded">
-                            <span className="text-slate-300 text-sm">
-                              {product.product_name} (x{product.quantity}) - {product.price * product.quantity} ريال
-                            </span>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => handleRemoveProductFromManualLead(index)}
-                              className="text-red-400 hover:text-red-300 h-6 w-6 p-0"
-                            >
-                              <X className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        ))}
-                        <div className="text-slate-300 font-semibold mt-3 text-lg">
-                          الإجمالي: {manualLeadForm.total_amount} ريال
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="flex gap-2 pt-4 border-t border-slate-700">
-                    <Button
-                      onClick={handleCreateManualLead}
-                      disabled={creatingLead || !manualLeadForm.name.trim()}
-                      className="bg-emerald-600 hover:bg-emerald-700 text-white flex-1"
-                    >
-                      {creatingLead ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin ml-2" />
-                          جاري الإنشاء...
-                        </>
-                      ) : (
-                        'إنشاء عميل محتمل'
-                      )}
-                    </Button>
-                    <Button
-                      onClick={() => setManualLeadDialogOpen(false)}
-                      variant="outline"
-                      className="border-slate-700 text-slate-300"
-                    >
-                      إلغاء
-                    </Button>
-                  </div>
+            <label className="hidden md:flex flex-col min-w-40 !h-10 max-w-64">
+              <div className="flex w-full flex-1 items-stretch rounded-lg h-full">
+                <div className="text-gray-500 dark:text-gray-400 flex bg-[#F8F9FA] dark:bg-gray-800/50 items-center justify-center pl-3 rounded-l-lg border-r-0">
+                  <Search className="h-4 w-4" />
                 </div>
-              </DialogContent>
-            </Dialog>
-          </div>
-
-          {/* Statistics */}
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4 mb-6">
-            <Card className="bg-blue-900/20 border-blue-700">
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="text-2xl font-bold text-blue-500">{statistics.total}</div>
-                    <div className="text-slate-300 mt-1 text-xs">إجمالي</div>
-                  </div>
-                  <UserPlus className="h-6 w-6 text-blue-500 opacity-50" />
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="bg-orange-900/20 border-orange-700">
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="text-2xl font-bold text-orange-500">{statistics.abandonedCart}</div>
-                    <div className="text-slate-300 mt-1 text-xs">سلات</div>
-                  </div>
-                  <ShoppingCart className="h-6 w-6 text-orange-500 opacity-50" />
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="bg-green-900/20 border-green-700">
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="text-2xl font-bold text-green-500">{statistics.whatsapp}</div>
-                    <div className="text-slate-300 mt-1 text-xs">واتساب</div>
-                  </div>
-                  <MessageCircle className="h-6 w-6 text-green-500 opacity-50" />
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="bg-purple-900/20 border-purple-700">
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="text-2xl font-bold text-purple-500">{statistics.manual}</div>
-                    <div className="text-slate-300 mt-1 text-xs">يدوي</div>
-                  </div>
-                  <UserPlus className="h-6 w-6 text-purple-500 opacity-50" />
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="bg-yellow-900/20 border-yellow-700">
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="text-2xl font-bold text-yellow-500">{statistics.newLeads}</div>
-                    <div className="text-slate-300 mt-1 text-xs">جديد</div>
-                  </div>
-                  <UserPlus className="h-6 w-6 text-yellow-500 opacity-50" />
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="bg-indigo-900/20 border-indigo-700">
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="text-2xl font-bold text-indigo-500">{statistics.contacted}</div>
-                    <div className="text-slate-300 mt-1 text-xs">تم الاتصال</div>
-                  </div>
-                  <MessageCircle className="h-6 w-6 text-indigo-500 opacity-50" />
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="bg-teal-900/20 border-teal-700">
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="text-2xl font-bold text-teal-500">{statistics.converted}</div>
-                    <div className="text-slate-300 mt-1 text-xs">محول</div>
-                  </div>
-                  <CheckCircle2 className="h-6 w-6 text-teal-500 opacity-50" />
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="bg-red-900/20 border-red-700">
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="text-2xl font-bold text-red-500">{statistics.conversionRate}%</div>
-                    <div className="text-slate-300 mt-1 text-xs">نسبة التحويل</div>
-                  </div>
-                  <XCircle className="h-6 w-6 text-red-500 opacity-50" />
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Search */}
-          <Card className="bg-slate-800/50 border-slate-700 mb-6">
-            <CardContent className="pt-6">
-              <div className="relative">
-                <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
-                <Input
-                  placeholder="بحث بالاسم أو البريد أو الواتساب أو المنتج..."
+                <input
+                  className="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-gray-800 dark:text-gray-100 focus:outline-0 focus:ring-0 border-none bg-[#F8F9FA] dark:bg-gray-800/50 h-full placeholder:text-gray-500 dark:placeholder:text-gray-400 px-4 rounded-l-none border-l-0 pl-2 text-sm font-normal leading-normal"
+                  placeholder="Search clients..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pr-10 bg-slate-900 border-slate-700 text-white"
                 />
               </div>
-            </CardContent>
-          </Card>
+            </label>
+          </div>
+          <div className="flex flex-1 justify-end items-center gap-4">
+            <Button
+              onClick={() => setManualLeadDialogOpen(true)}
+              className="flex min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-10 px-4 bg-primary text-white text-sm font-bold leading-normal tracking-[0.015em]"
+            >
+              <span className="truncate">Add New Client</span>
+            </Button>
+            <button className="flex max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-10 bg-transparent text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800/50 gap-2 text-sm font-bold leading-normal tracking-[0.015em] min-w-0 px-2.5">
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/>
+              </svg>
+            </button>
+            <div
+              className="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-10"
+              style={{ backgroundImage: `url("${getUserAvatar()}")` }}
+            />
+          </div>
+        </header>
 
-          {/* Main Content with Right Sidebar */}
-          <div className="flex gap-6">
-            {/* Main Content Area - Cards Grid */}
-            <div className="flex-1">
-              {filteredLeads.length === 0 ? (
-                <Card className="bg-slate-800/50 border-slate-700">
-                  <CardContent className="py-16 text-center">
-                    <p className="text-slate-300 text-lg">لا توجد عملاء محتملين</p>
-                  </CardContent>
-                </Card>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {filteredLeads.map((lead) => (
-                    <LeadCard
-                      key={lead.id}
-                      lead={lead}
-                      onUpdate={fetchLeads}
-                      onDelete={handleDeleteLead}
-                      onAddComment={handleAddComment}
-                      onUpdateStatus={handleUpdateStatus}
-                      onUpdateImportance={handleUpdateImportance}
-                      onUpdateReminder={handleUpdateReminder}
-                    />
+        <main className="flex-1 px-6 sm:px-10 py-5">
+          {/* Tabs */}
+          <div className="pb-3">
+            <div className="flex border-b border-[#E9ECEF] dark:border-gray-700 px-4 gap-8">
+              <button
+                onClick={() => setActiveTab('pipeline')}
+                className={`flex flex-col items-center justify-center border-b-[3px] pb-[13px] pt-4 ${
+                  activeTab === 'pipeline'
+                    ? 'border-b-primary text-gray-800 dark:text-gray-100'
+                    : 'border-b-transparent text-gray-500 dark:text-gray-400'
+                }`}
+              >
+                <p className="text-sm font-bold leading-normal tracking-[0.015em]">Pipeline</p>
+              </button>
+              <button
+                onClick={() => {
+                  const firstCategory = Object.keys(expiredSubscriptionsByType)[0];
+                  setActiveTab(firstCategory || 'subscriptions');
+                }}
+                className={`flex flex-col items-center justify-center border-b-[3px] pb-[13px] pt-4 ${
+                  activeTab === 'subscriptions' || Object.keys(expiredSubscriptionsByType).includes(activeTab as string)
+                    ? 'border-b-primary text-gray-800 dark:text-gray-100'
+                    : 'border-b-transparent text-gray-500 dark:text-gray-400'
+                }`}
+              >
+                <p className="text-sm font-bold leading-normal tracking-[0.015em]">Subscriptions Data</p>
+              </button>
+              <button
+                onClick={() => setActiveTab('unconverted')}
+                className={`flex flex-col items-center justify-center border-b-[3px] pb-[13px] pt-4 ${
+                  activeTab === 'unconverted'
+                    ? 'border-b-primary text-gray-800 dark:text-gray-100'
+                    : 'border-b-transparent text-gray-500 dark:text-gray-400'
+                }`}
+              >
+                <p className="text-sm font-bold leading-normal tracking-[0.015em]">Unconverted Leads</p>
+              </button>
+            </div>
+          </div>
+
+          {/* Pipeline Tab */}
+          {activeTab === 'pipeline' && (
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCorners}
+              onDragStart={handleDragStart}
+              onDragEnd={handleDragEnd}
+            >
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 pt-6">
+                {COLUMNS.map((column) => {
+                  const columnLeads = getLeadsByStatus(column.status, filteredLeads);
+                  return (
+                    <div key={column.id} className="flex flex-col gap-2">
+                      <h3 className="text-gray-800 dark:text-gray-100 text-lg font-bold leading-tight tracking-[-0.015em] px-2">
+                        {column.title}
+                      </h3>
+                      <DroppableColumn id={column.id}>
+                        <div className="flex flex-col rounded-xl overflow-hidden shadow-[0_4px_12px_rgba(0,0,0,0.05)] dark:shadow-[0_4px_12px_rgba(0,0,0,0.2)]">
+                          <SortableContext
+                            items={columnLeads.map(l => l.id)}
+                            strategy={verticalListSortingStrategy}
+                          >
+                            {columnLeads.map((lead) => (
+                              <div key={lead.id} className="group">
+                                <LeadCard
+                                  lead={lead}
+                                  onUpdateNotes={handleUpdateNotes}
+                                  onDelete={handleDeleteLead}
+                                  onEdit={handleEditLead}
+                                  onHide={handleHideLead}
+                                  onContactEmail={handleContactEmail}
+                                  onContactWhatsApp={handleContactWhatsApp}
+                                />
+                              </div>
+                            ))}
+                          </SortableContext>
+                          {columnLeads.length === 0 && (
+                            <div className="bg-white dark:bg-background-dark py-8 px-4 text-center text-gray-500 dark:text-gray-400 text-sm">
+                              No leads
+                            </div>
+                          )}
+                        </div>
+                      </DroppableColumn>
+                    </div>
+                  );
+                })}
+              </div>
+              <DragOverlay>
+                {draggedLead ? (
+                  <div className="bg-white dark:bg-background-dark py-2 px-4 flex items-center gap-2 opacity-90 shadow-lg rounded">
+                    <p className="text-gray-800 dark:text-gray-100 text-sm font-medium">{draggedLead.name}</p>
+                  </div>
+                ) : null}
+              </DragOverlay>
+            </DndContext>
+          )}
+
+          {/* Subscriptions Data Tab */}
+          {(activeTab === 'subscriptions' || Object.keys(expiredSubscriptionsByType).includes(activeTab as string)) && (
+            <div className="pt-6">
+              {/* Title */}
+              <div className="mb-6">
+                <h2 className="text-gray-800 dark:text-gray-100 text-xl font-bold">
+                  الاشتراكات المنتهية تنقل الى هنا
+                </h2>
+              </div>
+              {/* Category Tabs */}
+              <div className="flex border-b border-[#E9ECEF] dark:border-gray-700 mb-4 gap-4 overflow-x-auto">
+                {Object.keys(expiredSubscriptionsByType).map((type) => (
+                  <button
+                    key={type}
+                    onClick={() => {
+                      setActiveTab(type);
+                    }}
+                    className={`flex-shrink-0 px-4 py-2 text-sm font-bold border-b-2 transition-colors ${
+                      activeTab === type
+                        ? 'border-primary text-gray-800 dark:text-gray-100'
+                        : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                    }`}
+                  >
+                    {type} ({expiredSubscriptionsByType[type].length})
+                  </button>
+                ))}
+              </div>
+
+              {/* Excel-like Table */}
+              {Object.entries(expiredSubscriptionsByType).map(([type, subscriptions]) => {
+                const filteredSubs = subscriptions.filter(sub => {
+                  if (!searchQuery) return true;
+                  const query = searchQuery.toLowerCase();
+                  return (
+                    sub.customer_name.toLowerCase().includes(query) ||
+                    sub.customer_email.toLowerCase().includes(query) ||
+                    (sub.customer_phone && sub.customer_phone.toLowerCase().includes(query))
+                  );
+                });
+
+                // Show first category by default if no category is selected
+                const isFirstCategory = Object.keys(expiredSubscriptionsByType)[0] === type;
+                const shouldShow = activeTab === type || (activeTab === 'subscriptions' && isFirstCategory);
+                if (!shouldShow) return null;
+
+                return (
+                  <div key={type} className="bg-white dark:bg-background-dark rounded-lg shadow-[0_4px_12px_rgba(0,0,0,0.05)] dark:shadow-[0_4px_12px_rgba(0,0,0,0.2)] overflow-hidden">
+                    <div className="overflow-x-auto">
+                      <table className="w-full border-collapse text-xs">
+                        <thead>
+                          <tr className="bg-[#F8F9FA] dark:bg-gray-800/50 border-b-2 border-[#E9ECEF] dark:border-gray-700">
+                            <th className="text-left px-3 py-1.5 text-[11px] font-bold text-gray-700 dark:text-gray-300 border-r border-[#E9ECEF] dark:border-gray-700 whitespace-nowrap">Name</th>
+                            <th className="text-left px-3 py-1.5 text-[11px] font-bold text-gray-700 dark:text-gray-300 border-r border-[#E9ECEF] dark:border-gray-700 whitespace-nowrap">Email</th>
+                            <th className="text-left px-3 py-1.5 text-[11px] font-bold text-gray-700 dark:text-gray-300 border-r border-[#E9ECEF] dark:border-gray-700 whitespace-nowrap">Phone</th>
+                            <th className="text-left px-3 py-1.5 text-[11px] font-bold text-gray-700 dark:text-gray-300 border-r border-[#E9ECEF] dark:border-gray-700 whitespace-nowrap">Type</th>
+                            <th className="text-left px-3 py-1.5 text-[11px] font-bold text-gray-700 dark:text-gray-300 whitespace-nowrap">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filteredSubs.map((subscription, index) => (
+                            <tr
+                              key={subscription.id}
+                              className={`border-b border-[#E9ECEF] dark:border-gray-700 hover:bg-blue-50 dark:hover:bg-blue-900/10 ${
+                                index % 2 === 0 ? 'bg-white dark:bg-background-dark' : 'bg-[#F8F9FA] dark:bg-gray-800/30'
+                              }`}
+                            >
+                              <td className="px-3 py-1.5 text-[12px] text-gray-800 dark:text-gray-100 border-r border-[#E9ECEF] dark:border-gray-700">
+                                {subscription.customer_name}
+                              </td>
+                              <td className="px-3 py-1.5 text-[12px] text-gray-600 dark:text-gray-400 border-r border-[#E9ECEF] dark:border-gray-700">
+                                {subscription.customer_email}
+                              </td>
+                              <td className="px-3 py-1.5 text-[12px] text-gray-600 dark:text-gray-400 border-r border-[#E9ECEF] dark:border-gray-700">
+                                {subscription.customer_phone || '-'}
+                              </td>
+                              <td className="px-3 py-1.5 text-[12px] text-gray-600 dark:text-gray-400 border-r border-[#E9ECEF] dark:border-gray-700">
+                                {type}
+                              </td>
+                              <td className="px-3 py-1.5">
+                                <div className="flex items-center gap-1">
+                                  {subscription.customer_phone && (
+                                    <Button
+                                      onClick={() => handleContactWhatsApp(subscription.customer_phone!)}
+                                      className="bg-green-600 hover:bg-green-700 text-white h-6 px-2 text-[11px]"
+                                      size="sm"
+                                    >
+                                      <MessageCircle className="h-3 w-3 mr-1" />
+                                      WhatsApp
+                                    </Button>
+                                  )}
+                                  <Button
+                                    onClick={() => handleEditSubscription(subscription)}
+                                    className="text-gray-500 dark:text-gray-400 hover:text-primary dark:hover:text-primary h-6 w-6 p-0"
+                                    size="sm"
+                                    title="Edit subscription"
+                                  >
+                                    <Edit className="h-3 w-3" />
+                                  </Button>
+                                  <Button
+                                    onClick={() => handleDeleteSubscription(subscription.id)}
+                                    disabled={deletingSubscriptionId === subscription.id}
+                                    className="text-gray-500 dark:text-gray-400 hover:text-red-600 h-6 w-6 p-0"
+                                    size="sm"
+                                    title="Delete subscription"
+                                  >
+                                    {deletingSubscriptionId === subscription.id ? (
+                                      <Loader2 className="h-3 w-3 animate-spin" />
+                                    ) : (
+                                      <Trash2 className="h-3 w-3" />
+                                    )}
+                                  </Button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      {filteredSubs.length === 0 && (
+                        <div className="text-center py-8 text-gray-500 dark:text-gray-400 text-sm">
+                          No subscriptions found
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+              {Object.keys(expiredSubscriptionsByType).length === 0 && (
+                <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+                  No expired subscriptions found
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Unconverted Leads Tab */}
+          {activeTab === 'unconverted' && (
+            <div className="pt-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {filteredLeads.map((lead) => (
+                  <div
+                    key={lead.id}
+                    className="bg-white dark:bg-background-dark rounded-xl p-4 shadow-[0_4px_12px_rgba(0,0,0,0.05)] dark:shadow-[0_4px_12px_rgba(0,0,0,0.2)]"
+                  >
+                    <div className="space-y-2">
+                      <p className="text-gray-800 dark:text-gray-100 font-medium">{lead.name}</p>
+                      <p className="text-gray-500 dark:text-gray-400 text-sm">
+                        {lead.source === 'abandoned_cart' ? 'Abandoned Cart Lead' : lead.source === 'whatsapp' ? 'WhatsApp Lead' : 'Manual Lead'}
+                      </p>
+                      <p className="text-gray-500 dark:text-gray-400 text-sm">${lead.total_amount.toLocaleString()}</p>
+                      <div className="flex gap-2">
+                        <Button
+                          onClick={() => handleUnhideLead(lead.id, 'new')}
+                          size="sm"
+                          variant="outline"
+                          className="flex-1"
+                        >
+                          <Eye className="h-4 w-4 mr-2" />
+                          Unhide
+                        </Button>
+                        <Button
+                          onClick={() => handleDeleteLead(lead.id)}
+                          size="sm"
+                          variant="outline"
+                          className="text-red-600 hover:text-red-700"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {filteredLeads.length === 0 && (
+                <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+                  No unconverted leads
+                </div>
+              )}
+            </div>
+          )}
+        </main>
+      </div>
+
+      {/* Add New Client Dialog */}
+      <Dialog open={manualLeadDialogOpen} onOpenChange={setManualLeadDialogOpen}>
+        <DialogContent className="bg-white dark:bg-background-dark max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-gray-800 dark:text-gray-100 text-2xl">Add New Client</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-6 mt-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label className="text-gray-700 dark:text-gray-300 mb-2 block">Name *</Label>
+                <Input
+                  value={manualLeadForm.name}
+                  onChange={(e) => setManualLeadForm(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder="Client name"
+                  className="bg-[#F8F9FA] dark:bg-gray-800/50"
+                />
+              </div>
+              <div>
+                <Label className="text-gray-700 dark:text-gray-300 mb-2 block">Email</Label>
+                <Input
+                  type="email"
+                  value={manualLeadForm.email}
+                  onChange={(e) => setManualLeadForm(prev => ({ ...prev, email: e.target.value }))}
+                  placeholder="email@example.com"
+                  className="bg-[#F8F9FA] dark:bg-gray-800/50"
+                />
+              </div>
+              <div>
+                <Label className="text-gray-700 dark:text-gray-300 mb-2 block">WhatsApp</Label>
+                <Input
+                  value={manualLeadForm.whatsapp}
+                  onChange={(e) => setManualLeadForm(prev => ({ ...prev, whatsapp: e.target.value }))}
+                  placeholder="+966501234567"
+                  className="bg-[#F8F9FA] dark:bg-gray-800/50"
+                />
+              </div>
+              <div>
+                <Label className="text-gray-700 dark:text-gray-300 mb-2 block">Importance</Label>
+                <Select
+                  value={manualLeadForm.importance}
+                  onValueChange={(value: any) => setManualLeadForm(prev => ({ ...prev, importance: value }))}
+                >
+                  <SelectTrigger className="bg-[#F8F9FA] dark:bg-gray-800/50">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="low">Low</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="high">High</SelectItem>
+                    <SelectItem value="urgent">Urgent</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div>
+              <Label className="text-gray-700 dark:text-gray-300 mb-2 block">Products</Label>
+              <div className="flex gap-2">
+                <select
+                  value={selectedProduct.product?.id || ''}
+                  onChange={(e) => {
+                    const product = products.find(p => p.id === e.target.value);
+                    setSelectedProduct(prev => ({ ...prev, product: product || null }));
+                  }}
+                  className="flex-1 bg-[#F8F9FA] dark:bg-gray-800/50 border border-gray-300 dark:border-gray-700 rounded-md px-3 py-2"
+                >
+                  <option value="">Select product</option>
+                  {products.map(product => (
+                    <option key={product.id} value={product.id}>
+                      {product.name} - ${product.price}
+                    </option>
                   ))}
+                </select>
+                <Input
+                  type="number"
+                  min="1"
+                  value={selectedProduct.quantity}
+                  onChange={(e) => setSelectedProduct(prev => ({ ...prev, quantity: parseInt(e.target.value) || 1 }))}
+                  placeholder="Qty"
+                  className="w-24 bg-[#F8F9FA] dark:bg-gray-800/50"
+                />
+                <Button
+                  onClick={handleAddProductToManualLead}
+                  disabled={!selectedProduct.product}
+                  className="bg-primary hover:bg-primary/90"
+                >
+                  Add
+                </Button>
+              </div>
+              {manualLeadForm.products.length > 0 && (
+                <div className="mt-3 space-y-2">
+                  {manualLeadForm.products.map((product, index) => (
+                    <div key={index} className="flex items-center justify-between bg-[#F8F9FA] dark:bg-gray-800/50 p-3 rounded">
+                      <span className="text-gray-700 dark:text-gray-300 text-sm">
+                        {product.product_name} (x{product.quantity}) - ${(product.price * product.quantity).toLocaleString()}
+                      </span>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleRemoveProductFromManualLead(index)}
+                        className="text-red-400 hover:text-red-300 h-6 w-6 p-0"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                  <div className="text-gray-700 dark:text-gray-300 font-semibold mt-3 text-lg">
+                    Total: ${manualLeadForm.total_amount.toLocaleString()}
+                  </div>
                 </div>
               )}
             </div>
 
-            {/* Right Sidebar - Tabs */}
-            <div className="w-64 flex-shrink-0">
-              <Card className="bg-slate-800/50 border-slate-700 sticky top-32">
-                <CardHeader>
-                  <CardTitle className="text-xl text-white">التصنيفات</CardTitle>
-                </CardHeader>
-                <CardContent className="p-0">
-                  <div className="flex flex-col">
-                    <button
-                      onClick={() => setActiveTab('all')}
-                      className={`text-right px-4 py-3 transition-colors border-r-4 ${
-                        activeTab === 'all'
-                          ? 'bg-slate-700 border-blue-500 text-white'
-                          : 'border-transparent text-slate-300 hover:bg-slate-700/50'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-medium">الكل</span>
-                        <Badge className="bg-slate-600 text-slate-200 text-xs">
-                          {tabCounts.all}
-                        </Badge>
-                      </div>
-                    </button>
-                    <button
-                      onClick={() => setActiveTab('abandoned_cart')}
-                      className={`text-right px-4 py-3 transition-colors border-r-4 ${
-                        activeTab === 'abandoned_cart'
-                          ? 'bg-slate-700 border-orange-500 text-white'
-                          : 'border-transparent text-slate-300 hover:bg-slate-700/50'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-medium">السلات المتروكة</span>
-                        <Badge className="bg-orange-600 text-orange-200 text-xs">
-                          {tabCounts.abandoned_cart}
-                        </Badge>
-                      </div>
-                    </button>
-                    <button
-                      onClick={() => setActiveTab('whatsapp')}
-                      className={`text-right px-4 py-3 transition-colors border-r-4 ${
-                        activeTab === 'whatsapp'
-                          ? 'bg-slate-700 border-green-500 text-white'
-                          : 'border-transparent text-slate-300 hover:bg-slate-700/50'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-medium">واتساب</span>
-                        <Badge className="bg-green-600 text-green-200 text-xs">
-                          {tabCounts.whatsapp}
-                        </Badge>
-                      </div>
-                    </button>
-                    <button
-                      onClick={() => setActiveTab('manual')}
-                      className={`text-right px-4 py-3 transition-colors border-r-4 ${
-                        activeTab === 'manual'
-                          ? 'bg-slate-700 border-purple-500 text-white'
-                          : 'border-transparent text-slate-300 hover:bg-slate-700/50'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-medium">يدوي</span>
-                        <Badge className="bg-purple-600 text-purple-200 text-xs">
-                          {tabCounts.manual}
-                        </Badge>
-                      </div>
-                    </button>
-                    <button
-                      onClick={() => setActiveTab('converted')}
-                      className={`text-right px-4 py-3 transition-colors border-r-4 ${
-                        activeTab === 'converted'
-                          ? 'bg-slate-700 border-teal-500 text-white'
-                          : 'border-transparent text-slate-300 hover:bg-slate-700/50'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-medium">محول</span>
-                        <Badge className="bg-teal-600 text-teal-200 text-xs">
-                          {tabCounts.converted}
-                        </Badge>
-                      </div>
-                    </button>
-                    <button
-                      onClick={() => setActiveTab('non_converted')}
-                      className={`text-right px-4 py-3 transition-colors border-r-4 ${
-                        activeTab === 'non_converted'
-                          ? 'bg-slate-700 border-red-500 text-white'
-                          : 'border-transparent text-slate-300 hover:bg-slate-700/50'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-medium">غير محول</span>
-                        <Badge className="bg-red-600 text-red-200 text-xs">
-                          {tabCounts.non_converted}
-                        </Badge>
-                      </div>
-                    </button>
-                  </div>
-                </CardContent>
-              </Card>
+            <div className="flex gap-2 pt-4 border-t border-gray-200 dark:border-gray-700">
+              <Button
+                onClick={handleCreateManualLead}
+                disabled={creatingLead || !manualLeadForm.name.trim()}
+                className="bg-primary hover:bg-primary/90 text-white flex-1"
+              >
+                {creatingLead ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Creating...
+                  </>
+                ) : (
+                  'Create Lead'
+                )}
+              </Button>
+              <Button
+                onClick={() => setManualLeadDialogOpen(false)}
+                variant="outline"
+              >
+                Cancel
+              </Button>
             </div>
           </div>
-        </div>
-      </main>
-      <Footer />
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Subscription Dialog */}
+      <Dialog open={subscriptionEditDialogOpen} onOpenChange={setSubscriptionEditDialogOpen}>
+        <DialogContent className="bg-white dark:bg-background-dark max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-gray-800 dark:text-gray-100 text-xl">Edit Subscription</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-4">
+            <div>
+              <Label className="text-gray-700 dark:text-gray-300 mb-2 block">Customer Name</Label>
+              <Input
+                value={subscriptionEditForm.customer_name}
+                onChange={(e) => setSubscriptionEditForm(prev => ({ ...prev, customer_name: e.target.value }))}
+                className="bg-[#F8F9FA] dark:bg-gray-800/50"
+                placeholder="Customer name"
+              />
+            </div>
+            <div>
+              <Label className="text-gray-700 dark:text-gray-300 mb-2 block">Customer Email</Label>
+              <Input
+                type="email"
+                value={subscriptionEditForm.customer_email}
+                onChange={(e) => setSubscriptionEditForm(prev => ({ ...prev, customer_email: e.target.value }))}
+                className="bg-[#F8F9FA] dark:bg-gray-800/50"
+                placeholder="Customer email"
+              />
+            </div>
+            <div>
+              <Label className="text-gray-700 dark:text-gray-300 mb-2 block">Customer Phone</Label>
+              <Input
+                value={subscriptionEditForm.customer_phone}
+                onChange={(e) => setSubscriptionEditForm(prev => ({ ...prev, customer_phone: e.target.value }))}
+                className="bg-[#F8F9FA] dark:bg-gray-800/50"
+                placeholder="Customer phone"
+              />
+            </div>
+            <div>
+              <Label className="text-gray-700 dark:text-gray-300 mb-2 block">Subscription Type</Label>
+              <Select
+                value={subscriptionEditForm.subscription_type}
+                onValueChange={(value) => setSubscriptionEditForm(prev => ({ ...prev, subscription_type: value }))}
+              >
+                <SelectTrigger className="bg-[#F8F9FA] dark:bg-gray-800/50">
+                  <SelectValue placeholder="Select subscription type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="نتـFlix">نتـFlix</SelectItem>
+                  <SelectItem value="شاهـ د">شاهـ د</SelectItem>
+                  <SelectItem value="أروما">أروما</SelectItem>
+                  <SelectItem value="البكجات">البكجات</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="flex gap-2 pt-4 border-t border-gray-200 dark:border-gray-700 mt-4">
+            <Button
+              onClick={handleUpdateSubscription}
+              className="bg-primary hover:bg-primary/90 text-white flex-1"
+            >
+              Update Subscription
+            </Button>
+            <Button
+              onClick={() => setSubscriptionEditDialogOpen(false)}
+              variant="outline"
+              className="flex-1"
+            >
+              Cancel
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

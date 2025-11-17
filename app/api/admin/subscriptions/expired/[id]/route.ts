@@ -12,7 +12,6 @@ async function getAdminUser(request: NextRequest) {
     return null;
   }
 
-  // Use service role key like cart-sessions route does
   const supabase = createClient(supabaseUrl, supabaseServiceKey, {
     global: {
       headers: {
@@ -21,13 +20,11 @@ async function getAdminUser(request: NextRequest) {
     },
   });
 
-  // Verify user is admin
   const { data: { user }, error: userError } = await supabase.auth.getUser();
   if (userError || !user) {
     return null;
   }
 
-  // Check if user is admin (using environment variable)
   const adminEmailsStr = process.env.NEXT_PUBLIC_ADMIN_EMAILS || '';
   const adminEmails = adminEmailsStr.split(',').map(e => e.trim()).filter(Boolean);
   
@@ -38,7 +35,7 @@ async function getAdminUser(request: NextRequest) {
   return user;
 }
 
-// PUT/PATCH - Update a lead
+// PUT - Update expired subscription
 export async function PUT(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -57,54 +54,35 @@ export async function PUT(
       );
     }
 
+    const { id } = params;
     const body = await request.json();
-    const { status, importance, reminder_date, notes } = body;
+    const { customer_name, customer_email, customer_phone, subscription_type } = body;
 
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
-    
-    // Build update object
-    const updateData: any = {
-      updated_at: new Date().toISOString(),
-    };
 
-    if (status !== undefined) {
-      updateData.status = status;
-    }
+    const updateData: any = {};
+    if (customer_name !== undefined) updateData.customer_name = customer_name;
+    if (customer_email !== undefined) updateData.customer_email = customer_email;
+    if (customer_phone !== undefined) updateData.customer_phone = customer_phone;
+    if (subscription_type !== undefined) updateData.subscription_type = subscription_type;
+    updateData.updated_at = new Date().toISOString();
 
-    if (importance !== undefined) {
-      if (!['low', 'medium', 'high', 'urgent'].includes(importance)) {
-        return NextResponse.json(
-          { error: 'مستوى الأهمية غير صحيح' },
-          { status: 400 }
-        );
-      }
-      updateData.importance = importance;
-    }
-
-    if (reminder_date !== undefined) {
-      updateData.reminder_date = reminder_date || null;
-    }
-
-    if (notes !== undefined) {
-      updateData.notes = notes || null;
-    }
-
-    const { data: updatedLead, error } = await supabaseAdmin
-      .from('crm_leads')
+    const { data, error } = await supabaseAdmin
+      .from('expired_subscriptions')
       .update(updateData)
-      .eq('id', params.id)
+      .eq('id', id)
       .select()
       .single();
 
     if (error) {
-      console.error('Error updating lead:', error);
+      console.error('Error updating expired subscription:', error);
       return NextResponse.json(
-        { error: 'حدث خطأ أثناء تحديث العميل المحتمل' },
+        { error: 'حدث خطأ أثناء تحديث الاشتراك', details: error.message },
         { status: 500 }
       );
     }
 
-    return NextResponse.json({ lead: updatedLead });
+    return NextResponse.json({ subscription: data });
   } catch (error: any) {
     console.error('Error:', error);
     return NextResponse.json(
@@ -114,7 +92,7 @@ export async function PUT(
   }
 }
 
-// DELETE - Remove a lead
+// DELETE - Delete expired subscription
 export async function DELETE(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -133,16 +111,18 @@ export async function DELETE(
       );
     }
 
+    const { id } = params;
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+
     const { error } = await supabaseAdmin
-      .from('crm_leads')
+      .from('expired_subscriptions')
       .delete()
-      .eq('id', params.id);
+      .eq('id', id);
 
     if (error) {
-      console.error('Error deleting lead:', error);
+      console.error('Error deleting expired subscription:', error);
       return NextResponse.json(
-        { error: 'حدث خطأ أثناء حذف العميل المحتمل' },
+        { error: 'حدث خطأ أثناء حذف الاشتراك', details: error.message },
         { status: 500 }
       );
     }
