@@ -57,7 +57,7 @@ export async function POST(
     const body = await request.json();
     const { status } = body;
 
-    if (!status || !['new', 'contacted', 'converted', 'lost', 'non_converted'].includes(status)) {
+    if (!status || !['new', 'contacted', 'client thinking about it', 'converted', 'lost', 'non_converted'].includes(status)) {
       return NextResponse.json(
         { error: 'حالة غير صحيحة' },
         { status: 400 }
