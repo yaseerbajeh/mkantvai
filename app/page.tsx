@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -43,6 +43,7 @@ export default function Home() {
     cta_link: string;
     banner_type?: 'default' | 'blackfriday';
     banner_image_url?: string;
+    is_enabled?: boolean;
   } | null>(null);
   const [bannerLoading, setBannerLoading] = useState(true);
   const [isCommissioner, setIsCommissioner] = useState(false);
@@ -71,24 +72,38 @@ export default function Home() {
     'from-blue-600/20 via-cyan-600/20 to-teal-600/20',
   ];
   
-  // Fetch promotional banner
-  useEffect(() => {
-    const fetchBanner = async () => {
-      try {
-        const response = await fetch('/api/promotional-banner');
-        const result = await response.json();
-        if (result.banner) {
-          setPromotionalBanner(result.banner);
-        }
-      } catch (error) {
-        console.error('Error fetching promotional banner:', error);
-      } finally {
-        setBannerLoading(false);
-      }
-    };
-    
-    fetchBanner();
+  const fetchBanner = useCallback(async () => {
+    try {
+      setBannerLoading(true);
+      const response = await fetch(`/api/promotional-banner?ts=${Date.now()}`, {
+        cache: 'no-store',
+        headers: { 'Cache-Control': 'no-cache' },
+      });
+      const result = await response.json();
+      setPromotionalBanner(result.banner || null);
+    } catch (error) {
+      console.error('Error fetching promotional banner:', error);
+      setPromotionalBanner(null);
+    } finally {
+      setBannerLoading(false);
+    }
   }, []);
+
+  // Fetch promotional banner on mount
+  useEffect(() => {
+    fetchBanner();
+  }, [fetchBanner]);
+
+  // Re-fetch banner when window regains focus to ensure latest status after admin changes
+  useEffect(() => {
+    const handleFocus = () => {
+        fetchBanner();
+    };
+    window.addEventListener('focus', handleFocus);
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [fetchBanner]);
   
   // Countdown timer for promotion
   useEffect(() => {
@@ -674,7 +689,8 @@ export default function Home() {
                 
                 if (!category || category.length === 0) return null;
                 
-                const isBlackFridayActive = promotionalBanner?.banner_type === 'blackfriday';
+                const isBlackFridayActive =
+                  promotionalBanner?.banner_type === 'blackfriday' && promotionalBanner?.is_enabled !== false;
                 
                 return (
                   <div key={categoryId} id={`category-${categoryId}`} className="scroll-mt-20 w-full">
