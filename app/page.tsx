@@ -681,7 +681,7 @@ export default function Home() {
               <p className="text-slate-400">اشترك واحصل على أفضل الخطط</p>
             </div>
 
-            <div className="space-y-20">
+              <div className="space-y-20">
               {Object.keys(productsByCategory).map((categoryId, categoryIndex) => {
                 const category = productsByCategory[categoryId];
                 const sectionIndex = categoryIndex % sectionGradients.length;
@@ -718,8 +718,9 @@ export default function Home() {
                     {/* Separate wrapper for each type to ensure independent centering */}
                     {isPackageSection ? (
                       <div className="w-full flex justify-center">
-                        <div className="grid grid-cols-2 md:grid-cols-2 gap-2 md:gap-8 w-full max-w-4xl">
-                          {category.slice(0, 2).map((product: any) => {
+                        <div className="w-full max-w-5xl">
+                          <div className="grid grid-cols-2 gap-3 md:gap-6 lg:gap-8">
+                            {category.slice(0, 2).map((product: any) => {
                             const Icon = product.icon || Sparkles;
                             
                             // Package section - long detailed cards
@@ -805,12 +806,13 @@ export default function Home() {
                                 </CardContent>
                               </Card>
                             );
-                          })}
+                            })}
+                          </div>
                         </div>
                       </div>
                     ) : (
-                      <div className="w-full flex justify-center px-4">
-                        <div className="grid grid-cols-3 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-8 lg:gap-10 max-w-6xl">
+                      <div className="w-full flex justify-center">
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-6 lg:gap-8 w-full max-w-6xl">
                           {category.slice(0, 4).map((product: any) => {
                             const Icon = product.icon || Sparkles;
                             
