@@ -397,7 +397,7 @@ export default function AdminPromoCodesPage() {
       };
 
       if (bannerType === 'blackfriday') {
-        payload.banner_image_url = bannerForm.banner_image_url || 'https://l.top4top.io/p_3608w917h1.png';
+        payload.banner_image_url = blackfridayBannerForm.banner_image_url || 'https://l.top4top.io/p_3608w917h1.png';
       }
 
       if (enabled) {
