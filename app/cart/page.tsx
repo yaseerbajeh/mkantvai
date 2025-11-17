@@ -730,6 +730,33 @@ export default function CartPage() {
                 </div>
               )}
 
+              {/* Payment Method Logos */}
+              {user && validateForm() && PAYPAL_CLIENT_ID && total > 0.01 && (
+                <div className="flex justify-center items-center gap-3 md:gap-4 mt-3 md:mt-4">
+                  <Image
+                    src="https://upload.wikimedia.org/wikipedia/commons/thumb/f/fb/Mada_Logo.svg/2560px-Mada_Logo.svg.png"
+                    alt="Mada"
+                    width={60}
+                    height={40}
+                    className="h-6 md:h-8 w-auto opacity-80 hover:opacity-100 transition-opacity"
+                  />
+                  <Image
+                    src="https://upload.wikimedia.org/wikipedia/commons/thumb/5/5e/Visa_Inc._logo.svg/1280px-Visa_Inc._logo.svg.png"
+                    alt="Visa"
+                    width={60}
+                    height={40}
+                    className="h-6 md:h-8 w-auto opacity-80 hover:opacity-100 transition-opacity"
+                  />
+                  <Image
+                    src="https://upload.wikimedia.org/wikipedia/commons/2/2a/Mastercard-logo.svg"
+                    alt="Mastercard"
+                    width={60}
+                    height={40}
+                    className="h-6 md:h-8 w-auto opacity-80 hover:opacity-100 transition-opacity"
+                  />
+                </div>
+              )}
+
               {/* Help Button */}
               {user && validateForm() && PAYPAL_CLIENT_ID && total > 0.01 && (
                 <Button

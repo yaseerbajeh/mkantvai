@@ -41,6 +41,25 @@ export default function Footer() {
         <p className="text-center text-slate-500 text-sm mb-4">
           © 2025 مكان TV. جميع الحقوق محفوظة.
         </p>
+
+        {/* Payment Method Logos */}
+        <div className="flex justify-center items-center gap-4 mb-6">
+          <img
+            src="https://upload.wikimedia.org/wikipedia/commons/thumb/f/fb/Mada_Logo.svg/2560px-Mada_Logo.svg.png"
+            alt="Mada"
+            className="h-6 md:h-8 w-auto opacity-60 hover:opacity-100 transition-opacity"
+          />
+          <img
+            src="https://upload.wikimedia.org/wikipedia/commons/thumb/5/5e/Visa_Inc._logo.svg/1280px-Visa_Inc._logo.svg.png"
+            alt="Visa"
+            className="h-6 md:h-8 w-auto opacity-60 hover:opacity-100 transition-opacity"
+          />
+          <img
+            src="https://upload.wikimedia.org/wikipedia/commons/2/2a/Mastercard-logo.svg"
+            alt="Mastercard"
+            className="h-6 md:h-8 w-auto opacity-60 hover:opacity-100 transition-opacity"
+          />
+        </div>
         
         {/* Logos Attribution */}
         <div className="flex justify-center items-center gap-4 mt-4 flex-wrap">
