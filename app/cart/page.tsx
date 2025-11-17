@@ -774,7 +774,7 @@ export default function CartPage() {
             {/* Payment Instructions Image */}
             <div className="flex justify-center">
               <img 
-                src="https://c.top4top.io/p_3606er3pw1.jpg" 
+                src="https://d.top4top.io/p_360859r8d1.jpg" 
                 alt="Payment Instructions" 
                 className="max-w-full h-auto rounded-lg shadow-lg"
               />
