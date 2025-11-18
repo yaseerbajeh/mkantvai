@@ -27,6 +27,8 @@ yarn-error.log*
 # local env files
 .env
 .env*.local
+.env.production
+.env.development
 
 # vercel
 .vercel
@@ -35,7 +37,48 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# database migrations (contain schema structure)
+supabase/migrations/**/*.sql
+supabase/migrations/
+
+# documentation files (may contain sensitive setup info)
+# Ignore all .md files except README.md
+*.md
+!/README.md
+
+# n8n workflow files (may contain webhook URLs and API keys)
+*.workflow.json
+n8n-whatsapp-leads-workflow.json
+
+# test files
+Test
+test/
+tests/
+
 # private files/notes
 platform notes.txt
-AUTH_SETUP_GUIDE.md
-platform notes.txt
+notes.txt
+*.txt
+!package.json
+!tsconfig.json
+
+# uploaded banner images
+public/banners/
+
+# font files (if not needed publicly)
+# Ignore font files except those in public/fonts/
+*.otf
+*.ttf
+!/public/fonts/*.otf
+!/public/fonts/*.ttf
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+Thumbs.db
+.DS_Store
