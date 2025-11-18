@@ -185,7 +185,7 @@ export async function PUT(request: NextRequest) {
       // For blackfriday, validate image URL
       if (bannerType === 'blackfriday' && !updates.banner_image_url) {
         return NextResponse.json(
-          { error: 'رابط الصورة مطلوب لبانر الجمعة البيضاء' },
+          { error: 'صورة البانر مطلوبة لبانر الجمعة البيضاء' },
           { status: 400 }
         );
       }
@@ -193,8 +193,9 @@ export async function PUT(request: NextRequest) {
 
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
-    // If enabling a banner, disable the other type's enabled banner first
-    if (updates.is_enabled) {
+    // CRITICAL: If enabling a banner, disable the other type's enabled banner FIRST
+    // This must happen before any updates to ensure proper state
+    if (updates.is_enabled === true) {
       const otherType = bannerType === 'default' ? 'blackfriday' : 'default';
       const { error: disableError } = await supabaseAdmin
         .from('promotional_banners')
@@ -204,7 +205,11 @@ export async function PUT(request: NextRequest) {
 
       if (disableError) {
         console.error('Error disabling other banner type:', disableError);
-        // Continue anyway - the unique constraint will handle it
+        // Don't continue if we can't disable the other banner
+        return NextResponse.json(
+          { error: 'فشل في تعطيل البانر الآخر' },
+          { status: 500 }
+        );
       }
     }
 

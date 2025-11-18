@@ -584,11 +584,17 @@ export default function Home() {
                 <div className="flex flex-col md:flex-row items-center gap-8 md:gap-12">
                   {/* Image Section - Left */}
                   <div className="flex-[2] w-full md:w-auto">
-                    <img
-                      src={promotionalBanner.banner_image_url || 'https://l.top4top.io/p_3608w917h1.png'}
-                      alt="Black Friday Offer"
-                      className="w-full h-auto object-contain"
-                    />
+                    {promotionalBanner.banner_image_url ? (
+                      <img
+                        src={promotionalBanner.banner_image_url}
+                        alt="Black Friday Offer"
+                        className="w-full h-auto object-contain"
+                      />
+                    ) : (
+                      <div className="w-full h-64 bg-gray-200 rounded-lg flex items-center justify-center">
+                        <p className="text-gray-500">لا توجد صورة</p>
+                      </div>
+                    )}
                   </div>
                   
                   {/* CTA Section - Right */}

@@ -32,6 +32,8 @@ import {
   ToggleLeft,
   ToggleRight,
   Megaphone,
+  Upload,
+  X,
 } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
 import { format } from 'date-fns';
@@ -128,8 +130,10 @@ export default function AdminPromoCodesPage() {
     discount_percentage: 20,
     expiration_date: '',
     cta_link: '/subscribe',
-    banner_image_url: 'https://l.top4top.io/p_3608w917h1.png',
+    banner_image_url: undefined,
   });
+  const [bannerImagePreview, setBannerImagePreview] = useState<string | null>(null);
+  const [bannerImageUploading, setBannerImageUploading] = useState(false);
 
   const toEndOfDayISO = (value?: string) => {
     if (!value) {
@@ -240,6 +244,85 @@ export default function AdminPromoCodesPage() {
     }
   };
 
+  const handleBannerImageUpload = async (file: File) => {
+    try {
+      setBannerImageUploading(true);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('غير مصرح');
+
+      // Validate file type
+      const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
+      if (!allowedTypes.includes(file.type)) {
+        toast({
+          title: 'خطأ',
+          description: 'نوع الملف غير مدعوم. يرجى اختيار صورة PNG, JPEG, JPG أو WebP',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      // Validate file size (max 5MB)
+      const maxSize = 5 * 1024 * 1024; // 5MB
+      if (file.size > maxSize) {
+        toast({
+          title: 'خطأ',
+          description: 'حجم الملف كبير جداً. الحد الأقصى 5 ميجابايت',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch('/api/admin/upload-banner', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: formData,
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'فشل في رفع الصورة');
+      }
+
+      // Update form with uploaded image URL
+      if (editingBannerType === 'blackfriday') {
+        setBlackfridayBannerForm({
+          ...blackfridayBannerForm,
+          banner_image_url: result.url,
+        });
+        setBannerImagePreview(result.url);
+      }
+
+      toast({
+        title: 'نجح',
+        description: 'تم رفع الصورة بنجاح',
+      });
+    } catch (error: any) {
+      toast({
+        title: 'خطأ',
+        description: error.message || 'فشل في رفع الصورة',
+        variant: 'destructive',
+      });
+    } finally {
+      setBannerImageUploading(false);
+    }
+  };
+
+  const handleRemoveBannerImage = () => {
+    if (editingBannerType === 'blackfriday') {
+      setBlackfridayBannerForm({
+        ...blackfridayBannerForm,
+        banner_image_url: undefined,
+      });
+      setBannerImagePreview(null);
+    }
+  };
+
   const fetchPromotionalBanners = async () => {
     try {
       setBannerLoading(true);
@@ -296,8 +379,14 @@ export default function AdminPromoCodesPage() {
           discount_percentage: blackfridayBannerData.discount_percentage,
           expiration_date: blackfridayBannerData.expiration_date ? new Date(blackfridayBannerData.expiration_date).toISOString().split('T')[0] : '',
           cta_link: blackfridayBannerData.cta_link,
-          banner_image_url: blackfridayBannerData.banner_image_url || 'https://l.top4top.io/p_3608w917h1.png',
+          banner_image_url: blackfridayBannerData.banner_image_url || undefined,
         });
+        // Set preview if image exists
+        if (blackfridayBannerData.banner_image_url) {
+          setBannerImagePreview(blackfridayBannerData.banner_image_url);
+        }
+      } else {
+        setBannerImagePreview(null);
       }
     } catch (error: any) {
       console.error('Fetch promotional banners error:', error);
@@ -343,7 +432,7 @@ export default function AdminPromoCodesPage() {
       if (editingBannerType === 'blackfriday' && !blackfridayBannerForm.banner_image_url) {
         toast({
           title: 'خطأ',
-          description: 'يرجى إدخال رابط الصورة',
+          description: 'يرجى رفع صورة البانر',
           variant: 'destructive',
         });
         return;
@@ -389,6 +478,7 @@ export default function AdminPromoCodesPage() {
       });
 
       setBannerDialogOpen(false);
+      setBannerImagePreview(null);
       fetchPromotionalBanners();
     } catch (error: any) {
       toast({
@@ -430,7 +520,7 @@ export default function AdminPromoCodesPage() {
       };
 
       if (bannerType === 'blackfriday') {
-        payload.banner_image_url = blackfridayBannerForm.banner_image_url || 'https://l.top4top.io/p_3608w917h1.png';
+        payload.banner_image_url = blackfridayBannerForm.banner_image_url || null;
       }
 
       if (enabled) {
@@ -761,6 +851,7 @@ export default function AdminPromoCodesPage() {
                         <Button
                           onClick={() => {
                             setEditingBannerType('default');
+                            setBannerImagePreview(null);
                             setBannerDialogOpen(true);
                           }}
                           variant="outline"
@@ -811,6 +902,12 @@ export default function AdminPromoCodesPage() {
                         <Button
                           onClick={() => {
                             setEditingBannerType('blackfriday');
+                            // Set preview from existing banner if available
+                            if (blackfridayBanner?.banner_image_url) {
+                              setBannerImagePreview(blackfridayBanner.banner_image_url);
+                            } else {
+                              setBannerImagePreview(null);
+                            }
                             setBannerDialogOpen(true);
                           }}
                           variant="outline"
@@ -1269,20 +1366,71 @@ export default function AdminPromoCodesPage() {
                       </div>
                       {editingBannerType === 'blackfriday' && (
                         <div>
-                          <Label htmlFor="banner-image-url">رابط الصورة *</Label>
-                          <Input
-                            id="banner-image-url"
-                            value={bannerForm.banner_image_url}
-                            onChange={(e) =>
-                              setBannerForm({
-                                ...bannerForm,
-                                banner_image_url: e.target.value,
-                              })
-                            }
-                            className="bg-white border-gray-300 text-gray-900 mt-1"
-                            placeholder="https://l.top4top.io/p_3608w917h1.png"
-                          />
-                          <p className="text-xs text-gray-500 mt-1">رابط الصورة التي ستظهر في البانر</p>
+                          <Label htmlFor="banner-image-upload">صورة البانر *</Label>
+                          <div className="mt-1 space-y-3">
+                            {bannerImagePreview || bannerForm.banner_image_url ? (
+                              <div className="relative border border-gray-300 rounded-lg p-4 bg-gray-50">
+                                <img
+                                  src={bannerImagePreview || bannerForm.banner_image_url}
+                                  alt="Banner preview"
+                                  className="max-w-full h-auto max-h-64 mx-auto rounded-lg"
+                                  onError={(e) => {
+                                    (e.target as HTMLImageElement).src = '/banners/default.png';
+                                  }}
+                                />
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={handleRemoveBannerImage}
+                                  className="absolute top-2 left-2 bg-red-600 hover:bg-red-700 text-white"
+                                  disabled={bannerImageUploading}
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            ) : (
+                              <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors">
+                                <Upload className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                                <p className="text-sm text-gray-600 mb-2">قم بسحب وإفلات الصورة هنا</p>
+                                <p className="text-xs text-gray-500 mb-3">أو</p>
+                                <label htmlFor="banner-image-upload" className="cursor-pointer">
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    className="border-gray-300 text-gray-700 hover:bg-gray-100"
+                                    disabled={bannerImageUploading}
+                                  >
+                                    {bannerImageUploading ? (
+                                      <>
+                                        <Loader2 className="h-4 w-4 ml-2 animate-spin" />
+                                        جاري الرفع...
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Upload className="h-4 w-4 ml-2" />
+                                        اختر صورة
+                                      </>
+                                    )}
+                                  </Button>
+                                  <input
+                                    id="banner-image-upload"
+                                    type="file"
+                                    accept="image/png,image/jpeg,image/jpg,image/webp"
+                                    className="hidden"
+                                    onChange={(e) => {
+                                      const file = e.target.files?.[0];
+                                      if (file) {
+                                        handleBannerImageUpload(file);
+                                      }
+                                    }}
+                                    disabled={bannerImageUploading}
+                                  />
+                                </label>
+                                <p className="text-xs text-gray-500 mt-2">PNG, JPEG, JPG أو WebP (حد أقصى 5 ميجابايت)</p>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       )}
                       <div>
