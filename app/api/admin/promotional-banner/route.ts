@@ -5,6 +5,20 @@ import { rateLimit, adminLimiter } from '@/lib/rateLimiter';
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
+const normalizeExpirationDate = (value?: string | null) => {
+  if (!value) {
+    return null;
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+  if (!value.includes('T')) {
+    date.setHours(23, 59, 59, 999);
+  }
+  return date.toISOString();
+};
+
 // Helper to get admin user from auth token
 async function getAdminUser(request: NextRequest) {
   const authHeader = request.headers.get('authorization');
@@ -124,6 +138,10 @@ export async function PUT(request: NextRequest) {
 
     const body = await request.json();
     const { id, ...updates } = body;
+    const normalizedExpiration = normalizeExpirationDate(updates.expiration_date);
+    if (normalizedExpiration) {
+      updates.expiration_date = normalizedExpiration;
+    }
 
     // Get banner type, default to 'default' if not provided
     const bannerType = updates.banner_type || 'default';
@@ -150,14 +168,14 @@ export async function PUT(request: NextRequest) {
           { status: 400 }
         );
       }
-      if (!updates.expiration_date) {
+      if (!normalizedExpiration) {
         return NextResponse.json(
           { error: 'تاريخ الانتهاء مطلوب' },
           { status: 400 }
         );
       }
       // Validate expiration date is in the future
-      const expirationDate = new Date(updates.expiration_date);
+      const expirationDate = new Date(normalizedExpiration);
       if (expirationDate <= new Date()) {
         return NextResponse.json(
           { error: 'تاريخ الانتهاء يجب أن يكون في المستقبل' },
@@ -196,7 +214,12 @@ export async function PUT(request: NextRequest) {
       title: updates.title || '',
       subtitle: updates.subtitle || '',
       discount_percentage: updates.discount_percentage || 0,
-      expiration_date: updates.expiration_date || new Date().toISOString(),
+      expiration_date: normalizedExpiration || updates.expiration_date || (() => {
+        const fallback = new Date();
+        fallback.setDate(fallback.getDate() + 30);
+        fallback.setHours(23, 59, 59, 999);
+        return fallback.toISOString();
+      })(),
       cta_link: updates.cta_link || '/subscribe',
       is_enabled: updates.is_enabled || false,
       updated_at: new Date().toISOString(),
