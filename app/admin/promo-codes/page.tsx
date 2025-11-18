@@ -131,6 +131,20 @@ export default function AdminPromoCodesPage() {
     banner_image_url: 'https://l.top4top.io/p_3608w917h1.png',
   });
 
+  const toEndOfDayISO = (value?: string) => {
+    if (!value) {
+      return null;
+    }
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return null;
+    }
+    if (!value.includes('T')) {
+      date.setHours(23, 59, 59, 999);
+    }
+    return date.toISOString();
+  };
+
   useEffect(() => {
     const checkAuth = async () => {
       try {
@@ -345,7 +359,14 @@ export default function AdminPromoCodesPage() {
         id: currentBanner?.id || null,
         banner_type: editingBannerType,
         ...bannerForm,
-        expiration_date: bannerForm.expiration_date ? new Date(bannerForm.expiration_date).toISOString() : new Date().toISOString(),
+        expiration_date:
+          toEndOfDayISO(bannerForm.expiration_date) ||
+          (() => {
+            const fallback = new Date();
+            fallback.setDate(fallback.getDate() + 30);
+            fallback.setHours(23, 59, 59, 999);
+            return fallback.toISOString();
+          })(),
       };
 
       const response = await fetch('/api/admin/promotional-banner', {
@@ -425,23 +446,30 @@ export default function AdminPromoCodesPage() {
             : 'خصومات حصرية على جميع المنتجات';
         }
         if (!bannerForm.expiration_date) {
-          // Default to 30 days from now
+          // Default to 30 days from now (end of day)
           const defaultDate = new Date();
           defaultDate.setDate(defaultDate.getDate() + 30);
+          defaultDate.setHours(23, 59, 59, 999);
           payload.expiration_date = defaultDate.toISOString();
         } else {
-          // Ensure expiration_date is in ISO format
-          payload.expiration_date = bannerForm.expiration_date.includes('T')
-            ? bannerForm.expiration_date
-            : new Date(bannerForm.expiration_date).toISOString();
+          // Ensure expiration_date keeps end-of-day when only date is provided
+          payload.expiration_date =
+            toEndOfDayISO(bannerForm.expiration_date) ||
+            (() => {
+              const fallback = new Date();
+              fallback.setDate(fallback.getDate() + 30);
+              fallback.setHours(23, 59, 59, 999);
+              return fallback.toISOString();
+            })();
         }
       } else {
         // If disabling, keep existing expiration_date or set a default
-        payload.expiration_date = bannerForm.expiration_date
-          ? (bannerForm.expiration_date.includes('T')
-              ? bannerForm.expiration_date
-              : new Date(bannerForm.expiration_date).toISOString())
-          : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+        payload.expiration_date = toEndOfDayISO(bannerForm.expiration_date) || (() => {
+          const fallback = new Date();
+          fallback.setDate(fallback.getDate() + 30);
+          fallback.setHours(23, 59, 59, 999);
+          return fallback.toISOString();
+        })();
       }
 
       const response = await fetch('/api/admin/promotional-banner', {

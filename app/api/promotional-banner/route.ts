@@ -16,7 +16,7 @@ export async function GET() {
       .select('*')
       .eq('is_enabled', true)
       .eq('banner_type', 'blackfriday')
-      .gt('expiration_date', new Date().toISOString())
+      .gte('expiration_date', new Date().toISOString())
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -28,7 +28,7 @@ export async function GET() {
         .select('*')
         .eq('is_enabled', true)
         .eq('banner_type', 'default')
-        .gt('expiration_date', new Date().toISOString())
+        .gte('expiration_date', new Date().toISOString())
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
