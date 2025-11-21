@@ -39,7 +39,7 @@ export default function Home() {
     title: string;
     subtitle: string;
     discount_percentage: number;
-    expiration_date: string;
+    expiration_date?: string | null;
     cta_link: string;
     banner_type?: 'default' | 'blackfriday';
     banner_image_url?: string;
@@ -107,7 +107,11 @@ export default function Home() {
   
   // Countdown timer for promotion
   useEffect(() => {
-    if (!promotionalBanner) return;
+    if (!promotionalBanner || !promotionalBanner.expiration_date) {
+      // No countdown if no banner or no expiration date
+      setCountdown({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+      return;
+    }
     
     const targetDate = new Date(promotionalBanner.expiration_date).getTime();
     
@@ -742,6 +746,13 @@ export default function Home() {
                                   </div>
                                 )}
                                 
+                                {/* Promo Banner */}
+                                {product.promo_banner_text && (
+                                  <div className="absolute top-2 right-2 z-20 bg-gradient-to-r from-red-500 to-orange-500 text-white text-xs md:text-sm font-bold px-3 md:px-4 py-1 md:py-2 rounded-lg shadow-lg">
+                                    {product.promo_banner_text}
+                                  </div>
+                                )}
+                                
                                 <Link href={`/subscribe/${product.code}`} className="block cursor-pointer">
                                   <div className={`relative h-32 md:h-64 w-full overflow-hidden ${product.code === 'SUB-PACKAGE-LEGENDARY' ? 'bg-gradient-to-br from-slate-700 to-slate-800' : `bg-gradient-to-br ${product.gradient}`} p-3 md:p-8`}>
                                     <div className="h-full flex flex-col justify-between">
@@ -782,10 +793,26 @@ export default function Home() {
 
                                 <CardContent className="mt-auto pb-3 md:pb-6 px-3 md:px-8">
                                   <div className="mb-2 md:mb-4 text-center p-2 md:p-4 bg-gradient-to-br from-slate-700/50 to-slate-800/50 rounded-xl border border-slate-600/50">
-                                    <div className="flex items-baseline justify-center gap-1 md:gap-2 mb-1">
-                                      <span className="text-xl md:text-4xl font-extrabold text-white">{product.price}</span>
-                                      <span className="text-sm md:text-xl text-slate-400">ريال</span>
-                                    </div>
+                                    {product.discounted_price && product.discounted_price < product.price ? (
+                                      <>
+                                        <div className="flex items-baseline justify-center gap-1 md:gap-2 mb-1">
+                                          <span className="text-xl md:text-4xl font-extrabold text-white">{product.discounted_price}</span>
+                                          <span className="text-sm md:text-xl text-slate-400">ريال</span>
+                                        </div>
+                                        <div className="flex items-center justify-center gap-1 md:gap-2 flex-wrap">
+                                          <span className="text-xs md:text-sm text-slate-400 line-through">{product.price}</span>
+                                          <span className="text-xs md:text-sm text-slate-400">ريال</span>
+                                          <span className="text-xs md:text-sm font-bold text-red-400">
+                                            ({Math.round(((product.price - product.discounted_price) / product.price) * 100)}% خصم)
+                                          </span>
+                                        </div>
+                                      </>
+                                    ) : (
+                                      <div className="flex items-baseline justify-center gap-1 md:gap-2 mb-1">
+                                        <span className="text-xl md:text-4xl font-extrabold text-white">{product.price}</span>
+                                        <span className="text-sm md:text-xl text-slate-400">ريال</span>
+                                      </div>
+                                    )}
                                   </div>
 
                                   <Button
@@ -796,7 +823,7 @@ export default function Home() {
                                         addItem({
                                           product_code: product.code,
                                           product_name: product.name,
-                                          price: product.price,
+                                          price: product.discounted_price && product.discounted_price < product.price ? product.discounted_price : product.price,
                                           quantity: 1,
                                           image: product.image,
                                         });
@@ -831,6 +858,13 @@ export default function Home() {
                                     <div className="bg-gradient-to-r from-red-600 to-red-700 text-white px-3 py-1 shadow-lg rounded-md">
                                       <span className="text-[10px] md:text-xs font-bold whitespace-nowrap">{promotionalBanner.title}</span>
                                     </div>
+                                  </div>
+                                )}
+                                
+                                {/* Promo Banner */}
+                                {product.promo_banner_text && (
+                                  <div className="absolute top-2 right-2 z-20 bg-gradient-to-r from-red-500 to-orange-500 text-white text-[10px] md:text-xs font-bold px-2 md:px-3 py-1 md:py-1.5 rounded-lg shadow-lg">
+                                    {product.promo_banner_text}
                                   </div>
                                 )}
                                 
@@ -877,10 +911,26 @@ export default function Home() {
 
                                 <CardContent className="mt-auto pb-2 md:pb-3 px-2 md:px-3">
                                   <div className="mb-2 md:mb-3 text-center">
-                                    <div className="flex items-baseline justify-center gap-0.5 md:gap-1">
-                                      <span className="text-base md:text-2xl font-extrabold text-white">{product.price}</span>
-                                      <span className="text-[10px] md:text-sm text-slate-400">ريال</span>
-                                    </div>
+                                    {product.discounted_price && product.discounted_price < product.price ? (
+                                      <>
+                                        <div className="flex items-baseline justify-center gap-0.5 md:gap-1 mb-0.5 md:mb-1">
+                                          <span className="text-base md:text-2xl font-extrabold text-white">{product.discounted_price}</span>
+                                          <span className="text-[10px] md:text-sm text-slate-400">ريال</span>
+                                        </div>
+                                        <div className="flex items-center justify-center gap-0.5 md:gap-1 flex-wrap">
+                                          <span className="text-[9px] md:text-xs text-slate-400 line-through">{product.price}</span>
+                                          <span className="text-[9px] md:text-xs text-slate-400">ريال</span>
+                                          <span className="text-[9px] md:text-xs font-bold text-red-400">
+                                            ({Math.round(((product.price - product.discounted_price) / product.price) * 100)}% خصم)
+                                          </span>
+                                        </div>
+                                      </>
+                                    ) : (
+                                      <div className="flex items-baseline justify-center gap-0.5 md:gap-1">
+                                        <span className="text-base md:text-2xl font-extrabold text-white">{product.price}</span>
+                                        <span className="text-[10px] md:text-sm text-slate-400">ريال</span>
+                                      </div>
+                                    )}
                                   </div>
 
                                   <Button
@@ -891,7 +941,7 @@ export default function Home() {
                                         addItem({
                                           product_code: product.code,
                                           product_name: product.name,
-                                          price: product.price,
+                                          price: product.discounted_price && product.discounted_price < product.price ? product.discounted_price : product.price,
                                           quantity: 1,
                                           image: product.image,
                                         });

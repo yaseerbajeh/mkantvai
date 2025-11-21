@@ -46,6 +46,8 @@ interface Product {
   name: string;
   description: string;
   price: number;
+  discounted_price?: number | null;
+  promo_banner_text?: string | null;
   duration: string;
   section: number;
   section_title: string;
@@ -1249,6 +1251,8 @@ function ProductFormDialog({
     name: '',
     description: '',
     price: '',
+    discounted_price: '',
+    promo_banner_text: '',
     duration: '',
     category_id: '',
     section: '1',
@@ -1285,6 +1289,8 @@ function ProductFormDialog({
         name: product.name,
         description: product.description,
         price: product.price.toString(),
+        discounted_price: product.discounted_price?.toString() || '',
+        promo_banner_text: product.promo_banner_text || '',
         duration: duration,
         category_id: product.category_id || '',
         section: product.section.toString(),
@@ -1313,6 +1319,8 @@ function ProductFormDialog({
         name: '',
         description: '',
         price: '',
+        discounted_price: '',
+        promo_banner_text: '',
         duration: '',
         category_id: categories.length > 0 ? categories[0].id : '',
         section: '1',
@@ -1349,6 +1357,8 @@ function ProductFormDialog({
       ...formData,
       duration: durationValue,
       price: parseFloat(formData.price),
+      discounted_price: formData.discounted_price ? parseFloat(formData.discounted_price) : null,
+      promo_banner_text: formData.promo_banner_text || null,
       section: parseInt(formData.section),
       display_order: parseInt(formData.display_order),
       features: formData.is_package && formData.features
@@ -1405,6 +1415,27 @@ function ProductFormDialog({
                 required
                 className="bg-white border-gray-300 text-gray-900 mt-2"
               />
+            </div>
+            <div>
+              <Label>السعر المخفض (ريال) - اختياري</Label>
+              <Input
+                type="number"
+                value={formData.discounted_price}
+                onChange={(e) => setFormData({ ...formData, discounted_price: e.target.value })}
+                className="bg-white border-gray-300 text-gray-900 mt-2"
+                placeholder="أدخل السعر المخفض"
+              />
+              <p className="text-xs text-gray-500 mt-1">سيظهر السعر الأصلي محذوفاً والسعر المخفض بخط عريض</p>
+            </div>
+            <div className="col-span-2">
+              <Label>نص البانر الترويجي - اختياري</Label>
+              <Input
+                value={formData.promo_banner_text}
+                onChange={(e) => setFormData({ ...formData, promo_banner_text: e.target.value })}
+                className="bg-white border-gray-300 text-gray-900 mt-2"
+                placeholder="مثال: 3 أشهر مجاناً على رأسها"
+              />
+              <p className="text-xs text-gray-500 mt-1">سيظهر هذا النص كبانر صغير على بطاقة المنتج</p>
             </div>
             <div>
               <Label>المدة *</Label>

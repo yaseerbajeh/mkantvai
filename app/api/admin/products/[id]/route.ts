@@ -60,6 +60,8 @@ export async function PUT(
       name,
       description,
       price,
+      discounted_price,
+      promo_banner_text,
       duration,
       category_id,
       section, // Keep for backward compatibility
@@ -107,6 +109,8 @@ export async function PUT(
     if (name !== undefined) updateData.name = name;
     if (description !== undefined) updateData.description = description;
     if (price !== undefined) updateData.price = parseFloat(price);
+    if (discounted_price !== undefined) updateData.discounted_price = discounted_price !== null && discounted_price !== '' ? parseFloat(discounted_price) : null;
+    if (promo_banner_text !== undefined) updateData.promo_banner_text = promo_banner_text || null;
     if (duration !== undefined) updateData.duration = duration;
     if (category_id !== undefined) updateData.category_id = category_id;
     if (section !== undefined) updateData.section = parseInt(section);
