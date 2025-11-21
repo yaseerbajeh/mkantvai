@@ -153,6 +153,8 @@ export async function POST(request: NextRequest) {
       name,
       description,
       price,
+      discounted_price,
+      promo_banner_text,
       duration,
       category_id,
       section, // Keep for backward compatibility
@@ -207,6 +209,8 @@ export async function POST(request: NextRequest) {
         name,
         description: description || '',
         price: parseFloat(price),
+        discounted_price: discounted_price !== undefined && discounted_price !== null ? parseFloat(discounted_price) : null,
+        promo_banner_text: promo_banner_text || null,
         duration: duration || '',
         category_id: category_id,
         section: section || sectionNumber, // Keep for backward compatibility

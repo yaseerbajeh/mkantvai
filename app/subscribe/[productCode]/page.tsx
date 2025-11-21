@@ -684,7 +684,13 @@ export default function ProductDetailPage() {
 
             {/* Product Info Section */}
             <div className="flex flex-col justify-center">
-              <Card className="bg-gradient-to-br from-slate-800/90 to-slate-900/90 border border-slate-700/50 p-8">
+              <Card className="bg-gradient-to-br from-slate-800/90 to-slate-900/90 border border-slate-700/50 p-8 relative">
+                {/* Promo Banner */}
+                {product.promo_banner_text && (
+                  <div className="absolute top-4 right-4 z-10 bg-gradient-to-r from-red-500 to-orange-500 text-white text-sm md:text-base font-bold px-4 md:px-6 py-2 md:py-3 rounded-lg shadow-lg">
+                    {product.promo_banner_text}
+                  </div>
+                )}
                 <div className="mb-6">
                   <h1 className="text-4xl md:text-5xl font-extrabold text-white mb-4">
                     {product.name}
@@ -696,25 +702,56 @@ export default function ProductDetailPage() {
 
                 {/* Price */}
                 <div className="mb-8 p-6 bg-gradient-to-br from-slate-700/50 to-slate-800/50 rounded-2xl border border-slate-600/50">
-                  {(() => {
-                    const { usdPrice } = formatPriceWithSar(product.price);
-                    return (
-                      <>
-                        <div className="flex items-baseline gap-3 mb-2">
-                          <span className="text-6xl font-extrabold text-white">{product.price}</span>
-                          <span className="text-2xl text-slate-400">ريال</span>
-                        </div>
-                        <p className="text-slate-400 text-base mb-2">
-                          ما يساوي ${usdPrice} دولار أمريكي
-                        </p>
-                        {product.duration !== '1 شهر' && (
-                          <p className="text-slate-400 text-lg">
-                            {Math.round(product.price / (product.duration.includes('3') ? 3 : product.duration.includes('6') ? 6 : 12))} ريال/شهر
+                  {product.discounted_price && product.discounted_price < product.price ? (
+                    <>
+                      <div className="flex items-baseline gap-3 mb-2">
+                        <span className="text-6xl font-extrabold text-white">{product.discounted_price}</span>
+                        <span className="text-2xl text-slate-400">ريال</span>
+                      </div>
+                      <div className="flex items-center gap-3 mb-2 flex-wrap">
+                        <span className="text-xl text-slate-400 line-through">{product.price}</span>
+                        <span className="text-xl text-slate-400">ريال</span>
+                        <span className="text-lg font-bold text-red-400">
+                          ({Math.round(((product.price - product.discounted_price) / product.price) * 100)}% خصم)
+                        </span>
+                      </div>
+                      {(() => {
+                        const { usdPrice } = formatPriceWithSar(product.discounted_price);
+                        return (
+                          <p className="text-slate-400 text-base mb-2">
+                            ما يساوي ${usdPrice} دولار أمريكي
                           </p>
-                        )}
-                      </>
-                    );
-                  })()}
+                        );
+                      })()}
+                      {product.duration !== '1 شهر' && (
+                        <p className="text-slate-400 text-lg">
+                          {Math.round(product.discounted_price / (product.duration.includes('3') ? 3 : product.duration.includes('6') ? 6 : 12))} ريال/شهر
+                        </p>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      {(() => {
+                        const { usdPrice } = formatPriceWithSar(product.price);
+                        return (
+                          <>
+                            <div className="flex items-baseline gap-3 mb-2">
+                              <span className="text-6xl font-extrabold text-white">{product.price}</span>
+                              <span className="text-2xl text-slate-400">ريال</span>
+                            </div>
+                            <p className="text-slate-400 text-base mb-2">
+                              ما يساوي ${usdPrice} دولار أمريكي
+                            </p>
+                            {product.duration !== '1 شهر' && (
+                              <p className="text-slate-400 text-lg">
+                                {Math.round(product.price / (product.duration.includes('3') ? 3 : product.duration.includes('6') ? 6 : 12))} ريال/شهر
+                              </p>
+                            )}
+                          </>
+                        );
+                      })()}
+                    </>
+                  )}
                 </div>
 
                 {/* Stock Display */}
@@ -748,7 +785,7 @@ export default function ProductDetailPage() {
                       addItem({
                         product_code: product.code,
                         product_name: product.name,
-                        price: product.price,
+                        price: product.discounted_price && product.discounted_price < product.price ? product.discounted_price : product.price,
                         quantity: 1,
                         image: product.image,
                       });
@@ -770,7 +807,7 @@ export default function ProductDetailPage() {
                       addItem({
                         product_code: product.code,
                         product_name: product.name,
-                        price: product.price,
+                        price: product.discounted_price && product.discounted_price < product.price ? product.discounted_price : product.price,
                         quantity: 1,
                         image: product.image,
                       });

@@ -168,20 +168,6 @@ export async function PUT(request: NextRequest) {
           { status: 400 }
         );
       }
-      if (!normalizedExpiration) {
-        return NextResponse.json(
-          { error: 'تاريخ الانتهاء مطلوب' },
-          { status: 400 }
-        );
-      }
-      // Validate expiration date is in the future
-      const expirationDate = new Date(normalizedExpiration);
-      if (expirationDate <= new Date()) {
-        return NextResponse.json(
-          { error: 'تاريخ الانتهاء يجب أن يكون في المستقبل' },
-          { status: 400 }
-        );
-      }
       // For blackfriday, validate image URL
       if (bannerType === 'blackfriday' && !updates.banner_image_url) {
         return NextResponse.json(
@@ -219,12 +205,7 @@ export async function PUT(request: NextRequest) {
       title: updates.title || '',
       subtitle: updates.subtitle || '',
       discount_percentage: updates.discount_percentage || 0,
-      expiration_date: normalizedExpiration || updates.expiration_date || (() => {
-        const fallback = new Date();
-        fallback.setDate(fallback.getDate() + 30);
-        fallback.setHours(23, 59, 59, 999);
-        return fallback.toISOString();
-      })(),
+      expiration_date: normalizedExpiration || updates.expiration_date || null,
       cta_link: updates.cta_link || '/subscribe',
       is_enabled: updates.is_enabled || false,
       updated_at: new Date().toISOString(),

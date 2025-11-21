@@ -46,7 +46,7 @@ export default function SubscribePage() {
     title: string;
     subtitle: string;
     discount_percentage: number;
-    expiration_date: string;
+    expiration_date?: string | null;
     cta_link: string;
     banner_type?: 'default' | 'blackfriday';
     banner_image_url?: string;
@@ -172,7 +172,11 @@ export default function SubscribePage() {
   
   // Countdown timer for promotion
   useEffect(() => {
-    if (!promotionalBanner) return;
+    if (!promotionalBanner || !promotionalBanner.expiration_date) {
+      // No countdown if no banner or no expiration date
+      setCountdown({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+      return;
+    }
     
     const targetDate = new Date(promotionalBanner.expiration_date).getTime();
     
@@ -444,6 +448,13 @@ export default function SubscribePage() {
                               </div>
                             )}
                             
+                            {/* Promo Banner */}
+                            {product.promo_banner_text && (
+                              <div className="absolute top-2 right-2 z-20 bg-gradient-to-r from-red-500 to-orange-500 text-white text-xs md:text-sm font-bold px-3 md:px-4 py-1 md:py-2 rounded-lg shadow-lg">
+                                {product.promo_banner_text}
+                              </div>
+                            )}
+                            
                             {/* Package Header with Logos - Clickable Link */}
                             <Link href={`/subscribe/${product.code}`} className="block cursor-pointer">
                               <div className={`relative h-48 md:h-64 w-full overflow-hidden ${product.code === 'SUB-PACKAGE-LEGENDARY' ? 'bg-gradient-to-br from-slate-700 to-slate-800' : `bg-gradient-to-br ${product.gradient}`} p-6 md:p-8`}>
@@ -486,17 +497,30 @@ export default function SubscribePage() {
                             <CardContent className="mt-auto pb-6 md:pb-8 px-6 md:px-8">
                               {/* Price */}
                               <div className="mb-6 text-center p-4 md:p-6 bg-gradient-to-br from-slate-700/50 to-slate-800/50 rounded-xl border border-slate-600/50">
-                                {(() => {
-                                  return (
-                                    <>
-                                      <div className="flex items-baseline justify-center gap-2 md:gap-3 mb-2">
-                                        <span className="text-4xl md:text-6xl font-extrabold text-white">{product.price}</span>
-                                        <span className="text-xl md:text-2xl text-slate-400">ريال</span>
-                                      </div>
-                                      <p className="text-slate-400 text-sm md:text-base">قيمة استثنائية</p>
-                                    </>
-                                  );
-                                })()}
+                                {product.discounted_price && product.discounted_price < product.price ? (
+                                  <>
+                                    <div className="flex items-baseline justify-center gap-2 md:gap-3 mb-2">
+                                      <span className="text-4xl md:text-6xl font-extrabold text-white">{product.discounted_price}</span>
+                                      <span className="text-xl md:text-2xl text-slate-400">ريال</span>
+                                    </div>
+                                    <div className="flex items-center justify-center gap-2 flex-wrap mb-2">
+                                      <span className="text-sm md:text-base text-slate-400 line-through">{product.price}</span>
+                                      <span className="text-sm md:text-base text-slate-400">ريال</span>
+                                      <span className="text-sm md:text-base font-bold text-red-400">
+                                        ({Math.round(((product.price - product.discounted_price) / product.price) * 100)}% خصم)
+                                      </span>
+                                    </div>
+                                    <p className="text-slate-400 text-sm md:text-base">قيمة استثنائية</p>
+                                  </>
+                                ) : (
+                                  <>
+                                    <div className="flex items-baseline justify-center gap-2 md:gap-3 mb-2">
+                                      <span className="text-4xl md:text-6xl font-extrabold text-white">{product.price}</span>
+                                      <span className="text-xl md:text-2xl text-slate-400">ريال</span>
+                                    </div>
+                                    <p className="text-slate-400 text-sm md:text-base">قيمة استثنائية</p>
+                                  </>
+                                )}
                               </div>
 
                               {/* Stock Display */}
@@ -544,7 +568,7 @@ export default function SubscribePage() {
                                     addItem({
                                       product_code: product.code,
                                       product_name: product.name,
-                                      price: product.price,
+                                      price: product.discounted_price && product.discounted_price < product.price ? product.discounted_price : product.price,
                                       quantity: 1,
                                       image: product.image,
                                     });
@@ -655,22 +679,38 @@ export default function SubscribePage() {
                           <CardContent className="mt-auto pb-3 md:pb-6 px-3 md:px-6">
                             {/* Price */}
                             <div className="mb-3 md:mb-6 text-center">
-                              {(() => {
-                                const { sarText } = formatPriceWithSar(product.price);
-                                return (
-                                  <>
-                                    <div className="flex items-baseline justify-center gap-1 md:gap-2">
-                                      <span className="text-2xl md:text-5xl font-extrabold text-white">{product.price}</span>
-                                      <span className="text-sm md:text-xl text-slate-400">ريال</span>
-                                    </div>
-                                    {product.duration !== '1 شهر' && (
-                                      <p className="text-xs md:text-sm text-slate-500 mt-1 md:mt-2">
-                                        {Math.round(product.price / (product.duration.includes('3') ? 3 : product.duration.includes('6') ? 6 : 12))} ريال/شهر
-                                      </p>
-                                    )}
-                                  </>
-                                );
-                              })()}
+                              {product.discounted_price && product.discounted_price < product.price ? (
+                                <>
+                                  <div className="flex items-baseline justify-center gap-1 md:gap-2">
+                                    <span className="text-2xl md:text-5xl font-extrabold text-white">{product.discounted_price}</span>
+                                    <span className="text-sm md:text-xl text-slate-400">ريال</span>
+                                  </div>
+                                  <div className="flex items-center justify-center gap-1 md:gap-2 flex-wrap mt-1 md:mt-2">
+                                    <span className="text-xs md:text-sm text-slate-400 line-through">{product.price}</span>
+                                    <span className="text-xs md:text-sm text-slate-400">ريال</span>
+                                    <span className="text-xs md:text-sm font-bold text-red-400">
+                                      ({Math.round(((product.price - product.discounted_price) / product.price) * 100)}% خصم)
+                                    </span>
+                                  </div>
+                                  {product.duration !== '1 شهر' && (
+                                    <p className="text-xs md:text-sm text-slate-500 mt-1 md:mt-2">
+                                      {Math.round(product.discounted_price / (product.duration.includes('3') ? 3 : product.duration.includes('6') ? 6 : 12))} ريال/شهر
+                                    </p>
+                                  )}
+                                </>
+                              ) : (
+                                <>
+                                  <div className="flex items-baseline justify-center gap-1 md:gap-2">
+                                    <span className="text-2xl md:text-5xl font-extrabold text-white">{product.price}</span>
+                                    <span className="text-sm md:text-xl text-slate-400">ريال</span>
+                                  </div>
+                                  {product.duration !== '1 شهر' && (
+                                    <p className="text-xs md:text-sm text-slate-500 mt-1 md:mt-2">
+                                      {Math.round(product.price / (product.duration.includes('3') ? 3 : product.duration.includes('6') ? 6 : 12))} ريال/شهر
+                                    </p>
+                                  )}
+                                </>
+                              )}
                             </div>
 
                             {/* Stock Display */}
@@ -717,7 +757,7 @@ export default function SubscribePage() {
                                     addItem({
                                       product_code: product.code,
                                       product_name: product.name,
-                                      price: product.price,
+                                      price: product.discounted_price && product.discounted_price < product.price ? product.discounted_price : product.price,
                                       quantity: 1,
                                       image: product.image,
                                     });

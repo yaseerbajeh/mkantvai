@@ -66,7 +66,7 @@ interface PromotionalBanner {
   title: string;
   subtitle: string;
   discount_percentage: number;
-  expiration_date: string;
+  expiration_date?: string | null;
   cta_link: string;
   banner_type?: 'default' | 'blackfriday';
   banner_image_url?: string;
@@ -421,14 +421,6 @@ export default function AdminPromoCodesPage() {
         });
         return;
       }
-      if (!bannerForm.expiration_date) {
-        toast({
-          title: 'خطأ',
-          description: 'يرجى تحديد تاريخ الانتهاء',
-          variant: 'destructive',
-        });
-        return;
-      }
       if (editingBannerType === 'blackfriday' && !blackfridayBannerForm.banner_image_url) {
         toast({
           title: 'خطأ',
@@ -448,14 +440,7 @@ export default function AdminPromoCodesPage() {
         id: currentBanner?.id || null,
         banner_type: editingBannerType,
         ...bannerForm,
-        expiration_date:
-          toEndOfDayISO(bannerForm.expiration_date) ||
-          (() => {
-            const fallback = new Date();
-            fallback.setDate(fallback.getDate() + 30);
-            fallback.setHours(23, 59, 59, 999);
-            return fallback.toISOString();
-          })(),
+        expiration_date: bannerForm.expiration_date ? toEndOfDayISO(bannerForm.expiration_date) : null,
       };
 
       const response = await fetch('/api/admin/promotional-banner', {
@@ -535,31 +520,11 @@ export default function AdminPromoCodesPage() {
             ? 'خصم 20% على جميع المنتجات بمناسبة افتتاح المنصة استخدم كود 20A على جميع المنتجات'
             : 'خصومات حصرية على جميع المنتجات';
         }
-        if (!bannerForm.expiration_date) {
-          // Default to 30 days from now (end of day)
-          const defaultDate = new Date();
-          defaultDate.setDate(defaultDate.getDate() + 30);
-          defaultDate.setHours(23, 59, 59, 999);
-          payload.expiration_date = defaultDate.toISOString();
-        } else {
-          // Ensure expiration_date keeps end-of-day when only date is provided
-          payload.expiration_date =
-            toEndOfDayISO(bannerForm.expiration_date) ||
-            (() => {
-              const fallback = new Date();
-              fallback.setDate(fallback.getDate() + 30);
-              fallback.setHours(23, 59, 59, 999);
-              return fallback.toISOString();
-            })();
-        }
+        // expiration_date is optional - set to null if not provided
+        payload.expiration_date = bannerForm.expiration_date ? toEndOfDayISO(bannerForm.expiration_date) : null;
       } else {
-        // If disabling, keep existing expiration_date or set a default
-        payload.expiration_date = toEndOfDayISO(bannerForm.expiration_date) || (() => {
-          const fallback = new Date();
-          fallback.setDate(fallback.getDate() + 30);
-          fallback.setHours(23, 59, 59, 999);
-          return fallback.toISOString();
-        })();
+        // If disabling, keep existing expiration_date or set to null
+        payload.expiration_date = bannerForm.expiration_date ? toEndOfDayISO(bannerForm.expiration_date) : null;
       }
 
       const response = await fetch('/api/admin/promotional-banner', {
@@ -878,7 +843,7 @@ export default function AdminPromoCodesPage() {
                           <span className="text-gray-900">
                             {defaultBanner.expiration_date
                               ? format(new Date(defaultBanner.expiration_date), 'yyyy-MM-dd', { locale: ar })
-                              : '-'}
+                              : 'بدون انتهاء'}
                           </span>
                         </div>
                       </div>
@@ -934,7 +899,7 @@ export default function AdminPromoCodesPage() {
                           <span className="text-gray-900">
                             {blackfridayBanner.expiration_date
                               ? format(new Date(blackfridayBanner.expiration_date), 'yyyy-MM-dd', { locale: ar })
-                              : '-'}
+                              : 'بدون انتهاء'}
                           </span>
                         </div>
                       </div>
@@ -1353,12 +1318,12 @@ export default function AdminPromoCodesPage() {
                           />
                         </div>
                         <div>
-                          <Label htmlFor="banner-expiration">تاريخ الانتهاء *</Label>
+                          <Label htmlFor="banner-expiration">تاريخ الانتهاء (اختياري)</Label>
                           <Input
                             id="banner-expiration"
                             type="date"
-                            value={bannerForm.expiration_date}
-                            onChange={(e) => setBannerForm({ ...bannerForm, expiration_date: e.target.value })}
+                            value={bannerForm.expiration_date || ''}
+                            onChange={(e) => setBannerForm({ ...bannerForm, expiration_date: e.target.value || '' })}
                             className="bg-white border-gray-300 text-gray-900 mt-1"
                             min={new Date().toISOString().split('T')[0]}
                           />

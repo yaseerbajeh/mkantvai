@@ -9,14 +9,13 @@ export async function GET() {
   try {
     const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-    // Fetch the enabled banner that hasn't expired (prioritize blackfriday, then default)
+    // Fetch the enabled banner (prioritize blackfriday, then default)
     // First try to get blackfriday banner
     let { data, error } = await supabase
       .from('promotional_banners')
       .select('*')
       .eq('is_enabled', true)
       .eq('banner_type', 'blackfriday')
-      .gte('expiration_date', new Date().toISOString())
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -28,7 +27,6 @@ export async function GET() {
         .select('*')
         .eq('is_enabled', true)
         .eq('banner_type', 'default')
-        .gte('expiration_date', new Date().toISOString())
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
