@@ -443,15 +443,15 @@ export default function SubscribePage() {
                 </div>
 
                 {/* Aroma Categories - Arena Challenge Design */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end justify-center">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-6 items-end justify-center">
                   {[
                     { 
                       key: 'basic', 
                       title: 'باقة أساسية', 
-                      tier: 'الباقة الأولى: الوصول الأساسي',
+                      tier: 'الباقة الأولى: مسلسلات وأفلام ',
                       cardClass: 'starter-card',
                       playerClass: 'starter-player',
-                      features: ['قنوات متعددة', 'جودة HD', 'اتصال جهاز واحد']
+                      features: ['خاصية التحميل والتشغيل بدون انترنت ', 'جودة فوركي', "18,000 فلم ومسلسلات"]
                     },
                     { 
                       key: 'premium', 
@@ -460,15 +460,15 @@ export default function SubscribePage() {
                       cardClass: 'special-card',
                       playerClass: 'special-player',
                       isPopular: true,
-                      features: ['أكبر عدد من القنوات', 'جودة 4K/UHD', 'اتصال 5 أجهزة', 'جميع الرياضات والأحداث']
+                      features: ["جميع الدوريات المحلية والأوروبية", 'جودة 4K/UHD', "جميع قنوات ثمانية و beIN", 'جميع مميزات الباقة الأساسية والمميزة ']
                     },
                     { 
                       key: 'luxury', 
                       title: 'باقة مميزة', 
-                      tier: 'الباقة الثانية: تجربة محسنة',
+                      tier: 'الباقة الثانية: مناسبة لدوري روشن ',
                       cardClass: 'premium-card',
                       playerClass: 'premium-player',
-                      features: ['قنوات أكثر', 'جودة Full HD & 4K', 'اتصال 3 أجهزة', 'رياضة مميزة']
+                      features: ["بث جميع مباريات دوري روشن", 'جودة Full HD & 4K', "جميع قنوات ثمانية", "جميع مميزات الباقة الأساسية"]
                     },
                   ].map((categoryConfig) => {
                     const categoryProducts = aromaProducts[categoryConfig.key] || [];
