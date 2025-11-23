@@ -1418,33 +1418,33 @@ export default function Home() {
       <section className="py-20 bg-gradient-to-b from-black via-slate-900 to-black">
         <div className="container mx-auto px-4">
           {/* Statistics Section */}
-          <div className="grid md:grid-cols-2 gap-8 mb-16 max-w-4xl mx-auto">
+          <div className="grid grid-cols-2 gap-4 md:gap-8 mb-16 max-w-4xl mx-auto">
             {/* Movies Library */}
-            <div className="bg-gradient-to-br from-blue-600/20 to-purple-600/20 border border-blue-500/30 rounded-2xl p-8 text-center hover:border-blue-500/50 transition-all duration-300 hover:scale-105">
-              <div className="flex justify-center mb-4">
-                <div className="w-16 h-16 bg-blue-600/30 rounded-full flex items-center justify-center">
-                  <Film className="w-8 h-8 text-blue-400" />
+            <div className="bg-gradient-to-br from-blue-600/20 to-purple-600/20 border border-blue-500/30 rounded-2xl p-4 md:p-8 text-center hover:border-blue-500/50 transition-all duration-300 hover:scale-105">
+              <div className="flex justify-center mb-2 md:mb-4">
+                <div className="w-12 h-12 md:w-16 md:h-16 bg-blue-600/30 rounded-full flex items-center justify-center">
+                  <Film className="w-6 h-6 md:w-8 md:h-8 text-blue-400" />
                 </div>
               </div>
-              <div className="text-5xl md:text-6xl font-bold text-white mb-2" style={{ fontFamily: 'var(--font-arabic)' }}>
+              <div className="text-3xl md:text-5xl lg:text-6xl font-bold text-white mb-1 md:mb-2" style={{ fontFamily: 'var(--font-arabic)' }}>
                 18000+
               </div>
-              <p className="text-xl md:text-2xl text-slate-300" style={{ fontFamily: 'var(--font-arabic)' }}>
+              <p className="text-sm md:text-xl lg:text-2xl text-slate-300" style={{ fontFamily: 'var(--font-arabic)' }}>
                 مكتبة أفلام فوق ال 18000 فلم
               </p>
             </div>
 
             {/* Series Library */}
-            <div className="bg-gradient-to-br from-purple-600/20 to-pink-600/20 border border-purple-500/30 rounded-2xl p-8 text-center hover:border-purple-500/50 transition-all duration-300 hover:scale-105">
-              <div className="flex justify-center mb-4">
-                <div className="w-16 h-16 bg-purple-600/30 rounded-full flex items-center justify-center">
-                  <Tv className="w-8 h-8 text-purple-400" />
+            <div className="bg-gradient-to-br from-purple-600/20 to-pink-600/20 border border-purple-500/30 rounded-2xl p-4 md:p-8 text-center hover:border-purple-500/50 transition-all duration-300 hover:scale-105">
+              <div className="flex justify-center mb-2 md:mb-4">
+                <div className="w-12 h-12 md:w-16 md:h-16 bg-purple-600/30 rounded-full flex items-center justify-center">
+                  <Tv className="w-6 h-6 md:w-8 md:h-8 text-purple-400" />
                 </div>
               </div>
-              <div className="text-5xl md:text-6xl font-bold text-white mb-2" style={{ fontFamily: 'var(--font-arabic)' }}>
+              <div className="text-3xl md:text-5xl lg:text-6xl font-bold text-white mb-1 md:mb-2" style={{ fontFamily: 'var(--font-arabic)' }}>
                 9000+
               </div>
-              <p className="text-xl md:text-2xl text-slate-300" style={{ fontFamily: 'var(--font-arabic)' }}>
+              <p className="text-sm md:text-xl lg:text-2xl text-slate-300" style={{ fontFamily: 'var(--font-arabic)' }}>
                 مكتبة مسلسلات فوق 9000 مسلسل
               </p>
             </div>
@@ -1455,45 +1455,45 @@ export default function Home() {
             <h2 className="text-3xl md:text-4xl font-bold text-white text-center mb-8" style={{ fontFamily: 'var(--font-arabic)' }}>
               جميع المنصات
             </h2>
-            <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6 max-w-5xl mx-auto">
+            <div className="grid grid-cols-4 lg:grid-cols-5 gap-3 md:gap-6 max-w-5xl mx-auto">
               {/* Netflix */}
-              <div className="flex flex-col items-center justify-center p-4 bg-slate-800/50 rounded-xl hover:bg-slate-700/50 transition-all duration-300 hover:scale-110">
-                <img src="/logos/netflix.svg" alt="Netflix" className="h-12 w-auto mb-2 opacity-90 hover:opacity-100 transition-opacity" />
+              <div className="flex flex-col items-center justify-center p-2 md:p-4 bg-slate-800/50 rounded-xl hover:bg-slate-700/50 transition-all duration-300 hover:scale-110">
+                <img src="/logos/netflix.svg" alt="Netflix" className="h-8 md:h-12 w-auto mb-1 md:mb-2 opacity-90 hover:opacity-100 transition-opacity" />
               </div>
               
               {/* Shahid */}
-              <div className="flex flex-col items-center justify-center p-4 bg-slate-800/50 rounded-xl hover:bg-slate-700/50 transition-all duration-300 hover:scale-110">
-                <img src="/logos/shahid.svg" alt="Shahid" className="h-12 w-auto mb-2 opacity-90 hover:opacity-100 transition-opacity" />
+              <div className="flex flex-col items-center justify-center p-2 md:p-4 bg-slate-800/50 rounded-xl hover:bg-slate-700/50 transition-all duration-300 hover:scale-110">
+                <img src="/logos/shahid.svg" alt="Shahid" className="h-8 md:h-12 w-auto mb-1 md:mb-2 opacity-90 hover:opacity-100 transition-opacity" />
               </div>
               
               {/* IPTV */}
-              <div className="flex flex-col items-center justify-center p-4 bg-slate-800/50 rounded-xl hover:bg-slate-700/50 transition-all duration-300 hover:scale-110">
-                <img src="/logos/iptv.png" alt="IPTV" className="h-12 w-auto mb-2 opacity-90 hover:opacity-100 transition-opacity" />
+              <div className="flex flex-col items-center justify-center p-2 md:p-4 bg-slate-800/50 rounded-xl hover:bg-slate-700/50 transition-all duration-300 hover:scale-110">
+                <img src="/logos/iptv.png" alt="IPTV" className="h-8 md:h-12 w-auto mb-1 md:mb-2 opacity-90 hover:opacity-100 transition-opacity" />
               </div>
               
               {/* Amazon Prime */}
-              <div className="flex flex-col items-center justify-center p-4 bg-slate-800/50 rounded-xl hover:bg-slate-700/50 transition-all duration-300 hover:scale-110">
-                <img src="/logos/amazon-prime.svg" alt="Amazon Prime" className="h-12 w-auto mb-2 opacity-90 hover:opacity-100 transition-opacity" />
+              <div className="flex flex-col items-center justify-center p-2 md:p-4 bg-slate-800/50 rounded-xl hover:bg-slate-700/50 transition-all duration-300 hover:scale-110">
+                <img src="/logos/amazon-prime.svg" alt="Amazon Prime" className="h-8 md:h-12 w-auto mb-1 md:mb-2 opacity-90 hover:opacity-100 transition-opacity" />
               </div>
               
               {/* Disney+ */}
-              <div className="flex flex-col items-center justify-center p-4 bg-slate-800/50 rounded-xl hover:bg-slate-700/50 transition-all duration-300 hover:scale-110">
-                <img src="/logos/disney-plus.svg" alt="Disney+" className="h-12 w-auto mb-2 opacity-90 hover:opacity-100 transition-opacity" />
+              <div className="flex flex-col items-center justify-center p-2 md:p-4 bg-slate-800/50 rounded-xl hover:bg-slate-700/50 transition-all duration-300 hover:scale-110">
+                <img src="/logos/disney-plus.svg" alt="Disney+" className="h-8 md:h-12 w-auto mb-1 md:mb-2 opacity-90 hover:opacity-100 transition-opacity" />
               </div>
               
               {/* HBO Max */}
-              <div className="flex flex-col items-center justify-center p-4 bg-slate-800/50 rounded-xl hover:bg-slate-700/50 transition-all duration-300 hover:scale-110">
-                <img src="/logos/hbo-max.svg" alt="HBO Max" className="h-12 w-auto mb-2 opacity-90 hover:opacity-100 transition-opacity" />
+              <div className="flex flex-col items-center justify-center p-2 md:p-4 bg-slate-800/50 rounded-xl hover:bg-slate-700/50 transition-all duration-300 hover:scale-110">
+                <img src="/logos/hbo-max.svg" alt="HBO Max" className="h-8 md:h-12 w-auto mb-1 md:mb-2 opacity-90 hover:opacity-100 transition-opacity" />
               </div>
               
               {/* Hulu */}
-              <div className="flex flex-col items-center justify-center p-4 bg-slate-800/50 rounded-xl hover:bg-slate-700/50 transition-all duration-300 hover:scale-110">
-                <img src="/logos/hulu.svg" alt="Hulu" className="h-12 w-auto mb-2 opacity-90 hover:opacity-100 transition-opacity" />
+              <div className="flex flex-col items-center justify-center p-2 md:p-4 bg-slate-800/50 rounded-xl hover:bg-slate-700/50 transition-all duration-300 hover:scale-110">
+                <img src="/logos/hulu.svg" alt="Hulu" className="h-8 md:h-12 w-auto mb-1 md:mb-2 opacity-90 hover:opacity-100 transition-opacity" />
               </div>
               
               {/* Apple TV+ */}
-              <div className="flex flex-col items-center justify-center p-4 bg-slate-800/50 rounded-xl hover:bg-slate-700/50 transition-all duration-300 hover:scale-110">
-                <img src="/logos/apple-tv.svg" alt="Apple TV+" className="h-12 w-auto mb-2 opacity-90 hover:opacity-100 transition-opacity" />
+              <div className="flex flex-col items-center justify-center p-2 md:p-4 bg-slate-800/50 rounded-xl hover:bg-slate-700/50 transition-all duration-300 hover:scale-110">
+                <img src="/logos/apple-tv.svg" alt="Apple TV+" className="h-8 md:h-12 w-auto mb-1 md:mb-2 opacity-90 hover:opacity-100 transition-opacity" />
               </div>
             </div>
           </div>
@@ -1503,75 +1503,75 @@ export default function Home() {
             <h2 className="text-3xl md:text-4xl font-bold text-white text-center mb-8" style={{ fontFamily: 'var(--font-arabic)' }}>
               يضبط على جميع الاجهزة
             </h2>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6 max-w-6xl mx-auto">
+            <div className="grid grid-cols-3 lg:grid-cols-5 gap-3 md:gap-6 max-w-6xl mx-auto">
               {/* Smart TV */}
-              <div className="flex flex-col items-center justify-center p-6 bg-slate-800/50 rounded-xl hover:bg-slate-700/50 transition-all duration-300 hover:scale-105 border border-slate-700/50 hover:border-blue-500/50">
-                <Tv className="w-10 h-10 text-blue-400 mb-3" />
-                <span className="text-white text-sm font-semibold text-center" style={{ fontFamily: 'var(--font-arabic)' }}>
+              <div className="flex flex-col items-center justify-center p-3 md:p-6 bg-slate-800/50 rounded-xl hover:bg-slate-700/50 transition-all duration-300 hover:scale-105 border border-slate-700/50 hover:border-blue-500/50">
+                <Tv className="w-8 h-8 md:w-10 md:h-10 text-blue-400 mb-2 md:mb-3" />
+                <span className="text-white text-xs md:text-sm font-semibold text-center" style={{ fontFamily: 'var(--font-arabic)' }}>
                   Smart TV
                 </span>
               </div>
 
               {/* iPhone / iOS */}
-              <div className="flex flex-col items-center justify-center p-6 bg-slate-800/50 rounded-xl hover:bg-slate-700/50 transition-all duration-300 hover:scale-105 border border-slate-700/50 hover:border-blue-500/50">
-                <Smartphone className="w-10 h-10 text-blue-400 mb-3" />
-                <span className="text-white text-sm font-semibold text-center" style={{ fontFamily: 'var(--font-arabic)' }}>
+              <div className="flex flex-col items-center justify-center p-3 md:p-6 bg-slate-800/50 rounded-xl hover:bg-slate-700/50 transition-all duration-300 hover:scale-105 border border-slate-700/50 hover:border-blue-500/50">
+                <Smartphone className="w-8 h-8 md:w-10 md:h-10 text-blue-400 mb-2 md:mb-3" />
+                <span className="text-white text-xs md:text-sm font-semibold text-center" style={{ fontFamily: 'var(--font-arabic)' }}>
                   iPhone / iOS
                 </span>
               </div>
 
               {/* Android Phone */}
-              <div className="flex flex-col items-center justify-center p-6 bg-slate-800/50 rounded-xl hover:bg-slate-700/50 transition-all duration-300 hover:scale-105 border border-slate-700/50 hover:border-blue-500/50">
-                <Smartphone className="w-10 h-10 text-green-400 mb-3" />
-                <span className="text-white text-sm font-semibold text-center" style={{ fontFamily: 'var(--font-arabic)' }}>
+              <div className="flex flex-col items-center justify-center p-3 md:p-6 bg-slate-800/50 rounded-xl hover:bg-slate-700/50 transition-all duration-300 hover:scale-105 border border-slate-700/50 hover:border-blue-500/50">
+                <Smartphone className="w-8 h-8 md:w-10 md:h-10 text-green-400 mb-2 md:mb-3" />
+                <span className="text-white text-xs md:text-sm font-semibold text-center" style={{ fontFamily: 'var(--font-arabic)' }}>
                   Android
                 </span>
               </div>
 
               {/* Windows PC */}
-              <div className="flex flex-col items-center justify-center p-6 bg-slate-800/50 rounded-xl hover:bg-slate-700/50 transition-all duration-300 hover:scale-105 border border-slate-700/50 hover:border-blue-500/50">
-                <Monitor className="w-10 h-10 text-blue-400 mb-3" />
-                <span className="text-white text-sm font-semibold text-center" style={{ fontFamily: 'var(--font-arabic)' }}>
+              <div className="flex flex-col items-center justify-center p-3 md:p-6 bg-slate-800/50 rounded-xl hover:bg-slate-700/50 transition-all duration-300 hover:scale-105 border border-slate-700/50 hover:border-blue-500/50">
+                <Monitor className="w-8 h-8 md:w-10 md:h-10 text-blue-400 mb-2 md:mb-3" />
+                <span className="text-white text-xs md:text-sm font-semibold text-center" style={{ fontFamily: 'var(--font-arabic)' }}>
                   Windows PC
                 </span>
               </div>
 
               {/* Mac */}
-              <div className="flex flex-col items-center justify-center p-6 bg-slate-800/50 rounded-xl hover:bg-slate-700/50 transition-all duration-300 hover:scale-105 border border-slate-700/50 hover:border-blue-500/50">
-                <Laptop className="w-10 h-10 text-blue-400 mb-3" />
-                <span className="text-white text-sm font-semibold text-center" style={{ fontFamily: 'var(--font-arabic)' }}>
+              <div className="flex flex-col items-center justify-center p-3 md:p-6 bg-slate-800/50 rounded-xl hover:bg-slate-700/50 transition-all duration-300 hover:scale-105 border border-slate-700/50 hover:border-blue-500/50">
+                <Laptop className="w-8 h-8 md:w-10 md:h-10 text-blue-400 mb-2 md:mb-3" />
+                <span className="text-white text-xs md:text-sm font-semibold text-center" style={{ fontFamily: 'var(--font-arabic)' }}>
                   Mac
                 </span>
               </div>
 
               {/* Fire TV Stick */}
-              <div className="flex flex-col items-center justify-center p-6 bg-slate-800/50 rounded-xl hover:bg-slate-700/50 transition-all duration-300 hover:scale-105 border border-slate-700/50 hover:border-blue-500/50">
-                <Tv className="w-10 h-10 text-orange-400 mb-3" />
-                <span className="text-white text-sm font-semibold text-center" style={{ fontFamily: 'var(--font-arabic)' }}>
+              <div className="flex flex-col items-center justify-center p-3 md:p-6 bg-slate-800/50 rounded-xl hover:bg-slate-700/50 transition-all duration-300 hover:scale-105 border border-slate-700/50 hover:border-blue-500/50">
+                <Tv className="w-8 h-8 md:w-10 md:h-10 text-orange-400 mb-2 md:mb-3" />
+                <span className="text-white text-xs md:text-sm font-semibold text-center" style={{ fontFamily: 'var(--font-arabic)' }}>
                   Fire TV Stick
                 </span>
               </div>
 
               {/* Apple TV */}
-              <div className="flex flex-col items-center justify-center p-6 bg-slate-800/50 rounded-xl hover:bg-slate-700/50 transition-all duration-300 hover:scale-105 border border-slate-700/50 hover:border-blue-500/50">
-                <Tv className="w-10 h-10 text-blue-400 mb-3" />
-                <span className="text-white text-sm font-semibold text-center" style={{ fontFamily: 'var(--font-arabic)' }}>
+              <div className="flex flex-col items-center justify-center p-3 md:p-6 bg-slate-800/50 rounded-xl hover:bg-slate-700/50 transition-all duration-300 hover:scale-105 border border-slate-700/50 hover:border-blue-500/50">
+                <Tv className="w-8 h-8 md:w-10 md:h-10 text-blue-400 mb-2 md:mb-3" />
+                <span className="text-white text-xs md:text-sm font-semibold text-center" style={{ fontFamily: 'var(--font-arabic)' }}>
                   Apple TV
                 </span>
               </div>
 
               {/* Samsung TV */}
-              <div className="flex flex-col items-center justify-center p-6 bg-slate-800/50 rounded-xl hover:bg-slate-700/50 transition-all duration-300 hover:scale-105 border border-slate-700/50 hover:border-blue-500/50">
-                <Tv className="w-10 h-10 text-blue-400 mb-3" />
-                <span className="text-white text-sm font-semibold text-center" style={{ fontFamily: 'var(--font-arabic)' }}>
+              <div className="flex flex-col items-center justify-center p-3 md:p-6 bg-slate-800/50 rounded-xl hover:bg-slate-700/50 transition-all duration-300 hover:scale-105 border border-slate-700/50 hover:border-blue-500/50">
+                <Tv className="w-8 h-8 md:w-10 md:h-10 text-blue-400 mb-2 md:mb-3" />
+                <span className="text-white text-xs md:text-sm font-semibold text-center" style={{ fontFamily: 'var(--font-arabic)' }}>
                   Samsung TV
                 </span>
               </div>
 
               {/* LG TV */}
-              <div className="flex flex-col items-center justify-center p-6 bg-slate-800/50 rounded-xl hover:bg-slate-700/50 transition-all duration-300 hover:scale-105 border border-slate-700/50 hover:border-blue-500/50">
-                <Tv className="w-10 h-10 text-red-400 mb-3" />
-                <span className="text-white text-sm font-semibold text-center" style={{ fontFamily: 'var(--font-arabic)' }}>
+              <div className="flex flex-col items-center justify-center p-3 md:p-6 bg-slate-800/50 rounded-xl hover:bg-slate-700/50 transition-all duration-300 hover:scale-105 border border-slate-700/50 hover:border-blue-500/50">
+                <Tv className="w-8 h-8 md:w-10 md:h-10 text-red-400 mb-2 md:mb-3" />
+                <span className="text-white text-xs md:text-sm font-semibold text-center" style={{ fontFamily: 'var(--font-arabic)' }}>
                   LG TV
                 </span>
               </div>
@@ -1598,38 +1598,38 @@ export default function Home() {
             </div>
             
             {/* Benefits Grid */}
-            <div className="grid md:grid-cols-3 gap-6 mb-12">
-              <div className="group relative bg-gradient-to-br from-blue-600/20 to-blue-800/20 border border-blue-500/30 rounded-2xl p-8 hover:border-blue-400/50 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-blue-500/20">
+            <div className="grid grid-cols-3 gap-2 md:gap-6 mb-12">
+              <div className="group relative bg-gradient-to-br from-blue-600/20 to-blue-800/20 border border-blue-500/30 rounded-2xl p-4 md:p-8 hover:border-blue-400/50 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-blue-500/20">
                 <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 to-transparent rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
                 <div className="relative z-10">
-                  <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center mb-6 mx-auto shadow-lg shadow-blue-500/30">
-                    <Smartphone className="w-8 h-8 text-white" />
+                  <div className="w-12 h-12 md:w-16 md:h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center mb-3 md:mb-6 mx-auto shadow-lg shadow-blue-500/30">
+                    <Smartphone className="w-6 h-6 md:w-8 md:h-8 text-white" />
                   </div>
-                  <p className="text-xl md:text-2xl text-white font-semibold text-center" style={{ fontFamily: 'var(--font-arabic)' }}>
+                  <p className="text-xs md:text-xl lg:text-2xl text-white font-semibold text-center" style={{ fontFamily: 'var(--font-arabic)' }}>
                     تقدر تركبه على جميع أجهزتك
                   </p>
                 </div>
               </div>
               
-              <div className="group relative bg-gradient-to-br from-purple-600/20 to-purple-800/20 border border-purple-500/30 rounded-2xl p-8 hover:border-purple-400/50 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-purple-500/20">
+              <div className="group relative bg-gradient-to-br from-purple-600/20 to-purple-800/20 border border-purple-500/30 rounded-2xl p-4 md:p-8 hover:border-purple-400/50 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-purple-500/20">
                 <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-transparent rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
                 <div className="relative z-10">
-                  <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center mb-6 mx-auto shadow-lg shadow-purple-500/30">
-                    <Shield className="w-8 h-8 text-white" />
+                  <div className="w-12 h-12 md:w-16 md:h-16 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center mb-3 md:mb-6 mx-auto shadow-lg shadow-purple-500/30">
+                    <Shield className="w-6 h-6 md:w-8 md:h-8 text-white" />
                   </div>
-                  <p className="text-xl md:text-2xl text-white font-semibold text-center" style={{ fontFamily: 'var(--font-arabic)' }}>
+                  <p className="text-xs md:text-xl lg:text-2xl text-white font-semibold text-center" style={{ fontFamily: 'var(--font-arabic)' }}>
                     مع ضمان المدة الكاملة
                   </p>
                 </div>
               </div>
               
-              <div className="group relative bg-gradient-to-br from-pink-600/20 to-pink-800/20 border border-pink-500/30 rounded-2xl p-8 hover:border-pink-400/50 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-pink-500/20">
+              <div className="group relative bg-gradient-to-br from-pink-600/20 to-pink-800/20 border border-pink-500/30 rounded-2xl p-4 md:p-8 hover:border-pink-400/50 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-pink-500/20">
                 <div className="absolute inset-0 bg-gradient-to-br from-pink-500/10 to-transparent rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
                 <div className="relative z-10">
-                  <div className="w-16 h-16 bg-gradient-to-br from-pink-500 to-pink-600 rounded-xl flex items-center justify-center mb-6 mx-auto shadow-lg shadow-pink-500/30">
-                    <Zap className="w-8 h-8 text-white" />
+                  <div className="w-12 h-12 md:w-16 md:h-16 bg-gradient-to-br from-pink-500 to-pink-600 rounded-xl flex items-center justify-center mb-3 md:mb-6 mx-auto shadow-lg shadow-pink-500/30">
+                    <Zap className="w-6 h-6 md:w-8 md:h-8 text-white" />
                   </div>
-                  <p className="text-xl md:text-2xl text-white font-semibold text-center" style={{ fontFamily: 'var(--font-arabic)' }}>
+                  <p className="text-xs md:text-xl lg:text-2xl text-white font-semibold text-center" style={{ fontFamily: 'var(--font-arabic)' }}>
                     تسليم فوري خلال دقائق
                   </p>
                 </div>
@@ -1637,26 +1637,26 @@ export default function Home() {
             </div>
             
             {/* App Features Section */}
-            <div className="grid md:grid-cols-2 gap-6 mb-12">
-              <div className="group relative bg-gradient-to-br from-cyan-600/20 to-teal-600/20 border border-cyan-500/30 rounded-2xl p-8 hover:border-cyan-400/50 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-cyan-500/20">
+            <div className="grid grid-cols-2 gap-2 md:gap-6 mb-12">
+              <div className="group relative bg-gradient-to-br from-cyan-600/20 to-teal-600/20 border border-cyan-500/30 rounded-2xl p-4 md:p-8 hover:border-cyan-400/50 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-cyan-500/20">
                 <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/10 to-transparent rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
                 <div className="relative z-10">
-                  <div className="w-16 h-16 bg-gradient-to-br from-cyan-500 to-teal-600 rounded-xl flex items-center justify-center mb-6 mx-auto shadow-lg shadow-cyan-500/30">
-                    <Languages className="w-8 h-8 text-white" />
+                  <div className="w-12 h-12 md:w-16 md:h-16 bg-gradient-to-br from-cyan-500 to-teal-600 rounded-xl flex items-center justify-center mb-3 md:mb-6 mx-auto shadow-lg shadow-cyan-500/30">
+                    <Languages className="w-6 h-6 md:w-8 md:h-8 text-white" />
                   </div>
-                  <p className="text-xl md:text-2xl text-white font-semibold text-center" style={{ fontFamily: 'var(--font-arabic)' }}>
+                  <p className="text-xs md:text-xl lg:text-2xl text-white font-semibold text-center" style={{ fontFamily: 'var(--font-arabic)' }}>
                     واجهة التطبيق عربية
                   </p>
                 </div>
               </div>
               
-              <div className="group relative bg-gradient-to-br from-orange-600/20 to-amber-600/20 border border-orange-500/30 rounded-2xl p-8 hover:border-orange-400/50 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-orange-500/20">
+              <div className="group relative bg-gradient-to-br from-orange-600/20 to-amber-600/20 border border-orange-500/30 rounded-2xl p-4 md:p-8 hover:border-orange-400/50 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-orange-500/20">
                 <div className="absolute inset-0 bg-gradient-to-br from-orange-500/10 to-transparent rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
                 <div className="relative z-10">
-                  <div className="w-16 h-16 bg-gradient-to-br from-orange-500 to-amber-600 rounded-xl flex items-center justify-center mb-6 mx-auto shadow-lg shadow-orange-500/30">
-                    <Download className="w-8 h-8 text-white" />
+                  <div className="w-12 h-12 md:w-16 md:h-16 bg-gradient-to-br from-orange-500 to-amber-600 rounded-xl flex items-center justify-center mb-3 md:mb-6 mx-auto shadow-lg shadow-orange-500/30">
+                    <Download className="w-6 h-6 md:w-8 md:h-8 text-white" />
                   </div>
-                  <p className="text-xl md:text-2xl text-white font-semibold text-center" style={{ fontFamily: 'var(--font-arabic)' }}>
+                  <p className="text-xs md:text-xl lg:text-2xl text-white font-semibold text-center" style={{ fontFamily: 'var(--font-arabic)' }}>
                     امكانية تنزيل وتحميل المسلسلات والافلام والمتابعة بدون انترنت
                   </p>
                 </div>
