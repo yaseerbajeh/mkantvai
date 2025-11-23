@@ -588,11 +588,11 @@ export default function SubscribePage() {
                                     <p className="font-bold text-white">{product.duration}</p>
                                     {product.discounted_price && product.discounted_price < product.price ? (
                                       <div>
-                                        <p className="text-sm text-white/60 line-through">{product.price} ريال</p>
-                                        <p className="text-sm text-white">{product.discounted_price} ريال</p>
+                                        <p className="text-sm text-white/60 line-through" style={{ fontFamily: 'Poppins, sans-serif' }}>{product.price} ريال</p>
+                                        <p className="text-sm text-red-400 font-semibold" style={{ fontFamily: 'Poppins, sans-serif' }}>{product.discounted_price} ريال</p>
                                       </div>
                                     ) : (
-                                      <p className="text-sm text-white/60">{product.price} ريال</p>
+                                      <p className="text-sm text-white/60" style={{ fontFamily: 'Poppins, sans-serif' }}>{product.price} ريال</p>
                                     )}
                                   </div>
                                   <Button
@@ -748,11 +748,11 @@ export default function SubscribePage() {
                                 {product.discounted_price && product.discounted_price < product.price ? (
                                   <>
                                     <div className="flex items-baseline justify-center gap-2 md:gap-3 mb-2">
-                                      <span className="text-4xl md:text-6xl font-extrabold text-white">{product.discounted_price}</span>
+                                      <span className="text-4xl md:text-6xl font-extrabold text-white" style={{ fontFamily: 'Poppins, sans-serif' }}>{product.discounted_price}</span>
                                       <span className="text-xl md:text-2xl text-slate-400">ريال</span>
                                     </div>
                                     <div className="flex items-center justify-center gap-2 flex-wrap mb-2">
-                                      <span className="text-sm md:text-base text-slate-400 line-through">{product.price}</span>
+                                      <span className="text-sm md:text-base text-slate-400 line-through" style={{ fontFamily: 'Poppins, sans-serif' }}>{product.price}</span>
                                       <span className="text-sm md:text-base text-slate-400">ريال</span>
                                       <span className="text-sm md:text-base font-bold text-red-400">
                                         ({Math.round(((product.price - product.discounted_price) / product.price) * 100)}% خصم)
@@ -763,7 +763,7 @@ export default function SubscribePage() {
                                 ) : (
                                   <>
                                     <div className="flex items-baseline justify-center gap-2 md:gap-3 mb-2">
-                                      <span className="text-4xl md:text-6xl font-extrabold text-white">{product.price}</span>
+                                      <span className="text-4xl md:text-6xl font-extrabold text-white" style={{ fontFamily: 'Poppins, sans-serif' }}>{product.price}</span>
                                       <span className="text-xl md:text-2xl text-slate-400">ريال</span>
                                     </div>
                                     <p className="text-slate-400 text-sm md:text-base">قيمة استثنائية</p>
@@ -930,18 +930,18 @@ export default function SubscribePage() {
                               {product.discounted_price && product.discounted_price < product.price ? (
                                 <>
                                   <div className="flex items-baseline justify-center gap-1 md:gap-2">
-                                    <span className="text-2xl md:text-5xl font-extrabold text-white">{product.discounted_price}</span>
+                                    <span className="text-2xl md:text-5xl font-extrabold text-white" style={{ fontFamily: 'Poppins, sans-serif' }}>{product.discounted_price}</span>
                                     <span className="text-sm md:text-xl text-slate-400">ريال</span>
                                   </div>
                                   <div className="flex items-center justify-center gap-1 md:gap-2 flex-wrap mt-1 md:mt-2">
-                                    <span className="text-xs md:text-sm text-slate-400 line-through">{product.price}</span>
+                                    <span className="text-xs md:text-sm text-slate-400 line-through" style={{ fontFamily: 'Poppins, sans-serif' }}>{product.price}</span>
                                     <span className="text-xs md:text-sm text-slate-400">ريال</span>
                                     <span className="text-xs md:text-sm font-bold text-red-400">
                                       ({Math.round(((product.price - product.discounted_price) / product.price) * 100)}% خصم)
                                     </span>
                                   </div>
                                   {product.duration !== '1 شهر' && (
-                                    <p className="text-xs md:text-sm text-slate-500 mt-1 md:mt-2">
+                                    <p className="text-xs md:text-sm text-slate-500 mt-1 md:mt-2" style={{ fontFamily: 'Poppins, sans-serif' }}>
                                       {Math.round(product.discounted_price / (product.duration.includes('3') ? 3 : product.duration.includes('6') ? 6 : 12))} ريال/شهر
                                     </p>
                                   )}
@@ -949,11 +949,11 @@ export default function SubscribePage() {
                               ) : (
                                 <>
                                   <div className="flex items-baseline justify-center gap-1 md:gap-2">
-                                    <span className="text-2xl md:text-5xl font-extrabold text-white">{product.price}</span>
+                                    <span className="text-2xl md:text-5xl font-extrabold text-white" style={{ fontFamily: 'Poppins, sans-serif' }}>{product.price}</span>
                                     <span className="text-sm md:text-xl text-slate-400">ريال</span>
                                   </div>
                                   {product.duration !== '1 شهر' && (
-                                    <p className="text-xs md:text-sm text-slate-500 mt-1 md:mt-2">
+                                    <p className="text-xs md:text-sm text-slate-500 mt-1 md:mt-2" style={{ fontFamily: 'Poppins, sans-serif' }}>
                                       {Math.round(product.price / (product.duration.includes('3') ? 3 : product.duration.includes('6') ? 6 : 12))} ريال/شهر
                                     </p>
                                   )}

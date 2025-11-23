@@ -815,11 +815,11 @@ export default function Home() {
                                 <p className="font-bold text-white">{product.duration}</p>
                                 {product.discounted_price && product.discounted_price < product.price ? (
                                   <div>
-                                    <p className="text-sm text-white/60 line-through">{product.price} ريال</p>
-                                    <p className="text-sm text-white">{product.discounted_price} ريال</p>
+                                    <p className="text-sm text-white/60 line-through" style={{ fontFamily: 'Poppins, sans-serif' }}>{product.price} ريال</p>
+                                    <p className="text-sm text-red-400 font-semibold" style={{ fontFamily: 'Poppins, sans-serif' }}>{product.discounted_price} ريال</p>
                                   </div>
                                 ) : (
-                                  <p className="text-sm text-white/60">{product.price} ريال</p>
+                                  <p className="text-sm text-white/60" style={{ fontFamily: 'Poppins, sans-serif' }}>{product.price} ريال</p>
                                 )}
                               </div>
                               <Button
@@ -1098,20 +1098,20 @@ export default function Home() {
                                     {product.discounted_price && product.discounted_price < product.price ? (
                                       <>
                                         <div className="flex items-baseline justify-center gap-1 md:gap-2 mb-1">
-                                          <span className="text-xl md:text-4xl font-extrabold text-white">{product.discounted_price}</span>
+                                          <span className="text-xl md:text-4xl font-extrabold text-white" style={{ fontFamily: 'Poppins, sans-serif' }}>{product.discounted_price}</span>
                                           <span className="text-sm md:text-xl text-slate-400">ريال</span>
                                         </div>
                                         <div className="flex items-center justify-center gap-1 md:gap-2 flex-wrap">
-                                          <span className="text-xs md:text-sm text-slate-400 line-through">{product.price}</span>
+                                          <span className="text-xs md:text-sm text-slate-400 line-through" style={{ fontFamily: 'Poppins, sans-serif' }}>{product.price}</span>
                                           <span className="text-xs md:text-sm text-slate-400">ريال</span>
-                                          <span className="text-xs md:text-sm font-bold text-red-400">
+                                          <span className="text-xs md:text-sm font-bold text-red-400" style={{ fontFamily: 'Poppins, sans-serif' }}>
                                             ({Math.round(((product.price - product.discounted_price) / product.price) * 100)}% خصم)
                                           </span>
                                         </div>
                                       </>
                                     ) : (
                                       <div className="flex items-baseline justify-center gap-1 md:gap-2 mb-1">
-                                        <span className="text-xl md:text-4xl font-extrabold text-white">{product.price}</span>
+                                        <span className="text-xl md:text-4xl font-extrabold text-white" style={{ fontFamily: 'Poppins, sans-serif' }}>{product.price}</span>
                                         <span className="text-sm md:text-xl text-slate-400">ريال</span>
                                       </div>
                                     )}
@@ -1209,20 +1209,20 @@ export default function Home() {
                                     {product.discounted_price && product.discounted_price < product.price ? (
                                       <>
                                         <div className="flex items-baseline justify-center gap-0.5 md:gap-1 mb-0.5 md:mb-1">
-                                          <span className="text-base md:text-2xl font-extrabold text-white">{product.discounted_price}</span>
+                                          <span className="text-base md:text-2xl font-extrabold text-white" style={{ fontFamily: 'Poppins, sans-serif' }}>{product.discounted_price}</span>
                                           <span className="text-[10px] md:text-sm text-slate-400">ريال</span>
                                         </div>
                                         <div className="flex items-center justify-center gap-0.5 md:gap-1 flex-wrap">
-                                          <span className="text-[9px] md:text-xs text-slate-400 line-through">{product.price}</span>
+                                          <span className="text-[9px] md:text-xs text-slate-400 line-through" style={{ fontFamily: 'Poppins, sans-serif' }}>{product.price}</span>
                                           <span className="text-[9px] md:text-xs text-slate-400">ريال</span>
-                                          <span className="text-[9px] md:text-xs font-bold text-red-400">
+                                          <span className="text-[9px] md:text-xs font-bold text-red-400" style={{ fontFamily: 'Poppins, sans-serif' }}>
                                             ({Math.round(((product.price - product.discounted_price) / product.price) * 100)}% خصم)
                                           </span>
                                         </div>
                                       </>
                                     ) : (
                                       <div className="flex items-baseline justify-center gap-0.5 md:gap-1">
-                                        <span className="text-base md:text-2xl font-extrabold text-white">{product.price}</span>
+                                        <span className="text-base md:text-2xl font-extrabold text-white" style={{ fontFamily: 'Poppins, sans-serif' }}>{product.price}</span>
                                         <span className="text-[10px] md:text-sm text-slate-400">ريال</span>
                                       </div>
                                     )}
@@ -1426,7 +1426,7 @@ export default function Home() {
                   <Film className="w-6 h-6 md:w-8 md:h-8 text-blue-400" />
                 </div>
               </div>
-              <div className="text-3xl md:text-5xl lg:text-6xl font-bold text-white mb-1 md:mb-2" style={{ fontFamily: 'var(--font-arabic)' }}>
+              <div className="text-3xl md:text-5xl lg:text-6xl font-bold text-white mb-1 md:mb-2" style={{ fontFamily: 'Poppins, sans-serif' }}>
                 18000+
               </div>
               <p className="text-sm md:text-xl lg:text-2xl text-slate-300" style={{ fontFamily: 'var(--font-arabic)' }}>
@@ -1441,7 +1441,7 @@ export default function Home() {
                   <Tv className="w-6 h-6 md:w-8 md:h-8 text-purple-400" />
                 </div>
               </div>
-              <div className="text-3xl md:text-5xl lg:text-6xl font-bold text-white mb-1 md:mb-2" style={{ fontFamily: 'var(--font-arabic)' }}>
+              <div className="text-3xl md:text-5xl lg:text-6xl font-bold text-white mb-1 md:mb-2" style={{ fontFamily: 'Poppins, sans-serif' }}>
                 9000+
               </div>
               <p className="text-sm md:text-xl lg:text-2xl text-slate-300" style={{ fontFamily: 'var(--font-arabic)' }}>
