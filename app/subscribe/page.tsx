@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
-import { Sparkles, Zap, Crown, Star, Check, ArrowRight, ImageIcon, Package, Loader2, ShoppingCart } from 'lucide-react';
+import { Sparkles, Zap, Crown, Star, Check, ArrowRight, ImageIcon, Package, Loader2, ShoppingCart, CheckCircle2 } from 'lucide-react';
 import { formatPriceWithSar } from '@/lib/utils';
 import { useCart } from '@/lib/cart-context';
 import { supabase } from '@/lib/supabase';
@@ -39,6 +39,7 @@ export default function SubscribePage() {
   const [productsByCategory, setProductsByCategory] = useState<{ [key: string]: any[] }>({});
   const [categoryTitles, setCategoryTitles] = useState<{ [key: string]: string }>({});
   const [loading, setLoading] = useState(true);
+  const [aromaProducts, setAromaProducts] = useState<{ [key: string]: any[] }>({});
   const [user, setUser] = useState<User | null>(null);
   const [authDialogOpen, setAuthDialogOpen] = useState(false);
   const [promotionalBanner, setPromotionalBanner] = useState<{
@@ -94,11 +95,19 @@ export default function SubscribePage() {
         const productsToGroup = result.productsByCategory || result.productsBySection || {};
         const titlesToUse = result.categoryTitles || result.sectionTitles || {};
 
+        // Group aroma products separately
+        const aromaGrouped: { [key: string]: any[] } = {};
+
         // If API already grouped by category, use that
         if (result.productsByCategory) {
           Object.keys(result.productsByCategory).forEach((categoryId) => {
             const categoryProducts = result.productsByCategory[categoryId];
-            grouped[categoryId] = categoryProducts.map((product: any) => ({
+            const categoryTitle = titlesToUse[categoryId] || categoryProducts[0]?.categories?.name || categoryProducts[0]?.section_title || 'غير محدد';
+            
+            // Check if this is the أروما category
+            const isAromaCategory = categoryTitle === 'أروما' || categoryTitle.includes('أروما');
+            
+            const mappedProducts = categoryProducts.map((product: any) => ({
               ...product,
               code: product.product_code,
               badgeColor: product.badge_color,
@@ -107,9 +116,31 @@ export default function SubscribePage() {
               available_stock: product.available_stock || 0,
               purchase_count: product.purchase_count || 0,
             }));
-            // Get category name from first product's category or from titles
-            const firstProduct = categoryProducts[0];
-            titles[categoryId] = titlesToUse[categoryId] || firstProduct?.categories?.name || firstProduct?.section_title || 'غير محدد';
+            
+            if (isAromaCategory) {
+              // Group aroma products by package type
+              mappedProducts.forEach((product: any) => {
+                let packageType = '';
+                if (product.name.includes('باقة أساسية') || product.product_code.includes('BASIC')) {
+                  packageType = 'basic';
+                } else if (product.name.includes('باقة مميزة') || product.product_code.includes('PREMIUM')) {
+                  packageType = 'luxury';
+                } else if (product.name.includes('باقة فاخرة') || product.product_code.includes('LUXURY')) {
+                  packageType = 'premium';
+                }
+                
+                if (packageType) {
+                  if (!aromaGrouped[packageType]) {
+                    aromaGrouped[packageType] = [];
+                  }
+                  aromaGrouped[packageType].push(product);
+                }
+              });
+            } else {
+              // Regular category - add to grouped
+              grouped[categoryId] = mappedProducts;
+              titles[categoryId] = categoryTitle;
+            }
           });
         } else {
           // Fallback: group by section (backward compatibility)
@@ -135,6 +166,7 @@ export default function SubscribePage() {
 
         setProductsByCategory(grouped);
         setCategoryTitles(titles);
+        setAromaProducts(aromaGrouped);
       } catch (error: any) {
         console.error('Error fetching products:', error);
       } finally {
@@ -385,6 +417,222 @@ export default function SubscribePage() {
               )}
             </div>
           </div>
+
+          {/* Aroma Packages Special Section */}
+          {!loading && Object.keys(aromaProducts).length > 0 && (
+            <section className="py-16 bg-[#101622] mb-20">
+              <div className="container mx-auto px-4">
+                <div className="mb-12 flex items-center justify-start gap-6">
+                  {/* IPTV SMARTERS PRO Logo */}
+                  <div className="flex-shrink-0">
+                    <img
+                      src="/logos/iptv3d.png"
+                      alt="IPTV SMARTERS PRO"
+                      className="h-32 w-32 md:h-40 md:w-40 lg:h-48 lg:w-48 object-contain"
+                    />
+                  </div>
+                  <div>
+                    <h1 className="text-4xl md:text-5xl font-black text-white leading-tight tracking-tight mb-2">
+                      باقات أروما: اختر{' '}
+                      <span className="text-[#0d59f2]">باقتك</span>
+                    </h1>
+                    <p className="text-white/60 text-base lg:text-lg font-normal leading-normal max-w-2xl">
+                      اختر الباقة المناسبة لك. كل باقة تفتح لك إمكانيات جديدة ومحتوى حصري في عالم أروما!
+                    </p>
+                  </div>
+                </div>
+
+                {/* Aroma Categories - Arena Challenge Design */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end justify-center">
+                  {[
+                    { 
+                      key: 'basic', 
+                      title: 'باقة أساسية', 
+                      tier: 'الباقة الأولى: الوصول الأساسي',
+                      cardClass: 'starter-card',
+                      playerClass: 'starter-player',
+                      features: ['قنوات متعددة', 'جودة HD', 'اتصال جهاز واحد']
+                    },
+                    { 
+                      key: 'premium', 
+                      title: 'باقة فاخرة', 
+                      tier: 'الباقة الثالثة: المجد الكامل',
+                      cardClass: 'special-card',
+                      playerClass: 'special-player',
+                      isPopular: true,
+                      features: ['أكبر عدد من القنوات', 'جودة 4K/UHD', 'اتصال 5 أجهزة', 'جميع الرياضات والأحداث']
+                    },
+                    { 
+                      key: 'luxury', 
+                      title: 'باقة مميزة', 
+                      tier: 'الباقة الثانية: تجربة محسنة',
+                      cardClass: 'premium-card',
+                      playerClass: 'premium-player',
+                      features: ['قنوات أكثر', 'جودة Full HD & 4K', 'اتصال 3 أجهزة', 'رياضة مميزة']
+                    },
+                  ].map((categoryConfig) => {
+                    const categoryProducts = aromaProducts[categoryConfig.key] || [];
+                    if (categoryProducts.length === 0) return null;
+
+                    // Sort products by duration (3, 6, 12 months)
+                    const sortedProducts = [...categoryProducts].sort((a, b) => {
+                      const getDurationOrder = (duration: string) => {
+                        if (duration.includes('3')) return 1;
+                        if (duration.includes('6')) return 2;
+                        if (duration.includes('12')) return 3;
+                        return 0;
+                      };
+                      return getDurationOrder(a.duration) - getDurationOrder(b.duration);
+                    });
+
+                    return (
+                      <div
+                        key={categoryConfig.key}
+                        className={`plan-card flex flex-col ${categoryConfig.cardClass} ${
+                          categoryConfig.isPopular ? 'popular' : ''
+                        }`}
+                      >
+                        {/* Main Event Badge */}
+                        {categoryConfig.isPopular && (
+                          <div className="absolute top-4 right-4 bg-[#0d59f2] text-white text-xs font-bold uppercase px-3 py-1 rounded-full z-30">
+                            الحدث الرئيسي
+                          </div>
+                        )}
+
+                        {/* Player Visual Container */}
+                        <div
+                          className={`player-visual-container ${categoryConfig.playerClass} ${
+                            categoryConfig.isPopular ? 'h-64' : 'h-56'
+                          }`}
+                          style={categoryConfig.isPopular ? {
+                            position: 'relative',
+                            overflow: 'hidden',
+                            clipPath: 'polygon(0 0, 100% 0, 100% 97%, 97% 100%, 0% 100%)'
+                          } : {}}
+                        >
+                          <div className="player-visual" style={categoryConfig.isPopular ? { height: '100%', position: 'relative' } : { position: 'relative', height: '100%' }}>
+                            {categoryConfig.key === 'basic' ? (
+                              <img
+                                src="/logos/starterpack.png"
+                                alt={categoryConfig.title}
+                                className="absolute inset-0 w-full h-full object-cover"
+                                style={{ 
+                                  objectPosition: 'center center'
+                                }}
+                              />
+                            ) : categoryConfig.key === 'premium' ? (
+                              <img
+                                src="/logos/premiumpack.png"
+                                alt={categoryConfig.title}
+                                className="absolute inset-0 w-full h-full object-cover"
+                                style={{ 
+                                  objectPosition: 'center center'
+                                }}
+                              />
+                            ) : categoryConfig.key === 'luxury' ? (
+                              <img
+                                src="/logos/specialpack.png"
+                                alt={categoryConfig.title}
+                                className="absolute inset-0 w-full h-full object-cover"
+                                style={{ 
+                                  objectPosition: 'center center'
+                                }}
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center">
+                                <ImageIcon className="w-16 h-16 md:w-20 md:h-20 text-white/30" />
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Card Content */}
+                        <div className="p-6 flex flex-col gap-6 flex-grow">
+                          {/* Category Title and Tier */}
+                          <div className="text-center">
+                            <h3 className="text-2xl font-bold text-white">{categoryConfig.title}</h3>
+                            <p className="text-sm text-white/60 mt-1">{categoryConfig.tier}</p>
+                          </div>
+
+                          {/* Features List */}
+                          <ul className="space-y-3 text-white/90 text-sm flex-grow">
+                            {categoryConfig.features.map((feature, i) => (
+                              <li key={i} className="flex items-center gap-3">
+                                <Check className="text-[#0d59f2] w-5 h-5 flex-shrink-0" />
+                                {feature}
+                              </li>
+                            ))}
+                          </ul>
+
+                          {/* Pricing Options */}
+                          <div className="flex flex-col gap-3">
+                            {sortedProducts.map((product: any, i: number) => {
+                              const finalPrice = product.discounted_price && product.discounted_price < product.price
+                                ? product.discounted_price
+                                : product.price;
+                              
+                              // Highlight the 12-month option
+                              const isHighlight = product.duration.includes('12');
+                              const isPopularHighlight = categoryConfig.isPopular && isHighlight;
+
+                              return (
+                                <div
+                                  key={product.id}
+                                  className={`flex justify-between items-center p-3 rounded-lg ${
+                                    isPopularHighlight
+                                      ? 'bg-[#0d59f2]/20 border border-[#0d59f2]'
+                                      : 'bg-black/20 border border-white/10'
+                                  }`}
+                                >
+                                  <div>
+                                    <p className="font-bold text-white">{product.duration}</p>
+                                    {product.discounted_price && product.discounted_price < product.price ? (
+                                      <div>
+                                        <p className="text-sm text-white/60 line-through">{product.price} ريال</p>
+                                        <p className="text-sm text-white">{product.discounted_price} ريال</p>
+                                      </div>
+                                    ) : (
+                                      <p className="text-sm text-white/60">{product.price} ريال</p>
+                                    )}
+                                  </div>
+                                  <Button
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      if (product.available_stock > 0) {
+                                        addItem({
+                                          product_code: product.code,
+                                          product_name: product.name,
+                                          price: finalPrice,
+                                          quantity: 1,
+                                          image: product.image || '',
+                                        });
+                                        router.push('/cart');
+                                      }
+                                    }}
+                                    disabled={product.available_stock === 0}
+                                    className={`${
+                                      isHighlight
+                                        ? categoryConfig.isPopular
+                                          ? 'popular-button bg-[#0d59f2] hover:bg-[#0d59f2]/90'
+                                          : 'bg-[#0d59f2] hover:bg-[#0d59f2]/90'
+                                        : 'bg-[#0d59f2]/50 hover:bg-[#0d59f2]/70'
+                                    } text-white font-bold text-sm px-4 py-2 ${product.available_stock === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                  >
+                                    {product.available_stock === 0 ? 'نفد' : 'اشتري الآن'}
+                                  </Button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </section>
+          )}
 
           {loading ? (
             <div className="text-center py-20">

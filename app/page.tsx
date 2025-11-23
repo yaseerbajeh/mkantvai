@@ -50,6 +50,7 @@ export default function Home() {
   const [productsByCategory, setProductsByCategory] = useState<{ [key: string]: any[] }>({});
   const [categoryTitles, setCategoryTitles] = useState<{ [key: string]: string }>({});
   const [productsLoading, setProductsLoading] = useState(true);
+  const [aromaProducts, setAromaProducts] = useState<{ [key: string]: any[] }>({});
   
   const { addItem } = useCart();
   const topRatedScrollRef = useRef<HTMLDivElement>(null);
@@ -158,6 +159,7 @@ export default function Home() {
         // Group products by category
         const grouped: { [key: string]: any[] } = {};
         const titles: { [key: string]: string } = {};
+        const aromaGrouped: { [key: string]: any[] } = {};
 
         const productsToGroup = result.productsByCategory || result.productsBySection || {};
         const titlesToUse = result.categoryTitles || result.sectionTitles || {};
@@ -165,7 +167,12 @@ export default function Home() {
         if (result.productsByCategory) {
           Object.keys(result.productsByCategory).forEach((categoryId) => {
             const categoryProducts = result.productsByCategory[categoryId];
-            grouped[categoryId] = categoryProducts.map((product: any) => ({
+            const categoryTitle = titlesToUse[categoryId] || categoryProducts[0]?.categories?.name || categoryProducts[0]?.section_title || 'غير محدد';
+            
+            // Check if this is the أروما category
+            const isAromaCategory = categoryTitle === 'أروما' || categoryTitle.includes('أروما');
+            
+            const mappedProducts = categoryProducts.map((product: any) => ({
               ...product,
               code: product.product_code,
               badgeColor: product.badge_color,
@@ -174,19 +181,39 @@ export default function Home() {
               available_stock: product.available_stock || 0,
               purchase_count: product.purchase_count || 0,
             }));
-            const firstProduct = categoryProducts[0];
-            titles[categoryId] = titlesToUse[categoryId] || firstProduct?.categories?.name || firstProduct?.section_title || 'غير محدد';
+            
+            if (isAromaCategory) {
+              // Group aroma products by package type
+              mappedProducts.forEach((product: any) => {
+                let packageType = '';
+                if (product.name.includes('باقة أساسية') || product.product_code.includes('BASIC')) {
+                  packageType = 'basic';
+                } else if (product.name.includes('باقة مميزة') || product.product_code.includes('PREMIUM')) {
+                  packageType = 'luxury';
+                } else if (product.name.includes('باقة فاخرة') || product.product_code.includes('LUXURY')) {
+                  packageType = 'premium';
+                }
+                
+                if (packageType) {
+                  if (!aromaGrouped[packageType]) {
+                    aromaGrouped[packageType] = [];
+                  }
+                  aromaGrouped[packageType].push(product);
+                }
+              });
+            } else {
+              // Regular category - add to grouped
+              grouped[categoryId] = mappedProducts;
+              titles[categoryId] = categoryTitle;
+            }
           });
         } else {
           result.products?.forEach((product: any) => {
             const categoryId = product.category_id || `section-${product.section}`;
             const categoryName = product.categories?.name || product.section_title || `القسم ${product.section}`;
+            const isAromaCategory = categoryName === 'أروما' || categoryName.includes('أروما');
             
-            if (!grouped[categoryId]) {
-              grouped[categoryId] = [];
-              titles[categoryId] = categoryName;
-            }
-            grouped[categoryId].push({
+            const mappedProduct = {
               ...product,
               code: product.product_code,
               badgeColor: product.badge_color,
@@ -194,12 +221,52 @@ export default function Home() {
               icon: iconMap[product.icon_name] || Sparkles,
               available_stock: product.available_stock || 0,
               purchase_count: product.purchase_count || 0,
-            });
+            };
+            
+            if (isAromaCategory) {
+              // Group aroma products by package type
+              let packageType = '';
+              if (product.name.includes('باقة أساسية') || product.product_code.includes('BASIC')) {
+                packageType = 'basic';
+              } else if (product.name.includes('باقة مميزة') || product.product_code.includes('PREMIUM')) {
+                packageType = 'premium';
+              } else if (product.name.includes('باقة فاخرة') || product.product_code.includes('LUXURY')) {
+                packageType = 'luxury';
+              }
+              
+              if (packageType) {
+                if (!aromaGrouped[packageType]) {
+                  aromaGrouped[packageType] = [];
+                }
+                aromaGrouped[packageType].push(mappedProduct);
+              }
+            } else {
+              // Regular category
+              if (!grouped[categoryId]) {
+                grouped[categoryId] = [];
+                titles[categoryId] = categoryName;
+              }
+              grouped[categoryId].push(mappedProduct);
+            }
           });
         }
 
+        // Sort aroma products by duration (3, 6, 12 months)
+        Object.keys(aromaGrouped).forEach((key) => {
+          aromaGrouped[key].sort((a, b) => {
+            const getDurationOrder = (duration: string) => {
+              if (duration.includes('3')) return 1;
+              if (duration.includes('6')) return 2;
+              if (duration.includes('12')) return 3;
+              return 0;
+            };
+            return getDurationOrder(a.duration) - getDurationOrder(b.duration);
+          });
+        });
+
         setProductsByCategory(grouped);
         setCategoryTitles(titles);
+        setAromaProducts(aromaGrouped);
       } catch (error: any) {
         console.error('Error fetching products:', error);
       } finally {
@@ -578,116 +645,358 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Promotional Banner with Countdown */}
-      {promotionalBanner && !bannerLoading && (
-        <section className="py-8 md:py-12 bg-black">
+      {/* Aroma Packages Special Section */}
+      {!productsLoading && Object.keys(aromaProducts).length > 0 && (
+        <section className="py-16 bg-[#101622]">
           <div className="container mx-auto px-4">
-            {promotionalBanner.banner_type === 'blackfriday' ? (
-              /* Black Friday Banner Layout: Image Left, CTA Right */
-              <div className="w-full">
-                <div className="flex flex-col md:flex-row items-center gap-8 md:gap-12">
-                  {/* Image Section - Left */}
-                  <div className="flex-[2] w-full md:w-auto">
-                    {promotionalBanner.banner_image_url ? (
-                      <img
-                        src={promotionalBanner.banner_image_url}
-                        alt="Black Friday Offer"
-                        className="w-full h-auto object-contain"
-                      />
-                    ) : (
-                      <div className="w-full h-64 bg-gray-200 rounded-lg flex items-center justify-center">
-                        <p className="text-gray-500">لا توجد صورة</p>
+            <div className="mb-12 flex items-center justify-start gap-6">
+              {/* IPTV SMARTERS PRO Logo */}
+              <div className="flex-shrink-0">
+                <img
+                  src="/logos/iptv3d.png"
+                  alt="IPTV SMARTERS PRO"
+                  className="h-32 w-32 md:h-40 md:w-40 lg:h-48 lg:w-48 object-contain"
+                />
+              </div>
+              <div>
+                <h1 className="text-4xl md:text-5xl font-black text-white leading-tight tracking-tight mb-2">
+                  باقات أروما: اختر{' '}
+                  <span className="text-[#0d59f2]">باقتك</span>
+                </h1>
+                <p className="text-white/60 text-base lg:text-lg font-normal leading-normal max-w-2xl">
+                  اختر الباقة المناسبة لك. كل باقة تفتح لك إمكانيات جديدة ومحتوى حصري في عالم أروما!
+                </p>
+              </div>
+            </div>
+
+            {/* Aroma Categories - Arena Challenge Design */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end justify-center">
+              {[
+                { 
+                  key: 'basic', 
+                  title: 'باقة أساسية', 
+                  tier: 'الباقة الأولى: الوصول الأساسي',
+                  cardClass: 'starter-card',
+                  playerClass: 'starter-player',
+                  features: ['قنوات متعددة', 'جودة HD', 'اتصال جهاز واحد']
+                },
+                { 
+                  key: 'premium', 
+                  title: 'باقة فاخرة', 
+                  tier: 'الباقة الثالثة: المجد الكامل',
+                  cardClass: 'special-card',
+                  playerClass: 'special-player',
+                  isPopular: true,
+                  features: ['أكبر عدد من القنوات', 'جودة 4K/UHD', 'اتصال 5 أجهزة', 'جميع الرياضات والأحداث']
+                },
+                { 
+                  key: 'luxury', 
+                  title: 'باقة مميزة', 
+                  tier: 'الباقة الثانية: تجربة محسنة',
+                  cardClass: 'premium-card',
+                  playerClass: 'premium-player',
+                  features: ['قنوات أكثر', 'جودة Full HD & 4K', 'اتصال 3 أجهزة', 'رياضة مميزة']
+                },
+              ].map((categoryConfig) => {
+                const categoryProducts = aromaProducts[categoryConfig.key] || [];
+                if (categoryProducts.length === 0) return null;
+
+                // Sort products by duration (3, 6, 12 months)
+                const sortedProducts = [...categoryProducts].sort((a, b) => {
+                  const getDurationOrder = (duration: string) => {
+                    if (duration.includes('3')) return 1;
+                    if (duration.includes('6')) return 2;
+                    if (duration.includes('12')) return 3;
+                    return 0;
+                  };
+                  return getDurationOrder(a.duration) - getDurationOrder(b.duration);
+                });
+
+                return (
+                  <div
+                    key={categoryConfig.key}
+                    className={`plan-card flex flex-col ${categoryConfig.cardClass} ${
+                      categoryConfig.isPopular ? 'popular' : ''
+                    }`}
+                  >
+                    {/* Main Event Badge */}
+                    {categoryConfig.isPopular && (
+                      <div className="absolute top-4 right-4 bg-[#0d59f2] text-white text-xs font-bold uppercase px-3 py-1 rounded-full z-30">
+                        الحدث الرئيسي
                       </div>
                     )}
-                  </div>
-                  
-                  {/* CTA Section - Right */}
-                  <div className="flex-1 text-center md:text-left">
-                    <Link href="/?scrollTo=netflix">
-                      <Button size="lg" className="bg-red-600 hover:bg-red-700 text-white text-xl md:text-2xl px-12 py-8 font-bold shadow-2xl">
-                        اشتري الآن
-                      </Button>
-                    </Link>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              /* Default Banner Layout */
-              <div className="black-friday-component">
-                <div className="coupon">
-                  <div className="box">
-                    <span>{promotionalBanner.discount_percentage}%</span>
-                    <span>OFF</span>
-                  </div>
-                  <div className="diver"></div>
-                  <div className="content">
-                    <h3 className="arabic-title">
-                      {promotionalBanner.title}
-                    </h3>
-                    <p>
-                      {promotionalBanner.subtitle}
-                      <Link href={promotionalBanner.cta_link || '/subscribe'}> اضغط هنا</Link>
-                      {' '}واطلب الان
-                    </p>
-                  </div>
-                </div>
-                <div className="timer">
-                  <div className="item">
-                    <div className="days">
-                      <div className="day" style={{ '--days': countdown.days } as React.CSSProperties}>
-                        {Array.from({ length: 32 }, (_, i) => (
-                          <span key={i}>{String(i).padStart(2, '0')}</span>
-                        ))}
+
+                    {/* Player Visual Container */}
+                    <div
+                      className={`player-visual-container ${categoryConfig.playerClass} ${
+                        categoryConfig.isPopular ? 'h-64' : 'h-56'
+                      }`}
+                      style={categoryConfig.isPopular ? {
+                        position: 'relative',
+                        overflow: 'hidden',
+                        clipPath: 'polygon(0 0, 100% 0, 100% 97%, 97% 100%, 0% 100%)'
+                      } : {}}
+                    >
+                      <div className="player-visual" style={categoryConfig.isPopular ? { height: '100%', position: 'relative' } : { position: 'relative', height: '100%' }}>
+                        {categoryConfig.key === 'basic' ? (
+                          <img
+                            src="/logos/starterpack.png"
+                            alt={categoryConfig.title}
+                            className="absolute inset-0 w-full h-full object-cover"
+                            style={{ 
+                              objectPosition: 'center center'
+                            }}
+                          />
+                        ) : categoryConfig.key === 'premium' ? (
+                          <img
+                            src="/logos/premiumpack.png"
+                            alt={categoryConfig.title}
+                            className="absolute inset-0 w-full h-full object-cover"
+                            style={{ 
+                              objectPosition: 'center center'
+                            }}
+                          />
+                        ) : categoryConfig.key === 'luxury' ? (
+                          <img
+                            src="/logos/specialpack.png"
+                            alt={categoryConfig.title}
+                            className="absolute inset-0 w-full h-full object-cover"
+                            style={{ 
+                              objectPosition: 'center center'
+                            }}
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <ImageIcon className="w-16 h-16 md:w-20 md:h-20 text-white/30" />
+                          </div>
+                        )}
                       </div>
                     </div>
-                    <p>يوم</p>
-                  </div>
-                  <span className="colon">:</span>
-                  <div className="item">
-                    <div className="hours">
-                      <div className="hour" style={{ '--hours': countdown.hours } as React.CSSProperties}>
-                        {Array.from({ length: 24 }, (_, i) => (
-                          <span key={i}>{String(i).padStart(2, '0')}</span>
+
+                    {/* Card Content */}
+                    <div className="p-6 flex flex-col gap-6 flex-grow">
+                      {/* Category Title and Tier */}
+                      <div className="text-center">
+                        <h3 className="text-2xl font-bold text-white">{categoryConfig.title}</h3>
+                        <p className="text-sm text-white/60 mt-1">{categoryConfig.tier}</p>
+                      </div>
+
+                      {/* Features List */}
+                      <ul className="space-y-3 text-white/90 text-sm flex-grow">
+                        {categoryConfig.features.map((feature, i) => (
+                          <li key={i} className="flex items-center gap-3">
+                            <Check className="text-[#0d59f2] w-5 h-5 flex-shrink-0" />
+                            {feature}
+                          </li>
                         ))}
+                      </ul>
+
+                      {/* Pricing Options */}
+                      <div className="flex flex-col gap-3">
+                        {sortedProducts.map((product: any, i: number) => {
+                          const finalPrice = product.discounted_price && product.discounted_price < product.price
+                            ? product.discounted_price
+                            : product.price;
+                          
+                          // Highlight the 12-month option
+                          const isHighlight = product.duration.includes('12');
+                          const isPopularHighlight = categoryConfig.isPopular && isHighlight;
+
+                          return (
+                            <div
+                              key={product.id}
+                              className={`flex justify-between items-center p-3 rounded-lg ${
+                                isPopularHighlight
+                                  ? 'bg-[#0d59f2]/20 border border-[#0d59f2]'
+                                  : 'bg-black/20 border border-white/10'
+                              }`}
+                            >
+                              <div>
+                                <p className="font-bold text-white">{product.duration}</p>
+                                {product.discounted_price && product.discounted_price < product.price ? (
+                                  <div>
+                                    <p className="text-sm text-white/60 line-through">{product.price} ريال</p>
+                                    <p className="text-sm text-white">{product.discounted_price} ريال</p>
+                                  </div>
+                                ) : (
+                                  <p className="text-sm text-white/60">{product.price} ريال</p>
+                                )}
+                              </div>
+                              <Button
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  if (product.available_stock > 0) {
+                                    addItem({
+                                      product_code: product.code,
+                                      product_name: product.name,
+                                      price: finalPrice,
+                                      quantity: 1,
+                                      image: product.image || '',
+                                    });
+                                    router.push('/cart');
+                                  }
+                                }}
+                                disabled={product.available_stock === 0}
+                                className={`${
+                                  isHighlight
+                                    ? categoryConfig.isPopular
+                                      ? 'popular-button bg-[#0d59f2] hover:bg-[#0d59f2]/90'
+                                      : 'bg-[#0d59f2] hover:bg-[#0d59f2]/90'
+                                    : 'bg-[#0d59f2]/50 hover:bg-[#0d59f2]/70'
+                                } text-white font-bold text-sm px-4 py-2 ${product.available_stock === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                              >
+                                {product.available_stock === 0 ? 'نفد' : 'اشتري الآن'}
+                              </Button>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
-                    <p>ساعة</p>
                   </div>
-                  <span className="colon">:</span>
-                  <div className="item">
-                    <div className="minutes">
-                      <div className="min" style={{ '--minutes': countdown.minutes } as React.CSSProperties}>
-                        {Array.from({ length: 60 }, (_, i) => (
-                          <span key={i}>{String(i).padStart(2, '0')}</span>
-                        ))}
-                      </div>
-                    </div>
-                    <p>دقيقة</p>
-                  </div>
-                  <span className="colon">:</span>
-                  <div className="item">
-                    <div className="seconds">
-                      <div className="sec" style={{ '--seconds': countdown.seconds } as React.CSSProperties}>
-                        {Array.from({ length: 60 }, (_, i) => (
-                          <span key={i}>{String(i).padStart(2, '0')}</span>
-                        ))}
-                      </div>
-                    </div>
-                    <p>ثانية</p>
-                  </div>
-                </div>
-              </div>
-            )}
+                );
+              })}
+            </div>
           </div>
         </section>
       )}
+
+      {/* FAQ Section */}
+      <section className="py-20 bg-gradient-to-b from-black via-slate-900 to-black">
+        <div className="container mx-auto px-4">
+          <div className="max-w-4xl mx-auto">
+            <div className="text-center mb-12">
+              <h2 className="text-4xl md:text-5xl font-bold text-white mb-4" style={{ fontFamily: 'var(--font-arabic)' }}>
+                الأسئلة الشائعة
+              </h2>
+              <p className="text-lg md:text-xl text-slate-300 max-w-3xl mx-auto" style={{ fontFamily: 'var(--font-arabic)' }}>
+                نعرض لكم أكثر الأسئلة التي ترد إلينا مع إجاباتها لتعرف أكثر عن الخدمة ومدى ملائمتها لك وكيفية تشغيلها
+              </p>
+            </div>
+
+            <Accordion type="single" collapsible className="w-full space-y-4">
+              <AccordionItem value="item-1" className="bg-slate-800/50 border border-slate-700/50 rounded-xl px-6 hover:border-blue-500/50 transition-colors">
+                <AccordionTrigger className="text-white hover:no-underline py-6 text-right" style={{ fontFamily: 'var(--font-arabic)' }}>
+                  <span className="text-lg md:text-xl font-semibold">
+                    1. ما هي سرعة الإنترنت المناسبة لتشغيل الخدمة ؟
+                  </span>
+                </AccordionTrigger>
+                <AccordionContent className="text-slate-300 text-base md:text-lg pb-6 text-right" style={{ fontFamily: 'var(--font-arabic)' }}>
+                  لكي تحظي بخدمة مميزة بدون تقطيع يجب ألا تقل سرعة الإنترنت لديك عن 4 ميجا بت بالثانية ، بعض القنوات لدينا تعمل أيضاً مع سرعة إنترنت 2 ميجا بت بالثانية.
+                </AccordionContent>
+              </AccordionItem>
+
+              <AccordionItem value="item-2" className="bg-slate-800/50 border border-slate-700/50 rounded-xl px-6 hover:border-blue-500/50 transition-colors">
+                <AccordionTrigger className="text-white hover:no-underline py-6 text-right" style={{ fontFamily: 'var(--font-arabic)' }}>
+                  <span className="text-lg md:text-xl font-semibold">
+                    2. ما هي المدة التي يستغرها إرسال وتشغيل الإشتراك بعد الدفع؟
+                  </span>
+                </AccordionTrigger>
+                <AccordionContent className="text-slate-300 text-base md:text-lg pb-6 text-right" style={{ fontFamily: 'var(--font-arabic)' }}>
+                  لا يستغرق إرسال وتشغيل الملف سوي عدة دقائق فقط وبحد أقصي ساعة بعد إتمام عملية الدفع لتبدأ بالمشاهدة والإستمتاع بالخدمة.
+                </AccordionContent>
+              </AccordionItem>
+
+              <AccordionItem value="item-3" className="bg-slate-800/50 border border-slate-700/50 rounded-xl px-6 hover:border-blue-500/50 transition-colors">
+                <AccordionTrigger className="text-white hover:no-underline py-6 text-right" style={{ fontFamily: 'var(--font-arabic)' }}>
+                  <span className="text-lg md:text-xl font-semibold">
+                    3. كيف سأتمكن من تشغيل الخدمة ؟
+                  </span>
+                </AccordionTrigger>
+                <AccordionContent className="text-slate-300 text-base md:text-lg pb-6 text-right" style={{ fontFamily: 'var(--font-arabic)' }}>
+                  سيقدم طاقم الدعم الفني لدينا كافة الإرشادات والتعليمات الخاصة بتشغيل الملف وسيتابع معك حتي تتمكن من تشغيل الملف بكل سهولة على الواتس اب
+                </AccordionContent>
+              </AccordionItem>
+
+              <AccordionItem value="item-4" className="bg-slate-800/50 border border-slate-700/50 rounded-xl px-6 hover:border-blue-500/50 transition-colors">
+                <AccordionTrigger className="text-white hover:no-underline py-6 text-right" style={{ fontFamily: 'var(--font-arabic)' }}>
+                  <span className="text-lg md:text-xl font-semibold">
+                    4. هل يمكنني وضع الإشتراك في أكثر من جهاز
+                  </span>
+                </AccordionTrigger>
+                <AccordionContent className="text-slate-300 text-base md:text-lg pb-6 text-right" style={{ fontFamily: 'var(--font-arabic)' }}>
+                  نعم بشرط أن يعمل الاشتراك على جهاز واحد فقط في نفس وقت المشاهدة , في حالة تشغيل والمشاهدة على أكثر من جهاز في نفس الوقت فلن يعمل ان كنت تريد تشغيل الاشتراك على اكثر من جهاز في نفس الوقت ستحتاج الى اشتراك اخر..
+                </AccordionContent>
+              </AccordionItem>
+
+              <AccordionItem value="item-5" className="bg-slate-800/50 border border-slate-700/50 rounded-xl px-6 hover:border-blue-500/50 transition-colors">
+                <AccordionTrigger className="text-white hover:no-underline py-6 text-right" style={{ fontFamily: 'var(--font-arabic)' }}>
+                  <span className="text-lg md:text-xl font-semibold">
+                    5. ما هي طرق الدفع المتوفرة لديكم ؟
+                  </span>
+                </AccordionTrigger>
+                <AccordionContent className="text-slate-300 text-base md:text-lg pb-6 text-right" style={{ fontFamily: 'var(--font-arabic)' }}>
+                  يتوفر لدينا طرق دفع سهلة ومتعددة عبر التحويلات البنكية داخل السعودية أو عن طريق إرسال بطاقات شحن سوا
+                </AccordionContent>
+              </AccordionItem>
+
+              <AccordionItem value="item-6" className="bg-slate-800/50 border border-slate-700/50 rounded-xl px-6 hover:border-blue-500/50 transition-colors">
+                <AccordionTrigger className="text-white hover:no-underline py-6 text-right" style={{ fontFamily: 'var(--font-arabic)' }}>
+                  <span className="text-lg md:text-xl font-semibold">
+                    6. هل يمكنني الحصول علي فترة للتجربة ؟
+                  </span>
+                  
+                </AccordionTrigger>
+                <AccordionContent className="text-slate-300 text-base md:text-lg pb-6 text-right" style={{ fontFamily: 'var(--font-arabic)' }}>
+                  نعم يمكنك تجربة الخدمة  قبل الإشتراك للتأكد من جودة الخدمة ومدي ملائمتها لأجهزتك وسرعة إتصالك بالإنترنت.
+                  <div className="mt-4">
+                    <Link href="https://your-store-url.com/trial" target="_blank" rel="noopener noreferrer">
+                      <Button
+                        variant="outline"
+                        className="border-blue-500 text-blue-400 hover:bg-blue-500 hover:text-white"
+                        style={{ fontFamily: 'var(--font-arabic)' }}
+                      >
+                        اضغط هنا لطلب تجربة
+                      </Button>
+                    </Link>
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+
+              <AccordionItem value="item-7" className="bg-slate-800/50 border border-slate-700/50 rounded-xl px-6 hover:border-blue-500/50 transition-colors">
+                <AccordionTrigger className="text-white hover:no-underline py-6 text-right" style={{ fontFamily: 'var(--font-arabic)' }}>
+                  <span className="text-lg md:text-xl font-semibold">
+                    7. هل يمكنني تغيير الباقة لاحقاً؟
+                  </span>
+                </AccordionTrigger>
+                <AccordionContent className="text-slate-300 text-base md:text-lg pb-6 text-right" style={{ fontFamily: 'var(--font-arabic)' }}>
+                  نعم، يمكنك ترقية أو تغيير الباقة في أي وقت بالتواصل مع الدعم.
+               
+                </AccordionContent>
+              </AccordionItem>
+
+              <AccordionItem value="item-8" className="bg-slate-800/50 border border-slate-700/50 rounded-xl px-6 hover:border-blue-500/50 transition-colors">
+                <AccordionTrigger className="text-white hover:no-underline py-6 text-right" style={{ fontFamily: 'var(--font-arabic)' }}>
+                  <span className="text-lg md:text-xl font-semibold">
+                    8. هل يشتغل على جهازي؟
+                  </span>
+                </AccordionTrigger>
+                <AccordionContent className="text-slate-300 text-base md:text-lg pb-6 text-right" style={{ fontFamily: 'var(--font-arabic)' }}>
+                  تطبيقنا ييشتغل على جميع الأجهزة الذكية وأجهزة الكمبيوتر والشاشات، يمكنك تحميل التطبيق من المتجر المناسب لجهازك.
+                  <div className="mt-4">
+                    <Link href="/tarkeeb">
+                      <Button
+                        variant="outline"
+                        className="border-blue-500 text-blue-400 hover:bg-blue-500 hover:text-white"
+                        style={{ fontFamily: 'var(--font-arabic)' }}
+                      >
+                        اضغط هنا لمعرفة الأجهزة المدعومة
+                      </Button>
+                    </Link>
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
+          </div>
+        </div>
+      </section>
 
       {/* Products Section */}
       {!productsLoading && Object.keys(productsByCategory).length > 0 && (
         <section className="py-16 bg-black/30">
           <div className="container mx-auto px-4">
             <div className="mb-12 text-center">
-              <h2 className="text-3xl md:text-4xl font-bold text-white mb-2">المنتجات المتاحة</h2>
+              <h2 className="text-3xl md:text-4xl font-bold text-white mb-2">منتجات أخرى</h2>
               <p className="text-slate-400">اشترك واحصل على أفضل الخطط</p>
             </div>
 
@@ -743,13 +1052,6 @@ export default function Home() {
                                     <div className="bg-gradient-to-r from-red-600 to-red-700 text-white px-4 py-1.5 shadow-lg rounded-md">
                                       <span className="text-xs md:text-sm font-bold whitespace-nowrap">{promotionalBanner.title}</span>
                                     </div>
-                                  </div>
-                                )}
-                                
-                                {/* Promo Banner */}
-                                {product.promo_banner_text && (
-                                  <div className="absolute top-2 right-2 z-20 bg-gradient-to-r from-red-500 to-orange-500 text-white text-xs md:text-sm font-bold px-3 md:px-4 py-1 md:py-2 rounded-lg shadow-lg">
-                                    {product.promo_banner_text}
                                   </div>
                                 )}
                                 
@@ -858,13 +1160,6 @@ export default function Home() {
                                     <div className="bg-gradient-to-r from-red-600 to-red-700 text-white px-3 py-1 shadow-lg rounded-md">
                                       <span className="text-[10px] md:text-xs font-bold whitespace-nowrap">{promotionalBanner.title}</span>
                                     </div>
-                                  </div>
-                                )}
-                                
-                                {/* Promo Banner */}
-                                {product.promo_banner_text && (
-                                  <div className="absolute top-2 right-2 z-20 bg-gradient-to-r from-red-500 to-orange-500 text-white text-[10px] md:text-xs font-bold px-2 md:px-3 py-1 md:py-1.5 rounded-lg shadow-lg">
-                                    {product.promo_banner_text}
                                   </div>
                                 )}
                                 
@@ -1490,136 +1785,6 @@ export default function Home() {
                 <CarouselNext className="right-2 md:-right-12 bg-slate-800/90 hover:bg-slate-700 border-slate-700 text-white hover:text-blue-400 transition-all duration-200 shadow-xl z-10 hidden sm:flex" />
               </Carousel>
             )}
-          </div>
-        </div>
-      </section>
-
-      {/* FAQ Section */}
-      <section className="py-20 bg-gradient-to-b from-black via-slate-900 to-black">
-        <div className="container mx-auto px-4">
-          <div className="max-w-4xl mx-auto">
-            <div className="text-center mb-12">
-              <h2 className="text-4xl md:text-5xl font-bold text-white mb-4" style={{ fontFamily: 'var(--font-arabic)' }}>
-                الأسئلة الشائعة
-              </h2>
-              <p className="text-lg md:text-xl text-slate-300 max-w-3xl mx-auto" style={{ fontFamily: 'var(--font-arabic)' }}>
-                نعرض لكم أكثر الأسئلة التي ترد إلينا مع إجاباتها لتعرف أكثر عن الخدمة ومدى ملائمتها لك وكيفية تشغيلها
-              </p>
-            </div>
-
-            <Accordion type="single" collapsible className="w-full space-y-4">
-              <AccordionItem value="item-1" className="bg-slate-800/50 border border-slate-700/50 rounded-xl px-6 hover:border-blue-500/50 transition-colors">
-                <AccordionTrigger className="text-white hover:no-underline py-6 text-right" style={{ fontFamily: 'var(--font-arabic)' }}>
-                  <span className="text-lg md:text-xl font-semibold">
-                    1. ما هي سرعة الإنترنت المناسبة لتشغيل الخدمة ؟
-                  </span>
-                </AccordionTrigger>
-                <AccordionContent className="text-slate-300 text-base md:text-lg pb-6 text-right" style={{ fontFamily: 'var(--font-arabic)' }}>
-                  لكي تحظي بخدمة مميزة بدون تقطيع يجب ألا تقل سرعة الإنترنت لديك عن 4 ميجا بت بالثانية ، بعض القنوات لدينا تعمل أيضاً مع سرعة إنترنت 2 ميجا بت بالثانية.
-                </AccordionContent>
-              </AccordionItem>
-
-              <AccordionItem value="item-2" className="bg-slate-800/50 border border-slate-700/50 rounded-xl px-6 hover:border-blue-500/50 transition-colors">
-                <AccordionTrigger className="text-white hover:no-underline py-6 text-right" style={{ fontFamily: 'var(--font-arabic)' }}>
-                  <span className="text-lg md:text-xl font-semibold">
-                    2. ما هي المدة التي يستغرها إرسال وتشغيل الإشتراك بعد الدفع؟
-                  </span>
-                </AccordionTrigger>
-                <AccordionContent className="text-slate-300 text-base md:text-lg pb-6 text-right" style={{ fontFamily: 'var(--font-arabic)' }}>
-                  لا يستغرق إرسال وتشغيل الملف سوي عدة دقائق فقط وبحد أقصي ساعة بعد إتمام عملية الدفع لتبدأ بالمشاهدة والإستمتاع بالخدمة.
-                </AccordionContent>
-              </AccordionItem>
-
-              <AccordionItem value="item-3" className="bg-slate-800/50 border border-slate-700/50 rounded-xl px-6 hover:border-blue-500/50 transition-colors">
-                <AccordionTrigger className="text-white hover:no-underline py-6 text-right" style={{ fontFamily: 'var(--font-arabic)' }}>
-                  <span className="text-lg md:text-xl font-semibold">
-                    3. كيف سأتمكن من تشغيل الخدمة ؟
-                  </span>
-                </AccordionTrigger>
-                <AccordionContent className="text-slate-300 text-base md:text-lg pb-6 text-right" style={{ fontFamily: 'var(--font-arabic)' }}>
-                  سيقدم طاقم الدعم الفني لدينا كافة الإرشادات والتعليمات الخاصة بتشغيل الملف وسيتابع معك حتي تتمكن من تشغيل الملف بكل سهولة على الواتس اب
-                </AccordionContent>
-              </AccordionItem>
-
-              <AccordionItem value="item-4" className="bg-slate-800/50 border border-slate-700/50 rounded-xl px-6 hover:border-blue-500/50 transition-colors">
-                <AccordionTrigger className="text-white hover:no-underline py-6 text-right" style={{ fontFamily: 'var(--font-arabic)' }}>
-                  <span className="text-lg md:text-xl font-semibold">
-                    4. هل يمكنني وضع الإشتراك في أكثر من جهاز
-                  </span>
-                </AccordionTrigger>
-                <AccordionContent className="text-slate-300 text-base md:text-lg pb-6 text-right" style={{ fontFamily: 'var(--font-arabic)' }}>
-                  نعم بشرط أن يعمل الاشتراك على جهاز واحد فقط في نفس وقت المشاهدة , في حالة تشغيل والمشاهدة على أكثر من جهاز في نفس الوقت فلن يعمل ان كنت تريد تشغيل الاشتراك على اكثر من جهاز في نفس الوقت ستحتاج الى اشتراك اخر..
-                </AccordionContent>
-              </AccordionItem>
-
-              <AccordionItem value="item-5" className="bg-slate-800/50 border border-slate-700/50 rounded-xl px-6 hover:border-blue-500/50 transition-colors">
-                <AccordionTrigger className="text-white hover:no-underline py-6 text-right" style={{ fontFamily: 'var(--font-arabic)' }}>
-                  <span className="text-lg md:text-xl font-semibold">
-                    5. ما هي طرق الدفع المتوفرة لديكم ؟
-                  </span>
-                </AccordionTrigger>
-                <AccordionContent className="text-slate-300 text-base md:text-lg pb-6 text-right" style={{ fontFamily: 'var(--font-arabic)' }}>
-                  يتوفر لدينا طرق دفع سهلة ومتعددة عبر التحويلات البنكية داخل السعودية أو عن طريق إرسال بطاقات شحن سوا
-                </AccordionContent>
-              </AccordionItem>
-
-              <AccordionItem value="item-6" className="bg-slate-800/50 border border-slate-700/50 rounded-xl px-6 hover:border-blue-500/50 transition-colors">
-                <AccordionTrigger className="text-white hover:no-underline py-6 text-right" style={{ fontFamily: 'var(--font-arabic)' }}>
-                  <span className="text-lg md:text-xl font-semibold">
-                    6. هل يمكنني الحصول علي فترة للتجربة ؟
-                  </span>
-                  
-                </AccordionTrigger>
-                <AccordionContent className="text-slate-300 text-base md:text-lg pb-6 text-right" style={{ fontFamily: 'var(--font-arabic)' }}>
-                  نعم يمكنك تجربة الخدمة  قبل الإشتراك للتأكد من جودة الخدمة ومدي ملائمتها لأجهزتك وسرعة إتصالك بالإنترنت.
-                  <div className="mt-4">
-                    <Link href="https://your-store-url.com/trial" target="_blank" rel="noopener noreferrer">
-                      <Button
-                        variant="outline"
-                        className="border-blue-500 text-blue-400 hover:bg-blue-500 hover:text-white"
-                        style={{ fontFamily: 'var(--font-arabic)' }}
-                      >
-                        اضغط هنا لطلب تجربة
-                      </Button>
-                    </Link>
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-
-              <AccordionItem value="item-7" className="bg-slate-800/50 border border-slate-700/50 rounded-xl px-6 hover:border-blue-500/50 transition-colors">
-                <AccordionTrigger className="text-white hover:no-underline py-6 text-right" style={{ fontFamily: 'var(--font-arabic)' }}>
-                  <span className="text-lg md:text-xl font-semibold">
-                    7. هل يمكنني تغيير الباقة لاحقاً؟
-                  </span>
-                </AccordionTrigger>
-                <AccordionContent className="text-slate-300 text-base md:text-lg pb-6 text-right" style={{ fontFamily: 'var(--font-arabic)' }}>
-                  نعم، يمكنك ترقية أو تغيير الباقة في أي وقت بالتواصل مع الدعم.
-               
-                </AccordionContent>
-              </AccordionItem>
-
-              <AccordionItem value="item-8" className="bg-slate-800/50 border border-slate-700/50 rounded-xl px-6 hover:border-blue-500/50 transition-colors">
-                <AccordionTrigger className="text-white hover:no-underline py-6 text-right" style={{ fontFamily: 'var(--font-arabic)' }}>
-                  <span className="text-lg md:text-xl font-semibold">
-                    8. هل يشتغل على جهازي؟
-                  </span>
-                </AccordionTrigger>
-                <AccordionContent className="text-slate-300 text-base md:text-lg pb-6 text-right" style={{ fontFamily: 'var(--font-arabic)' }}>
-                  تطبيقنا ييشتغل على جميع الأجهزة الذكية وأجهزة الكمبيوتر والشاشات، يمكنك تحميل التطبيق من المتجر المناسب لجهازك.
-                  <div className="mt-4">
-                    <Link href="/tarkeeb">
-                      <Button
-                        variant="outline"
-                        className="border-blue-500 text-blue-400 hover:bg-blue-500 hover:text-white"
-                        style={{ fontFamily: 'var(--font-arabic)' }}
-                      >
-                        اضغط هنا لمعرفة الأجهزة المدعومة
-                      </Button>
-                    </Link>
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-            </Accordion>
           </div>
         </div>
       </section>
