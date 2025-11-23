@@ -607,6 +607,183 @@
   }
 }
 
+/* Plan Card Styles - Arena Challenge Design */
+.player-visual-container {
+  position: relative;
+  overflow: hidden;
+  background:
+    linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.01) 100%),
+    repeating-linear-gradient(-45deg, #1f2b3e 0px, #1f2b3e 2px, transparent 2px, transparent 5px),
+    linear-gradient(180deg, #2a3a50, #182234);
+  background-size: cover;
+  background-position: center;
+  border-bottom: 2px solid rgba(255,255,255,0.1);
+  clip-path: polygon(0 0, 100% 0, 100% 90%, 0 100%);
+}
+
+.player-visual-container::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiB2aWV3Qm94PSIwIDAgMTggMTgiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjEiIGhlaWdodD0iMSIgeD0iMCIgeT0iMCIgZmlsbD0iI2FhYWFhYSIgb3BhY2l0eT0iMC4wNSIvPjxyZWN0IHdpZHRoPSIxIiBoZWlnaHQ9IjEiIHg9IjkiIHk9IjkiIGZpbGw9IiNhYWFhYWEiIG9wYWNpdHk9IjAuMDUiLz48L3N2Zz4=') repeat;
+  opacity: 0.1;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.player-visual {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 1rem;
+  z-index: 2;
+}
+
+.player-visual .player-img {
+  max-height: 100%;
+  width: auto;
+  object-fit: contain;
+  object-position: bottom center;
+  transform: scale(0.95);
+  filter:
+    drop-shadow(0 0 10px var(--player-glow-color, #0d59f2))
+    drop-shadow(0 0 20px var(--player-glow-color, #0d59f2));
+  clip-path: polygon(5% 0%, 95% 0%, 100% 100%, 0% 100%);
+  mix-blend-mode: lighten;
+  max-width: 80%;
+  height: auto;
+  transform: translateY(10px) scale(1.1);
+}
+
+.starter-player .player-visual .player-img {
+  --player-glow-color: #3b82f6;
+  transform: scale(1);
+  opacity: 0.8;
+  filter: grayscale(20%) brightness(1.2) contrast(1.1) drop-shadow(0 0 8px var(--player-glow-color));
+}
+
+.special-player .player-visual .player-img {
+  --player-glow-color: #fcd34d;
+  transform: scale(1.15);
+  opacity: 1;
+  filter: brightness(1.1) contrast(1.2) drop-shadow(0 0 15px var(--player-glow-color)) drop-shadow(0 0 25px rgba(252,211,77,0.5));
+}
+
+.premium-player .player-visual .player-img {
+  --player-glow-color: #ef4444;
+  transform: scale(1.2);
+  opacity: 1;
+  filter: brightness(1.2) contrast(1.3) drop-shadow(0 0 20px var(--player-glow-color)) drop-shadow(0 0 35px rgba(239,68,68,0.6));
+}
+
+.plan-card {
+  position: relative;
+  border-radius: 0.75rem;
+  background: #182234;
+  border: 1px solid rgba(255,255,255,0.1);
+  overflow: hidden;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease-in-out;
+  clip-path: polygon(0 0, 100% 0, 100% 98%, 98% 100%, 0% 100%);
+  padding-bottom: 0.5rem;
+}
+
+.plan-card:hover {
+  transform: translateY(-8px) scale(1.01);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2);
+  z-index: 10;
+}
+
+.plan-card.popular {
+  border-width: 2px;
+  border-color: transparent;
+  transform: scale(1.08);
+  box-shadow: 0 0 30px rgba(13, 89, 242, 0.5), 0 0 60px rgba(13, 89, 242, 0.3);
+  z-index: 20;
+  clip-path: polygon(0 0, 100% 0, 100% 97%, 97% 100%, 0% 100%);
+}
+
+.plan-card.popular::before {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  background: linear-gradient(45deg, #0d59f2, #fcd34d, #ef4444);
+  border-radius: 0.75rem;
+  filter: blur(10px);
+  z-index: -1;
+  opacity: 0.8;
+  clip-path: polygon(0% 0%, 100% 0%, 100% 95%, 95% 100%, 0% 100%);
+}
+
+.plan-card.popular .player-visual-container {
+  border-bottom-color: #0d59f2;
+}
+
+.plan-card.popular .player-visual::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 15px;
+  background: linear-gradient(to right, transparent, rgba(13, 89, 242, 0.5), transparent);
+  filter: blur(8px);
+  z-index: 3;
+}
+
+.starter-card::before,
+.special-card::before,
+.premium-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.1;
+}
+
+.starter-card::before {
+  background: linear-gradient(45deg, rgba(59,130,246,0.1) 0%, transparent 50%);
+}
+
+.special-card::before {
+  background: linear-gradient(45deg, rgba(252,211,77,0.2) 0%, transparent 50%);
+}
+
+.premium-card::before {
+  background: linear-gradient(45deg, rgba(239,68,68,0.3) 0%, transparent 50%);
+}
+
+.popular-button {
+  position: relative;
+  z-index: 1;
+}
+
+.popular-button::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  background: linear-gradient(45deg, #0d59f2, #fcd34d, #ef4444);
+  border-radius: 0.375rem;
+  filter: blur(6px);
+  z-index: -1;
+  opacity: 0.6;
+}
+
+.popular-button:hover::before {
+  filter: blur(10px);
+  opacity: 0.8;
+}
+
 @media (max-width: 768px) {
   .black-friday-component .coupon {
     transform: scale(0.7);
