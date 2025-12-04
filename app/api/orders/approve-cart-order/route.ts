@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
         .select('*, order_items(*)')
         .eq('id', orderId)
         .single();
-      
+
       order = orderById;
       orderError = errorById;
     }
@@ -53,14 +53,14 @@ export async function POST(request: NextRequest) {
 
     // Get PayPal order ID - use the one from request or from order.payment_id
     const paypalOrderId = order.payment_id || orderId;
-    
+
     // ⚠️ CRITICAL: Capture the payment from PayPal FIRST before updating database
     // DO NOT mark order as paid without capturing payment from PayPal!
     // This ensures the money actually arrives in your PayPal account.
     // The PayPal SDK only AUTHORIZES the payment - we must CAPTURE it server-side.
     const paypalMode = process.env.PAYPAL_MODE || 'sandbox';
-    const paypalBaseUrl = paypalMode === 'live' 
-      ? 'https://api-m.paypal.com' 
+    const paypalBaseUrl = paypalMode === 'live'
+      ? 'https://api-m.paypal.com'
       : 'https://api-m.sandbox.paypal.com';
 
     const paypalClientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID?.trim();
@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
     }
 
     let captureResult: any = null;
-    
+
     try {
       // Get PayPal access token
       const authString = Buffer.from(`${paypalClientId}:${paypalSecret}`).toString('base64');
@@ -110,7 +110,7 @@ export async function POST(request: NextRequest) {
       });
 
       const tokenData = await tokenResponse.json();
-      
+
       if (!tokenData.access_token) {
         console.error('PayPal authentication failed:', {
           error: tokenData.error,
@@ -122,7 +122,7 @@ export async function POST(request: NextRequest) {
         // Provide helpful error message
         if (tokenData.error === 'invalid_client') {
           return NextResponse.json(
-            { 
+            {
               error: 'فشل في المصادقة مع PayPal: معرف العميل والمفتاح السري غير متطابقين أو غير صحيحين. يرجى التحقق من متغيرات البيئة.',
               details: process.env.NODE_ENV === 'development' ? {
                 error: tokenData.error,
@@ -136,7 +136,7 @@ export async function POST(request: NextRequest) {
         }
 
         return NextResponse.json(
-          { 
+          {
             error: `فشل في الاتصال بـ PayPal: ${tokenData.error || 'خطأ غير معروف'} - ${tokenData.error_description || ''}`,
             details: process.env.NODE_ENV === 'development' ? tokenData : undefined,
           },
@@ -155,11 +155,11 @@ export async function POST(request: NextRequest) {
       });
 
       const orderStatus = await checkOrderResponse.json();
-      
+
       if (!checkOrderResponse.ok) {
         console.error('Failed to check PayPal order status:', orderStatus);
         return NextResponse.json(
-          { 
+          {
             error: `فشل في التحقق من حالة الطلب: ${orderStatus.message || 'خطأ غير معروف'}`,
             details: process.env.NODE_ENV === 'development' ? orderStatus : undefined,
           },
@@ -171,7 +171,7 @@ export async function POST(request: NextRequest) {
       if (orderStatus.status === 'COMPLETED') {
         const purchaseUnit = orderStatus.purchase_units?.[0];
         const capture = purchaseUnit?.payments?.captures?.[0];
-        
+
         if (capture && capture.status === 'COMPLETED') {
           // Payment was already captured - update database and continue
           console.log('PayPal order already captured:', {
@@ -182,7 +182,7 @@ export async function POST(request: NextRequest) {
 
           // Use the capture result from the order status check
           captureResult = orderStatus;
-          
+
           // Update database to reflect that payment was already captured
           const { error: updateError } = await supabaseAdmin
             .from('orders')
@@ -204,7 +204,7 @@ export async function POST(request: NextRequest) {
           // Order marked as COMPLETED but no capture found - this shouldn't happen
           console.error('Order status is COMPLETED but no capture found:', orderStatus);
           return NextResponse.json(
-            { 
+            {
               error: 'حالة الطلب غير صحيحة في PayPal. يرجى المحاولة مرة أخرى أو الاتصال بالدعم.',
               details: process.env.NODE_ENV === 'development' ? orderStatus : undefined,
             },
@@ -214,7 +214,7 @@ export async function POST(request: NextRequest) {
       } else if (orderStatus.status === 'APPROVED' || orderStatus.status === 'CREATED') {
         // Order is in a capturable state - proceed with capture
         console.log(`PayPal order status: ${orderStatus.status}, attempting capture...`);
-        
+
         // Capture the PayPal order - THIS IS CRITICAL FOR PAYMENT TO ARRIVE
         // Use minimal capture request - empty body to avoid validation issues
         const captureResponse = await fetch(`${paypalBaseUrl}/v2/checkout/orders/${paypalOrderId}/capture`, {
@@ -228,7 +228,7 @@ export async function POST(request: NextRequest) {
         });
 
         captureResult = await captureResponse.json();
-        
+
         // Check if capture was successful
         if (!captureResponse.ok || captureResult.status !== 'COMPLETED') {
           console.error('PayPal capture failed:', {
@@ -238,7 +238,7 @@ export async function POST(request: NextRequest) {
             paypalOrderId,
             orderStatus: orderStatus.status,
           });
-          
+
           // Log full error details for debugging
           const errorDetails = captureResult.details || [];
           console.error('Full PayPal capture error details:', {
@@ -248,11 +248,11 @@ export async function POST(request: NextRequest) {
             details: errorDetails,
             links: captureResult.links,
           });
-          
+
           // Handle specific PayPal errors
           if (captureResult.name === 'UNPROCESSABLE_ENTITY') {
             const errorMessage = captureResult.message || 'لا يمكن معالجة الطلب';
-            
+
             // Extract specific error details
             const specificIssues = errorDetails.map((d: any) => ({
               field: d.field,
@@ -260,9 +260,9 @@ export async function POST(request: NextRequest) {
               issue: d.issue,
               description: d.description,
             }));
-            
+
             console.error('PayPal capture error details:', specificIssues);
-            
+
             // Check if order was already captured (sometimes PayPal returns this error even if captured)
             // Try to get order status again to check
             console.log('Rechecking PayPal order status after capture error...');
@@ -273,17 +273,17 @@ export async function POST(request: NextRequest) {
                 'Authorization': `Bearer ${tokenData.access_token}`,
               },
             });
-            
+
             const recheckStatus = await recheckResponse.json();
             console.log('Rechecked PayPal order status:', {
               status: recheckStatus.status,
               hasCapture: !!recheckStatus.purchase_units?.[0]?.payments?.captures?.[0],
             });
-            
+
             if (recheckStatus.status === 'COMPLETED') {
               const purchaseUnit = recheckStatus.purchase_units?.[0];
               const capture = purchaseUnit?.payments?.captures?.[0];
-              
+
               if (capture && capture.status === 'COMPLETED') {
                 // Order was actually captured - update database
                 console.log('Order was already captured, updating database:', {
@@ -291,7 +291,7 @@ export async function POST(request: NextRequest) {
                   amount: capture.amount,
                 });
                 captureResult = recheckStatus;
-                
+
                 const { error: updateError } = await supabaseAdmin
                   .from('orders')
                   .update({
@@ -306,7 +306,7 @@ export async function POST(request: NextRequest) {
                   console.log('Payment was captured (verified after error), proceeding with subscription assignment');
                 } else {
                   return NextResponse.json(
-                    { 
+                    {
                       error: 'تم استلام الدفع ولكن فشل تحديث حالة الطلب. يرجى تحديثها يدوياً.',
                       captureId: capture.id,
                     },
@@ -317,7 +317,7 @@ export async function POST(request: NextRequest) {
                 // Order says COMPLETED but no capture found - this is unusual
                 console.error('Order status is COMPLETED but no capture found:', recheckStatus);
                 return NextResponse.json(
-                  { 
+                  {
                     error: `فشل في معالجة الدفع: ${errorMessage}`,
                     details: process.env.NODE_ENV === 'development' ? {
                       errorName: captureResult.name,
@@ -337,17 +337,17 @@ export async function POST(request: NextRequest) {
                 originalStatus: orderStatus.status,
                 errorDetails: specificIssues,
               });
-              
+
               // Check for specific error types
-              const instrumentDeclined = specificIssues.some((issue: any) => 
-                issue.issue === 'INSTRUMENT_DECLINED' || 
+              const instrumentDeclined = specificIssues.some((issue: any) =>
+                issue.issue === 'INSTRUMENT_DECLINED' ||
                 issue.description?.toLowerCase().includes('declined') ||
                 issue.description?.toLowerCase().includes('instrument')
               );
-              
+
               const expired = recheckStatus.status === 'EXPIRED' || orderStatus.status === 'EXPIRED';
               const cancelled = recheckStatus.status === 'CANCELLED';
-              
+
               if (instrumentDeclined) {
                 // Payment method was declined - this is a user payment issue, not our code issue
                 // Keep order as pending so user can try again
@@ -356,9 +356,9 @@ export async function POST(request: NextRequest) {
                   orderId: order.id,
                   errorDetails: specificIssues,
                 });
-                
+
                 return NextResponse.json(
-                  { 
+                  {
                     error: 'تم رفض طريقة الدفع. يرجى المحاولة بطريقة دفع أخرى أو التحقق من صحة البطاقة/الحساب.',
                     details: {
                       paypalError: 'INSTRUMENT_DECLINED',
@@ -371,7 +371,7 @@ export async function POST(request: NextRequest) {
                 );
               } else if (expired) {
                 return NextResponse.json(
-                  { 
+                  {
                     error: 'انتهت صلاحية التفويض. لا يمكن استلام الدفع الآن. المبلغ سيعود للعميل تلقائياً.',
                     details: captureResult.message || 'Authorization expired',
                   },
@@ -379,17 +379,17 @@ export async function POST(request: NextRequest) {
                 );
               } else if (cancelled) {
                 return NextResponse.json(
-                  { 
+                  {
                     error: 'تم إلغاء الطلب. يرجى إنشاء طلب جديد.',
                     details: 'Order was cancelled',
                   },
                   { status: 400 }
                 );
               }
-              
+
               // Return detailed error for other cases
               return NextResponse.json(
-                { 
+                {
                   error: `فشل في معالجة الدفع: ${errorMessage}`,
                   details: process.env.NODE_ENV === 'development' ? {
                     errorName: captureResult.name,
@@ -405,7 +405,7 @@ export async function POST(request: NextRequest) {
             }
           } else if (orderStatus.status === 'EXPIRED' || captureResult.status === 'EXPIRED') {
             return NextResponse.json(
-              { 
+              {
                 error: 'انتهت صلاحية التفويض. لا يمكن استلام الدفع الآن. المبلغ سيعود للعميل تلقائياً.',
                 details: captureResult.message || 'Authorization expired',
               },
@@ -415,9 +415,9 @@ export async function POST(request: NextRequest) {
             // Other error
             const errorDetails = captureResult.details || [];
             const errorMessage = captureResult.message || 'خطأ غير معروف من PayPal';
-            
+
             return NextResponse.json(
-              { 
+              {
                 error: `فشل في معالجة الدفع: ${errorMessage}`,
                 details: process.env.NODE_ENV === 'development' ? JSON.stringify(captureResult) : undefined,
               },
@@ -429,7 +429,7 @@ export async function POST(request: NextRequest) {
         // Verify payment was actually captured
         const purchaseUnit = captureResult.purchase_units?.[0];
         const capture = purchaseUnit?.payments?.captures?.[0];
-        
+
         if (!capture || capture.status !== 'COMPLETED') {
           console.error('Payment capture not completed:', captureResult);
           return NextResponse.json(
@@ -447,15 +447,15 @@ export async function POST(request: NextRequest) {
       } else {
         // Order is in an invalid state (CANCELLED, etc.)
         return NextResponse.json(
-          { 
+          {
             error: `لا يمكن استلام الدفع. حالة الطلب في PayPal: ${orderStatus.status}`,
             details: {
               paypalStatus: orderStatus.status,
-              message: orderStatus.status === 'EXPIRED' 
+              message: orderStatus.status === 'EXPIRED'
                 ? 'انتهت صلاحية التفويض. المبلغ سيعود للعميل تلقائياً.'
                 : orderStatus.status === 'CANCELLED'
-                ? 'تم إلغاء الطلب.'
-                : 'حالة الطلب لا تسمح بالاستلام.',
+                  ? 'تم إلغاء الطلب.'
+                  : 'حالة الطلب لا تسمح بالاستلام.',
             },
           },
           { status: 400 }
@@ -468,9 +468,9 @@ export async function POST(request: NextRequest) {
         stack: captureError.stack,
         paypalOrderId,
       });
-      
+
       return NextResponse.json(
-        { 
+        {
           error: 'فشل في معالجة الدفع من PayPal',
           details: process.env.NODE_ENV === 'development' ? captureError.message : undefined,
         },
@@ -482,13 +482,13 @@ export async function POST(request: NextRequest) {
     // Check if order is already paid to avoid duplicate updates
     if (order.status !== 'paid') {
       const captureId = captureResult?.purchase_units?.[0]?.payments?.captures?.[0]?.id;
-      
+
       // Log capture ID for reference (can be stored in database if needed)
       console.log('Payment captured successfully, updating database:', {
         captureId,
         amount: captureResult?.purchase_units?.[0]?.payments?.captures?.[0]?.amount,
       });
-      
+
       const { error: updateError } = await supabaseAdmin
         .from('orders')
         .update({
@@ -541,6 +541,31 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Update order with assigned subscriptions
+    if (assignedSubscriptions.length > 0) {
+      const updateData: any = {};
+
+      if (assignedSubscriptions.length === 1) {
+        const firstSubscription = assignedSubscriptions[0].subscription;
+        updateData.assigned_subscription = firstSubscription;
+        console.log('✓ Setting assigned_subscription on order (single):', firstSubscription.code);
+      } else {
+        // Map to array of subscription objects
+        const subscriptionsArray = assignedSubscriptions.map(item => item.subscription);
+        updateData.assigned_subscription = subscriptionsArray;
+        console.log(`✓ Setting assigned_subscription on order (array of ${subscriptionsArray.length}):`, subscriptionsArray.map(s => s.code).join(', '));
+      }
+
+      const { error: updateSubError } = await supabaseAdmin
+        .from('orders')
+        .update(updateData)
+        .eq('id', order.id);
+
+      if (updateSubError) {
+        console.error('Error updating order with assigned subscriptions:', updateSubError);
+      }
+    }
+
     // Update promo code usage
     if ((order as any).promo_code_id) {
       try {
@@ -563,7 +588,7 @@ export async function POST(request: NextRequest) {
     // Send emails after payment is approved
     try {
       const orderDisplayId = (updatedOrder as any)?.order_number || order.id.slice(0, 8).toUpperCase();
-      
+
       // Send admin notification email (new order notification)
       try {
         await sendNewOrderEmail({
@@ -579,7 +604,7 @@ export async function POST(request: NextRequest) {
         console.error('Error sending admin notification email:', adminEmailError);
         // Don't fail the request if admin email fails
       }
-      
+
       // Send customer approval email with subscription details
       await sendApprovalEmail({
         orderId: orderDisplayId,

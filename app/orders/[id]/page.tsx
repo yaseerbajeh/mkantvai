@@ -25,7 +25,13 @@ interface Order {
       duration?: string;
       type?: string;
     };
-  };
+  } | Array<{
+    code: string;
+    meta?: {
+      duration?: string;
+      type?: string;
+    };
+  }>;
   created_at: string;
 }
 
@@ -147,7 +153,7 @@ export default function OrderDetailsPage() {
                       ✅ تم استلام الدفع بنجاح!
                     </h3>
                     <p className="text-slate-300">
-                      {order.assigned_subscription 
+                      {order.assigned_subscription
                         ? 'تم تفعيل اشتراكك تلقائياً. تم إرسال تفاصيل الاشتراك إلى بريدك الإلكتروني.'
                         : 'جاري معالجة طلبك وتفعيل الاشتراك...'}
                     </p>
@@ -229,16 +235,15 @@ export default function OrderDetailsPage() {
               </div>
               <div className="flex justify-between items-center py-2 border-b border-slate-700">
                 <span className="text-slate-400">الحالة:</span>
-                <span className={`font-bold ${
-                  order.status === 'approved' ? 'text-green-500' :
+                <span className={`font-bold ${order.status === 'approved' ? 'text-green-500' :
                   order.status === 'paid' ? 'text-blue-500' :
-                  order.status === 'rejected' ? 'text-red-500' :
-                  'text-yellow-500'
-                }`}>
+                    order.status === 'rejected' ? 'text-red-500' :
+                      'text-yellow-500'
+                  }`}>
                   {order.status === 'approved' ? 'مقبول' :
-                   order.status === 'paid' ? 'مدفوع' :
-                   order.status === 'rejected' ? 'مرفوض' :
-                   'قيد الانتظار'}
+                    order.status === 'paid' ? 'مدفوع' :
+                      order.status === 'rejected' ? 'مرفوض' :
+                        'قيد الانتظار'}
                 </span>
               </div>
               {order.payment_method && (
@@ -262,52 +267,60 @@ export default function OrderDetailsPage() {
           {(order.status === 'approved' || (order.status === 'paid' && order.assigned_subscription)) && order.assigned_subscription && (
             <div className="mb-6">
               <h2 className="text-2xl text-white font-bold mb-4">تفاصيل الاشتراك</h2>
-              <div className="space-y-3">
-                {/* Subscription Code Box */}
-                <Card className="bg-blue-900/20 border-blue-700">
-                  <CardContent className="pt-6">
-                    <div className="space-y-2">
-                      <span className="text-blue-300 text-sm font-medium">رمز الاشتراك</span>
-                      <div className="bg-slate-900 px-4 py-3 rounded-lg border border-blue-600/50">
-                        <pre className="text-white font-mono text-lg font-bold whitespace-pre-wrap break-words overflow-x-auto">
-                          {order.assigned_subscription.code}
-                        </pre>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+              <div className="space-y-6">
+                {(Array.isArray(order.assigned_subscription) ? order.assigned_subscription : [order.assigned_subscription]).map((sub, index) => (
+                  <div key={index} className={`space-y-3 ${index > 0 ? 'pt-6 border-t border-slate-700' : ''}`}>
+                    {Array.isArray(order.assigned_subscription) && order.assigned_subscription.length > 1 && (
+                      <p className="text-blue-400 text-lg font-semibold">اشتراك #{index + 1}</p>
+                    )}
 
-                {/* Duration Box */}
-                {order.assigned_subscription.meta?.duration && (
-                  <Card className="bg-blue-900/20 border-blue-700">
-                    <CardContent className="pt-6">
-                      <div className="space-y-2">
-                        <span className="text-blue-300 text-sm font-medium">مدة الاشتراك</span>
-                        <div className="bg-slate-900 px-4 py-3 rounded-lg border border-blue-600/50">
-                          <span className="text-white text-lg font-semibold">
-                            {order.assigned_subscription.meta.duration}
-                          </span>
+                    {/* Subscription Code Box */}
+                    <Card className="bg-blue-900/20 border-blue-700">
+                      <CardContent className="pt-6">
+                        <div className="space-y-2">
+                          <span className="text-blue-300 text-sm font-medium">رمز الاشتراك</span>
+                          <div className="bg-slate-900 px-4 py-3 rounded-lg border border-blue-600/50">
+                            <pre className="text-white font-mono text-lg font-bold whitespace-pre-wrap break-words overflow-x-auto">
+                              {sub.code}
+                            </pre>
+                          </div>
                         </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
+                      </CardContent>
+                    </Card>
 
-                {/* Type Box */}
-                {order.assigned_subscription.meta?.type && (
-                  <Card className="bg-blue-900/20 border-blue-700">
-                    <CardContent className="pt-6">
-                      <div className="space-y-2">
-                        <span className="text-blue-300 text-sm font-medium">نوع الاشتراك</span>
-                        <div className="bg-slate-900 px-4 py-3 rounded-lg border border-blue-600/50">
-                          <span className="text-white text-lg font-semibold">
-                            {order.assigned_subscription.meta.type}
-                          </span>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
+                    {/* Duration Box */}
+                    {sub.meta?.duration && (
+                      <Card className="bg-blue-900/20 border-blue-700">
+                        <CardContent className="pt-6">
+                          <div className="space-y-2">
+                            <span className="text-blue-300 text-sm font-medium">مدة الاشتراك</span>
+                            <div className="bg-slate-900 px-4 py-3 rounded-lg border border-blue-600/50">
+                              <span className="text-white text-lg font-semibold">
+                                {sub.meta.duration}
+                              </span>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+
+                    {/* Type Box */}
+                    {sub.meta?.type && (
+                      <Card className="bg-blue-900/20 border-blue-700">
+                        <CardContent className="pt-6">
+                          <div className="space-y-2">
+                            <span className="text-blue-300 text-sm font-medium">نوع الاشتراك</span>
+                            <div className="bg-slate-900 px-4 py-3 rounded-lg border border-blue-600/50">
+                              <span className="text-white text-lg font-semibold">
+                                {sub.meta.type}
+                              </span>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+                  </div>
+                ))}
               </div>
             </div>
           )}
