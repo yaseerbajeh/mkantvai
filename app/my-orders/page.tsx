@@ -35,7 +35,13 @@ interface Order {
       duration?: string;
       type?: string;
     };
-  };
+  } | Array<{
+    code: string;
+    meta?: {
+      duration?: string;
+      type?: string;
+    };
+  }>;
   created_at: string;
   has_review?: boolean;
 }
@@ -53,7 +59,7 @@ export default function MyOrdersPage() {
   const [reviewRating, setReviewRating] = useState<number>(0);
   const [reviewComment, setReviewComment] = useState<string>('');
   const [submittingReview, setSubmittingReview] = useState(false);
-  
+
   // Ticket states
   const [ticketDialogOpen, setTicketDialogOpen] = useState(false);
   const [selectedOrderForTicket, setSelectedOrderForTicket] = useState<Order | null>(null);
@@ -66,7 +72,7 @@ export default function MyOrdersPage() {
   const [sendingMessage, setSendingMessage] = useState(false);
   const [loadingTicket, setLoadingTicket] = useState(false);
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
-  
+
   // My Tickets section
   const [userTickets, setUserTickets] = useState<any[]>([]);
   const [loadingTickets, setLoadingTickets] = useState(false);
@@ -76,7 +82,7 @@ export default function MyOrdersPage() {
     const checkAuthAndFetchOrders = async () => {
       // Check authentication
       const { data: { session } } = await supabase.auth.getSession();
-      
+
       if (!session?.user) {
         router.push('/auth');
         return;
@@ -88,7 +94,7 @@ export default function MyOrdersPage() {
       try {
         const userEmail = session.user.email?.toLowerCase() || '';
         let ordersData: Order[] = [];
-        
+
         // Try case-insensitive match first
         const { data, error } = await supabase
           .from('orders')
@@ -101,7 +107,7 @@ export default function MyOrdersPage() {
         }
 
         ordersData = (data as Order[]) || [];
-        
+
         // If no orders found, try exact match as fallback
         if (!ordersData || ordersData.length === 0) {
           console.log('No orders found for email (case-insensitive):', userEmail);
@@ -110,17 +116,17 @@ export default function MyOrdersPage() {
             .select('*')
             .eq('email', session.user.email || '')
             .order('created_at', { ascending: false });
-          
+
           if (exactError) {
             console.error('Error fetching orders with exact match:', exactError);
           }
-          
+
           if (exactMatchData && exactMatchData.length > 0) {
             console.log('Found orders with exact match:', session.user.email);
             ordersData = (exactMatchData as Order[]) || [];
           }
         }
-        
+
         // Check which orders already have reviews
         const orderIds = ordersData.map(o => o.id);
         if (orderIds.length > 0) {
@@ -128,7 +134,7 @@ export default function MyOrdersPage() {
             .from('reviews')
             .select('order_id')
             .in('order_id', orderIds);
-          
+
           const reviewedOrderIds = new Set(reviews?.map(r => r.order_id) || []);
           ordersData.forEach(order => {
             order.has_review = reviewedOrderIds.has(order.id);
@@ -303,23 +309,23 @@ export default function MyOrdersPage() {
     setTicketMessages([]);
     setNewMessage('');
     setSelectedImage(null);
-    
+
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
-      
+
       setLoadingTicket(true);
       const response = await fetch(`/api/tickets/${ticket.id}`, {
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
         },
       });
-      
+
       const ticketData = await response.json();
       if (response.ok && ticketData.ticket) {
         setCurrentTicket(ticketData.ticket);
         setTicketMessages(ticketData.ticket.messages || []);
-        
+
         // Fetch order if order_id exists
         if (ticketData.ticket.order_id) {
           const orderResponse = await supabase
@@ -327,7 +333,7 @@ export default function MyOrdersPage() {
             .select('*')
             .eq('id', ticketData.ticket.order_id)
             .single();
-          
+
           if (orderResponse.data) {
             setSelectedOrderForTicket(orderResponse.data as Order);
           }
@@ -370,7 +376,7 @@ export default function MyOrdersPage() {
       }
 
       let response: Response;
-      
+
       if (selectedImage) {
         // Send with FormData for image upload
         const formData = new FormData();
@@ -420,7 +426,7 @@ export default function MyOrdersPage() {
       setTicketSubject('');
       setTicketMessage('');
       setSelectedImage(null);
-      
+
       // Refresh tickets list
       await fetchUserTickets();
     } catch (error: any) {
@@ -458,7 +464,7 @@ export default function MyOrdersPage() {
       }
 
       let response: Response;
-      
+
       if (selectedImage) {
         // Send with FormData for image upload
         const formData = new FormData();
@@ -497,7 +503,7 @@ export default function MyOrdersPage() {
       setTicketMessages([...ticketMessages, result.message]);
       setNewMessage('');
       setSelectedImage(null);
-      
+
       // Refresh tickets list to update updated_at
       await fetchUserTickets();
     } catch (error: any) {
@@ -524,7 +530,7 @@ export default function MyOrdersPage() {
         });
         return;
       }
-      
+
       // Validate file size (5MB)
       if (file.size > 5 * 1024 * 1024) {
         toast({
@@ -534,7 +540,7 @@ export default function MyOrdersPage() {
         });
         return;
       }
-      
+
       setSelectedImage(file);
     }
     // Reset input value to allow selecting the same file again
@@ -656,269 +662,275 @@ export default function MyOrdersPage() {
 
             {/* Orders Tab */}
             <TabsContent value="orders">
-          {/* Filter Tabs */}
-          <Tabs value={filterStatus} onValueChange={(value) => setFilterStatus(value as typeof filterStatus)} className="mb-6">
-            <TabsList className="grid w-full grid-cols-4 bg-slate-800/50">
-              <TabsTrigger value="all" className="data-[state=active]:bg-blue-600">
-                الكل ({orderStats.all})
-              </TabsTrigger>
-              <TabsTrigger value="completed" className="data-[state=active]:bg-green-600">
-                مكتملة ({orderStats.completed})
-              </TabsTrigger>
-              <TabsTrigger value="pending" className="data-[state=active]:bg-yellow-600">
-                قيد الانتظار ({orderStats.pending})
-              </TabsTrigger>
-              <TabsTrigger value="rejected" className="data-[state=active]:bg-red-600">
-                مرفوضة ({orderStats.rejected})
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
+              {/* Filter Tabs */}
+              <Tabs value={filterStatus} onValueChange={(value) => setFilterStatus(value as typeof filterStatus)} className="mb-6">
+                <TabsList className="grid w-full grid-cols-4 bg-slate-800/50">
+                  <TabsTrigger value="all" className="data-[state=active]:bg-blue-600">
+                    الكل ({orderStats.all})
+                  </TabsTrigger>
+                  <TabsTrigger value="completed" className="data-[state=active]:bg-green-600">
+                    مكتملة ({orderStats.completed})
+                  </TabsTrigger>
+                  <TabsTrigger value="pending" className="data-[state=active]:bg-yellow-600">
+                    قيد الانتظار ({orderStats.pending})
+                  </TabsTrigger>
+                  <TabsTrigger value="rejected" className="data-[state=active]:bg-red-600">
+                    مرفوضة ({orderStats.rejected})
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
 
-          {orders.length === 0 ? (
-            <Card className="bg-slate-800/50 border-slate-700">
-              <CardContent className="pt-6">
-                <div className="text-center py-12">
-                  <Package className="w-16 h-16 text-slate-500 mx-auto mb-4" />
-                  <h3 className="text-xl font-bold text-white mb-2">لا توجد طلبات</h3>
-                  <p className="text-slate-300 mb-6">
-                    لم تقم بإنشاء أي طلبات اشتراك بعد
-                  </p>
-                  <Link href="/subscribe">
-                    <Button className="bg-blue-600 hover:bg-blue-700">
-                      إنشاء طلب جديد
-                    </Button>
-                  </Link>
-                </div>
-              </CardContent>
-            </Card>
-          ) : filteredOrders.length === 0 ? (
-            <Card className="bg-slate-800/50 border-slate-700">
-              <CardContent className="pt-6">
-                <div className="text-center py-12">
-                  <Package className="w-16 h-16 text-slate-500 mx-auto mb-4" />
-                  <h3 className="text-xl font-bold text-white mb-2">لا توجد طلبات</h3>
-                  <p className="text-slate-300 mb-6">
-                    {filterStatus === 'completed' 
-                      ? 'لا توجد طلبات مكتملة حالياً'
-                      : filterStatus === 'pending'
-                      ? 'لا توجد طلبات قيد الانتظار'
-                      : filterStatus === 'rejected'
-                      ? 'لا توجد طلبات مرفوضة'
-                      : 'لا توجد طلبات'}
-                  </p>
-                  {filterStatus !== 'all' && (
-                    <Button 
-                      variant="outline" 
-                      onClick={() => setFilterStatus('all')}
-                      className="border-slate-700 text-slate-300 hover:text-white"
-                    >
-                      عرض جميع الطلبات
-                    </Button>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="space-y-4">
-              {filteredOrders.map((order) => (
-                <Card key={order.id} className="bg-slate-800/50 border-slate-700 hover:border-slate-600 transition">
-                  <CardHeader>
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
-                          {getStatusIcon(order.status)}
-                          <CardTitle className="text-xl text-white">
-                            {order.product_name}
-                          </CardTitle>
-                          <span className={`px-3 py-1 rounded-full text-xs font-bold ${getStatusColor(order.status)}`}>
-                            {getStatusText(order.status)}
-                          </span>
-                        </div>
-                        <p className="text-slate-400 text-sm font-mono">
-                          رقم الطلب: {order.order_number || order.id.slice(0, 8).toUpperCase()}
-                        </p>
-                      </div>
-                      <Link href={`/orders/${order.id}`}>
-                        <Button variant="outline" size="sm" className="border-slate-700 text-slate-300 hover:text-white">
-                          <ExternalLink className="w-4 h-4 ml-2" />
-                          التفاصيل
+              {orders.length === 0 ? (
+                <Card className="bg-slate-800/50 border-slate-700">
+                  <CardContent className="pt-6">
+                    <div className="text-center py-12">
+                      <Package className="w-16 h-16 text-slate-500 mx-auto mb-4" />
+                      <h3 className="text-xl font-bold text-white mb-2">لا توجد طلبات</h3>
+                      <p className="text-slate-300 mb-6">
+                        لم تقم بإنشاء أي طلبات اشتراك بعد
+                      </p>
+                      <Link href="/subscribe">
+                        <Button className="bg-blue-600 hover:bg-blue-700">
+                          إنشاء طلب جديد
                         </Button>
                       </Link>
                     </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                      <div>
-                        <p className="text-slate-400 text-sm mb-1">السعر</p>
-                        <p className="text-white font-semibold">{order.price} ريال</p>
-                      </div>
-                      <div>
-                        <p className="text-slate-400 text-sm mb-1">تاريخ الطلب</p>
-                        <p className="text-white">
-                          {new Date(order.created_at).toLocaleString('ar-SA')}
-                        </p>
-                      </div>
+                  </CardContent>
+                </Card>
+              ) : filteredOrders.length === 0 ? (
+                <Card className="bg-slate-800/50 border-slate-700">
+                  <CardContent className="pt-6">
+                    <div className="text-center py-12">
+                      <Package className="w-16 h-16 text-slate-500 mx-auto mb-4" />
+                      <h3 className="text-xl font-bold text-white mb-2">لا توجد طلبات</h3>
+                      <p className="text-slate-300 mb-6">
+                        {filterStatus === 'completed'
+                          ? 'لا توجد طلبات مكتملة حالياً'
+                          : filterStatus === 'pending'
+                            ? 'لا توجد طلبات قيد الانتظار'
+                            : filterStatus === 'rejected'
+                              ? 'لا توجد طلبات مرفوضة'
+                              : 'لا توجد طلبات'}
+                      </p>
+                      {filterStatus !== 'all' && (
+                        <Button
+                          variant="outline"
+                          onClick={() => setFilterStatus('all')}
+                          className="border-slate-700 text-slate-300 hover:text-white"
+                        >
+                          عرض جميع الطلبات
+                        </Button>
+                      )}
                     </div>
-
-                    {/* Completed Order - Subscription Details */}
-                    {(order.status === 'approved' || (order.status === 'paid' && order.assigned_subscription)) && order.assigned_subscription && (
-                      <div className="mt-4 p-4 bg-gradient-to-br from-green-900/30 to-emerald-900/20 border-2 border-green-600 rounded-lg shadow-lg">
-                        <h4 className="text-green-300 font-bold mb-3 flex items-center gap-2 text-lg">
-                          <CheckCircle2 className="w-5 h-5" />
-                          ✅ طلب مكتمل - تفاصيل الاشتراك
-                        </h4>
-                        <div className="space-y-3">
-                          <div className="bg-slate-900/50 p-3 rounded-lg">
-                            <p className="text-slate-400 text-xs mb-1">رمز الاشتراك</p>
-                            <pre className="text-white font-mono font-bold text-sm bg-slate-950 px-4 py-3 rounded border border-green-600/50 whitespace-pre-wrap break-words overflow-x-auto max-h-[200px] overflow-y-auto">
-                              {order.assigned_subscription.code}
-                            </pre>
-                          </div>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            {order.assigned_subscription.meta?.duration && (
-                              <div className="bg-slate-900/50 p-3 rounded-lg">
-                                <p className="text-slate-400 text-xs mb-1">مدة الاشتراك</p>
-                                <p className="text-white font-semibold">{order.assigned_subscription.meta.duration}</p>
-                              </div>
-                            )}
-                            {order.assigned_subscription.meta?.type && (
-                              <div className="bg-slate-900/50 p-3 rounded-lg">
-                                <p className="text-slate-400 text-xs mb-1">نوع الاشتراك</p>
-                                <p className="text-white font-semibold">{order.assigned_subscription.meta.type}</p>
-                              </div>
-                            )}
-                          </div>
-                          {order.payment_method === 'paypal' && (
-                            <div className="bg-blue-900/30 p-2 rounded border border-blue-700/50">
-                              <p className="text-blue-300 text-xs flex items-center gap-2">
-                                <CheckCircle2 className="w-3 h-3" />
-                                تم الدفع عبر PayPal
-                              </p>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* PayPal paid status - no timer needed */}
-                    {order.status === 'paid' && order.payment_method === 'paypal' && (
-                      <div className="mt-4 p-4 bg-blue-900/20 border border-blue-700 rounded-lg">
-                        <div className="flex items-start gap-3">
-                          <CheckCircle2 className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="space-y-4">
+                  {filteredOrders.map((order) => (
+                    <Card key={order.id} className="bg-slate-800/50 border-slate-700 hover:border-slate-600 transition">
+                      <CardHeader>
+                        <div className="flex items-start justify-between">
                           <div className="flex-1">
-                            <p className="text-blue-300 text-sm mb-2">
-                              ✅ تم استلام الدفع عبر PayPal بنجاح
-                            </p>
-                            <p className="text-blue-200 text-xs">
-                              {order.assigned_subscription 
-                                ? 'تم تفعيل اشتراكك تلقائياً. تم إرسال تفاصيل الاشتراك إلى بريدك الإلكتروني.'
-                                : 'جاري معالجة طلبك وتفعيل الاشتراك...'}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Pending status - only show timer for non-PayPal orders */}
-                    {order.status === 'pending' && order.payment_method !== 'paypal' && (
-                      <div className="mt-4 space-y-3">
-                        <div className="p-4 bg-yellow-900/20 border border-yellow-700 rounded-lg">
-                          <div className="flex items-center justify-between mb-2">
-                            <p className="text-yellow-400 text-sm flex items-center gap-2">
-                              <Clock className="w-4 h-4" />
-                              الوقت المتبقي لإكمال الدفع:
-                            </p>
-                            <div className={`text-lg font-bold font-mono ${
-                              (timeRemaining[order.id] || 0) < 300 ? 'text-red-500 animate-pulse' : 'text-yellow-400'
-                            }`}>
-                              {timeRemaining[order.id] !== undefined 
-                                ? formatTime(timeRemaining[order.id])
-                                : '00:00'}
+                            <div className="flex items-center gap-3 mb-2">
+                              {getStatusIcon(order.status)}
+                              <CardTitle className="text-xl text-white">
+                                {order.product_name}
+                              </CardTitle>
+                              <span className={`px-3 py-1 rounded-full text-xs font-bold ${getStatusColor(order.status)}`}>
+                                {getStatusText(order.status)}
+                              </span>
                             </div>
+                            <p className="text-slate-400 text-sm font-mono">
+                              رقم الطلب: {order.order_number || order.id.slice(0, 8).toUpperCase()}
+                            </p>
                           </div>
-                          <p className="text-yellow-300 text-xs mt-2">
-                            يرجى إكمال عملية الدفع خلال الوقت المتبقي. سيتم إلغاء الطلب تلقائياً بعد انتهاء الوقت.
-                          </p>
+                          <Link href={`/orders/${order.id}`}>
+                            <Button variant="outline" size="sm" className="border-slate-700 text-slate-300 hover:text-white">
+                              <ExternalLink className="w-4 h-4 ml-2" />
+                              التفاصيل
+                            </Button>
+                          </Link>
                         </div>
-                        {(timeRemaining[order.id] || 0) > 0 && (
-                          <div className="p-4 bg-blue-900/20 border border-blue-700 rounded-lg">
+                      </CardHeader>
+                      <CardContent>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                          <div>
+                            <p className="text-slate-400 text-sm mb-1">السعر</p>
+                            <p className="text-white font-semibold">{order.price} ريال</p>
+                          </div>
+                          <div>
+                            <p className="text-slate-400 text-sm mb-1">تاريخ الطلب</p>
+                            <p className="text-white">
+                              {new Date(order.created_at).toLocaleString('ar-SA')}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Completed Order - Subscription Details */}
+                        {(order.status === 'approved' || (order.status === 'paid' && order.assigned_subscription)) && order.assigned_subscription && (
+                          <div className="mt-4 p-4 bg-gradient-to-br from-green-900/30 to-emerald-900/20 border-2 border-green-600 rounded-lg shadow-lg">
+                            <h4 className="text-green-300 font-bold mb-3 flex items-center gap-2 text-lg">
+                              <CheckCircle2 className="w-5 h-5" />
+                              ✅ طلب مكتمل - تفاصيل الاشتراك
+                            </h4>
+                            {/* Handle array of subscriptions or single subscription */}
+                            {(Array.isArray(order.assigned_subscription) ? order.assigned_subscription : [order.assigned_subscription]).map((sub, index) => (
+                              <div key={index} className={`space-y-3 ${index > 0 ? 'mt-6 pt-6 border-t border-green-800/50' : ''}`}>
+                                {Array.isArray(order.assigned_subscription) && order.assigned_subscription.length > 1 && (
+                                  <p className="text-green-400 text-sm font-semibold">اشتراك #{index + 1}</p>
+                                )}
+                                <div className="bg-slate-900/50 p-3 rounded-lg">
+                                  <p className="text-slate-400 text-xs mb-1">رمز الاشتراك</p>
+                                  <pre className="text-white font-mono font-bold text-sm bg-slate-950 px-4 py-3 rounded border border-green-600/50 whitespace-pre-wrap break-words overflow-x-auto max-h-[200px] overflow-y-auto">
+                                    {sub.code}
+                                  </pre>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                  {sub.meta?.duration && (
+                                    <div className="bg-slate-900/50 p-3 rounded-lg">
+                                      <p className="text-slate-400 text-xs mb-1">مدة الاشتراك</p>
+                                      <p className="text-white font-semibold">{sub.meta.duration}</p>
+                                    </div>
+                                  )}
+                                  {sub.meta?.type && (
+                                    <div className="bg-slate-900/50 p-3 rounded-lg">
+                                      <p className="text-slate-400 text-xs mb-1">نوع الاشتراك</p>
+                                      <p className="text-white font-semibold">{sub.meta.type}</p>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+
+                            {order.payment_method === 'paypal' && (
+                              <div className="bg-blue-900/30 p-2 rounded border border-blue-700/50 mt-4">
+                                <p className="text-blue-300 text-xs flex items-center gap-2">
+                                  <CheckCircle2 className="w-3 h-3" />
+                                  تم الدفع عبر PayPal
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* PayPal paid status - no timer needed */}
+                        {order.status === 'paid' && order.payment_method === 'paypal' && (
+                          <div className="mt-4 p-4 bg-blue-900/20 border border-blue-700 rounded-lg">
                             <div className="flex items-start gap-3">
-                              <AlertCircle className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
+                              <CheckCircle2 className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
                               <div className="flex-1">
                                 <p className="text-blue-300 text-sm mb-2">
-                                  لم تتمكن من إكمال الدفع؟
+                                  ✅ تم استلام الدفع عبر PayPal بنجاح
                                 </p>
-                                <p className="text-blue-200 text-xs mb-3">
-                                  تواصل معنا عبر واتساب قبل انتهاء الوقت المتبقي لتجنب إلغاء الطلب.
+                                <p className="text-blue-200 text-xs">
+                                  {order.assigned_subscription
+                                    ? 'تم تفعيل اشتراكك تلقائياً. تم إرسال تفاصيل الاشتراك إلى بريدك الإلكتروني.'
+                                    : 'جاري معالجة طلبك وتفعيل الاشتراك...'}
                                 </p>
-                                <a href={getWhatsAppLink(order)} target="_blank" rel="noopener noreferrer">
-                                  <Button className="w-full bg-green-600 hover:bg-green-700 text-white">
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Pending status - only show timer for non-PayPal orders */}
+                        {order.status === 'pending' && order.payment_method !== 'paypal' && (
+                          <div className="mt-4 space-y-3">
+                            <div className="p-4 bg-yellow-900/20 border border-yellow-700 rounded-lg">
+                              <div className="flex items-center justify-between mb-2">
+                                <p className="text-yellow-400 text-sm flex items-center gap-2">
+                                  <Clock className="w-4 h-4" />
+                                  الوقت المتبقي لإكمال الدفع:
+                                </p>
+                                <div className={`text-lg font-bold font-mono ${(timeRemaining[order.id] || 0) < 300 ? 'text-red-500 animate-pulse' : 'text-yellow-400'
+                                  }`}>
+                                  {timeRemaining[order.id] !== undefined
+                                    ? formatTime(timeRemaining[order.id])
+                                    : '00:00'}
+                                </div>
+                              </div>
+                              <p className="text-yellow-300 text-xs mt-2">
+                                يرجى إكمال عملية الدفع خلال الوقت المتبقي. سيتم إلغاء الطلب تلقائياً بعد انتهاء الوقت.
+                              </p>
+                            </div>
+                            {(timeRemaining[order.id] || 0) > 0 && (
+                              <div className="p-4 bg-blue-900/20 border border-blue-700 rounded-lg">
+                                <div className="flex items-start gap-3">
+                                  <AlertCircle className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
+                                  <div className="flex-1">
+                                    <p className="text-blue-300 text-sm mb-2">
+                                      لم تتمكن من إكمال الدفع؟
+                                    </p>
+                                    <p className="text-blue-200 text-xs mb-3">
+                                      تواصل معنا عبر واتساب قبل انتهاء الوقت المتبقي لتجنب إلغاء الطلب.
+                                    </p>
+                                    <a href={getWhatsAppLink(order)} target="_blank" rel="noopener noreferrer">
+                                      <Button className="w-full bg-green-600 hover:bg-green-700 text-white">
+                                        <MessageCircle className="ml-2 h-4 w-4" />
+                                        التواصل عبر واتساب
+                                      </Button>
+                                    </a>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                            {(timeRemaining[order.id] || 0) === 0 && (
+                              <div className="p-4 bg-red-900/20 border border-red-700 rounded-lg">
+                                <p className="text-red-400 text-sm flex items-center gap-2">
+                                  <XCircle className="w-4 h-4" />
+                                  انتهى الوقت المحدد. يرجى التواصل معنا لإعادة تفعيل الطلب.
+                                </p>
+                                <a href={getWhatsAppLink(order)} target="_blank" rel="noopener noreferrer" className="mt-3 inline-block">
+                                  <Button variant="outline" className="border-red-700 text-red-400 hover:text-red-300 hover:bg-red-900/30">
                                     <MessageCircle className="ml-2 h-4 w-4" />
                                     التواصل عبر واتساب
                                   </Button>
                                 </a>
                               </div>
-                            </div>
+                            )}
                           </div>
                         )}
-                        {(timeRemaining[order.id] || 0) === 0 && (
-                          <div className="p-4 bg-red-900/20 border border-red-700 rounded-lg">
+
+                        {order.status === 'rejected' && (
+                          <div className="mt-4 p-4 bg-red-900/20 border border-red-700 rounded-lg">
                             <p className="text-red-400 text-sm flex items-center gap-2">
                               <XCircle className="w-4 h-4" />
-                              انتهى الوقت المحدد. يرجى التواصل معنا لإعادة تفعيل الطلب.
+                              تم رفض الطلب. يرجى التواصل معنا للمزيد من المعلومات.
                             </p>
-                            <a href={getWhatsAppLink(order)} target="_blank" rel="noopener noreferrer" className="mt-3 inline-block">
-                              <Button variant="outline" className="border-red-700 text-red-400 hover:text-red-300 hover:bg-red-900/30">
-                                <MessageCircle className="ml-2 h-4 w-4" />
-                                التواصل عبر واتساب
+                          </div>
+                        )}
+
+                        {/* Actions for Approved/Paid Orders */}
+                        {(order.status === 'approved' || order.status === 'paid') && (
+                          <div className="mt-4 pt-4 border-t border-slate-700 space-y-2">
+                            <Button
+                              onClick={() => handleOpenTicketDialog(order)}
+                              className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                            >
+                              <HelpCircle className="w-4 h-4 ml-2" />
+                              فتح تذكرة دعم
+                            </Button>
+                            {order.has_review ? (
+                              <div className="flex items-center gap-2 text-green-400">
+                                <CheckCircle2 className="w-4 h-4" />
+                                <span className="text-sm">تم تقييم هذا الطلب</span>
+                              </div>
+                            ) : (
+                              <Button
+                                onClick={() => handleOpenReviewDialog(order)}
+                                className="w-full bg-yellow-600 hover:bg-yellow-700 text-white"
+                              >
+                                <Star className="w-4 h-4 ml-2" />
+                                قيّم هذا الطلب
                               </Button>
-                            </a>
+                            )}
                           </div>
                         )}
-                      </div>
-                    )}
-
-                    {order.status === 'rejected' && (
-                      <div className="mt-4 p-4 bg-red-900/20 border border-red-700 rounded-lg">
-                        <p className="text-red-400 text-sm flex items-center gap-2">
-                          <XCircle className="w-4 h-4" />
-                          تم رفض الطلب. يرجى التواصل معنا للمزيد من المعلومات.
-                        </p>
-                      </div>
-                    )}
-
-                    {/* Actions for Approved/Paid Orders */}
-                    {(order.status === 'approved' || order.status === 'paid') && (
-                      <div className="mt-4 pt-4 border-t border-slate-700 space-y-2">
-                        <Button
-                          onClick={() => handleOpenTicketDialog(order)}
-                          className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-                        >
-                          <HelpCircle className="w-4 h-4 ml-2" />
-                          فتح تذكرة دعم
-                        </Button>
-                        {order.has_review ? (
-                          <div className="flex items-center gap-2 text-green-400">
-                            <CheckCircle2 className="w-4 h-4" />
-                            <span className="text-sm">تم تقييم هذا الطلب</span>
-                          </div>
-                        ) : (
-                          <Button
-                            onClick={() => handleOpenReviewDialog(order)}
-                            className="w-full bg-yellow-600 hover:bg-yellow-700 text-white"
-                          >
-                            <Star className="w-4 h-4 ml-2" />
-                            قيّم هذا الطلب
-                          </Button>
-                        )}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-          </TabsContent>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </TabsContent>
 
             {/* Tickets Tab */}
             <TabsContent value="tickets">
@@ -966,7 +978,7 @@ export default function MyOrdersPage() {
                       إنشاء تذكرة دعم جديدة
                     </Button>
                   </div>
-                  
+
                   {userTickets.map((ticket) => (
                     <Card key={ticket.id} className="bg-slate-800/50 border-slate-700 hover:border-slate-600 transition">
                       <CardHeader>
@@ -1054,11 +1066,10 @@ export default function MyOrdersPage() {
                     className="focus:outline-none"
                   >
                     <Star
-                      className={`w-8 h-8 ${
-                        star <= reviewRating
-                          ? 'fill-yellow-400 text-yellow-400'
-                          : 'text-slate-500'
-                      } transition-colors`}
+                      className={`w-8 h-8 ${star <= reviewRating
+                        ? 'fill-yellow-400 text-yellow-400'
+                        : 'text-slate-500'
+                        } transition-colors`}
                     />
                   </button>
                 ))}
@@ -1116,14 +1127,14 @@ export default function MyOrdersPage() {
           <DialogHeader className="px-4 sm:px-6 pt-3 pb-2 border-b border-slate-700 flex-shrink-0">
             <DialogTitle className="text-base sm:text-lg">تذكرة الدعم</DialogTitle>
             <DialogDescription className="text-slate-400 text-xs sm:text-sm">
-              {selectedOrderForTicket 
+              {selectedOrderForTicket
                 ? `طلب: ${selectedOrderForTicket.product_name}`
-                : currentTicket 
+                : currentTicket
                   ? 'تذكرة دعم عامة'
                   : 'إنشاء تذكرة دعم جديدة'}
             </DialogDescription>
           </DialogHeader>
-          
+
           {loadingTicket ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="w-6 h-6 animate-spin text-blue-400 mr-2" />
@@ -1157,7 +1168,7 @@ export default function MyOrdersPage() {
                   </Badge>
                 </div>
               </div>
-              
+
               {/* Messages Area */}
               <div className="flex-1 overflow-y-auto px-3 sm:px-6 py-3 bg-gradient-to-b from-slate-900/50 to-slate-800/50 min-h-0">
                 {ticketMessages.length === 0 ? (
@@ -1172,27 +1183,26 @@ export default function MyOrdersPage() {
                       className={`flex ${msg.sender_type === 'user' ? 'justify-end' : 'justify-start'} mb-4 w-full`}
                       style={{ width: '100%', maxWidth: '100%' }}
                     >
-                      <div 
+                      <div
                         className={`flex gap-2 ${msg.sender_type === 'user' ? 'flex-row-reverse' : 'flex-row'}`}
-                        style={{ 
-                          width: '100%', 
+                        style={{
+                          width: '100%',
                           maxWidth: '100%',
                           minWidth: 0
                         }}
                       >
                         {/* Avatar */}
-                        <div className={`flex-shrink-0 w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center ${
-                          msg.sender_type === 'user' ? 'bg-green-500' : 'bg-blue-500'
-                        }`}>
+                        <div className={`flex-shrink-0 w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center ${msg.sender_type === 'user' ? 'bg-green-500' : 'bg-blue-500'
+                          }`}>
                           <span className="text-xs text-white font-bold">
                             {msg.sender_type === 'user' ? 'أ' : 'م'}
                           </span>
                         </div>
-                        
+
                         {/* Message Content */}
-                        <div 
+                        <div
                           className="flex flex-col flex-1"
-                          style={{ 
+                          style={{
                             minWidth: 0,
                             maxWidth: '100%',
                             width: '100%'
@@ -1204,19 +1214,18 @@ export default function MyOrdersPage() {
                               {msg.sender_type === 'user' ? 'أنت' : 'المدير'}
                             </span>
                           </div>
-                          
+
                           {/* Message Bubble */}
                           <div
-                            className={`rounded-2xl px-3 py-2 sm:px-4 sm:py-2.5 shadow-md ${
-                              msg.sender_type === 'user'
-                                ? 'bg-blue-600 text-white rounded-br-sm'
-                                : 'bg-slate-700 text-white rounded-bl-sm border border-slate-600'
-                            }`}
-                            style={{ 
-                              maxWidth: '100%', 
+                            className={`rounded-2xl px-3 py-2 sm:px-4 sm:py-2.5 shadow-md ${msg.sender_type === 'user'
+                              ? 'bg-blue-600 text-white rounded-br-sm'
+                              : 'bg-slate-700 text-white rounded-bl-sm border border-slate-600'
+                              }`}
+                            style={{
+                              maxWidth: '100%',
                               width: '100%',
                               minWidth: 0,
-                              wordWrap: 'break-word', 
+                              wordWrap: 'break-word',
                               overflowWrap: 'break-word',
                               overflow: 'hidden',
                               boxSizing: 'border-box'
@@ -1224,11 +1233,11 @@ export default function MyOrdersPage() {
                           >
                             {/* Text Message */}
                             {msg.message && msg.message.trim() && (
-                              <p 
-                                className="text-sm leading-relaxed" 
-                                style={{ 
-                                  whiteSpace: 'pre-wrap', 
-                                  wordBreak: 'break-word', 
+                              <p
+                                className="text-sm leading-relaxed"
+                                style={{
+                                  whiteSpace: 'pre-wrap',
+                                  wordBreak: 'break-word',
                                   overflowWrap: 'anywhere',
                                   wordWrap: 'break-word',
                                   maxWidth: '100%',
@@ -1243,7 +1252,7 @@ export default function MyOrdersPage() {
                                 {msg.message}
                               </p>
                             )}
-                            
+
                             {/* Image */}
                             {msg.image_url && msg.image_url.trim() && (
                               <div className={msg.message && msg.message.trim() ? 'mt-2' : ''}>
@@ -1266,7 +1275,7 @@ export default function MyOrdersPage() {
                               </div>
                             )}
                           </div>
-                          
+
                           {/* Timestamp */}
                           <div className={`mt-1 ${msg.sender_type === 'user' ? 'text-right' : 'text-left'}`}>
                             <span className="text-xs text-slate-500">
@@ -1285,7 +1294,7 @@ export default function MyOrdersPage() {
                   ))
                 )}
               </div>
-              
+
               {/* Input Area */}
               {currentTicket.status === 'open' && (
                 <div className="px-4 sm:px-6 py-2 sm:py-2.5 bg-slate-900/50 border-t border-slate-700 flex-shrink-0">
@@ -1304,7 +1313,7 @@ export default function MyOrdersPage() {
                       </button>
                     </div>
                   )}
-                  
+
                   <div className="flex gap-2 items-end">
                     <div className="flex-1 relative">
                       <Textarea
@@ -1375,7 +1384,7 @@ export default function MyOrdersPage() {
                       {selectedOrderForTicket ? 'إنشاء تذكرة دعم جديدة' : 'إنشاء تذكرة دعم عامة'}
                     </p>
                     <p className="text-blue-200/80 text-xs leading-relaxed">
-                      {selectedOrderForTicket 
+                      {selectedOrderForTicket
                         ? `إنشاء تذكرة دعم متعلقة بالطلب: ${selectedOrderForTicket.product_name}.`
                         : 'يمكنك إنشاء تذكرة دعم عامة.'}
                     </p>
@@ -1387,7 +1396,7 @@ export default function MyOrdersPage() {
                   </div>
                 </div>
               </div>
-              
+
               {/* Image File Name Display for New Ticket */}
               {selectedImage && (
                 <div className="flex items-center gap-2 p-2 bg-slate-800 border border-slate-600 rounded-lg">
@@ -1403,7 +1412,7 @@ export default function MyOrdersPage() {
                   </button>
                 </div>
               )}
-              
+
               <div>
                 <Label htmlFor="ticket-subject" className="text-white mb-1 block font-semibold text-sm">
                   الموضوع *
@@ -1461,7 +1470,7 @@ export default function MyOrdersPage() {
               </div>
             </div>
           )}
-          
+
           <DialogFooter className="px-3 sm:px-4 pb-2 sm:pb-3 pt-2 border-t border-slate-700 flex-shrink-0 gap-2 justify-start">
             <Button
               variant="ghost"

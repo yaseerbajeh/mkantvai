@@ -43,8 +43,8 @@ export async function POST(request: NextRequest) {
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
     // Create order with pending status (will be updated to paid after PayPal approval)
-    const productName = items.length === 1 
-      ? items[0].product_name 
+    const productName = items.length === 1
+      ? items[0].product_name
       : `${items.length} منتجات`;
 
     // Find cart session for this user (if exists) to mark it as converted
@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
 
     // Check if this is a 100% discount order (free order) before creating
     const isFreeOrder = totalAmount === 0 || totalAmount <= 0.01;
-    
+
     // Calculate original subtotal before discount for order price
     const originalSubtotal = items.reduce((sum: number, item: any) => sum + (item.price * item.quantity), 0);
 
@@ -131,7 +131,7 @@ export async function POST(request: NextRequest) {
       // Try to find user by email in auth.users
       const { data: authUsers } = await supabaseAdmin.auth.admin.listUsers();
       const matchingUser = authUsers?.users?.find(u => u.email === customerInfo.email);
-      
+
       if (matchingUser) {
         await supabaseAdmin
           .from('cart_sessions')
@@ -250,9 +250,16 @@ export async function POST(request: NextRequest) {
       };
 
       if (assignedSubscriptions.length > 0) {
-        const firstSubscription = assignedSubscriptions[0].subscription;
-        updateData.assigned_subscription = firstSubscription;
-        console.log('✓ Setting assigned_subscription on order:', firstSubscription.code);
+        if (assignedSubscriptions.length === 1) {
+          const firstSubscription = assignedSubscriptions[0].subscription;
+          updateData.assigned_subscription = firstSubscription;
+          console.log('✓ Setting assigned_subscription on order (single):', firstSubscription.code);
+        } else {
+          // Map to array of subscription objects
+          const subscriptionsArray = assignedSubscriptions.map(item => item.subscription);
+          updateData.assigned_subscription = subscriptionsArray;
+          console.log(`✓ Setting assigned_subscription on order (array of ${subscriptionsArray.length}):`, subscriptionsArray.map(s => s.code).join(', '));
+        }
       } else {
         console.warn('⚠ No subscriptions were assigned, but order will still be created as paid');
       }
@@ -343,7 +350,7 @@ export async function POST(request: NextRequest) {
                 // Use category name as subscription type, or map it appropriately
                 subscriptionType = category?.name || null;
               }
-              
+
               // Fallback to subscription metadata if available
               if (!subscriptionType && assignedSub.subscription?.meta?.type) {
                 subscriptionType = assignedSub.subscription.meta.type;
@@ -352,7 +359,7 @@ export async function POST(request: NextRequest) {
               const durationText = product?.duration || assignedSub.subscription.meta?.duration || '1 شهر';
               const startDate = new Date(order.created_at);
               const expirationDate = new Date(startDate);
-              
+
               // Parse duration to days (simplified - you may need to use parseDurationToDays utility)
               const durationMatch = durationText.match(/(\d+)/);
               const durationMonths = durationMatch ? parseInt(durationMatch[1]) : 1;
@@ -412,13 +419,13 @@ export async function POST(request: NextRequest) {
 
       // Send emails - ensure emails are sent even if subscription assignment had errors
       const orderDisplayId = (finalOrder as any)?.order_number || order.id.slice(0, 8).toUpperCase();
-      
+
       // Get subscription code from finalOrder or assignedSubscriptions
-      const subscriptionCode = (finalOrder as any)?.assigned_subscription?.code || 
-                               (assignedSubscriptions.length > 0 ? assignedSubscriptions[0].subscription.code : undefined);
-      const subscriptionMeta = (finalOrder as any)?.assigned_subscription?.meta || 
-                               (assignedSubscriptions.length > 0 ? assignedSubscriptions[0].subscription.meta : undefined);
-      
+      const subscriptionCode = (finalOrder as any)?.assigned_subscription?.code ||
+        (assignedSubscriptions.length > 0 ? assignedSubscriptions[0].subscription.code : undefined);
+      const subscriptionMeta = (finalOrder as any)?.assigned_subscription?.meta ||
+        (assignedSubscriptions.length > 0 ? assignedSubscriptions[0].subscription.meta : undefined);
+
       console.log('Email sending preparation:', {
         orderDisplayId,
         hasSubscriptionCode: !!subscriptionCode,
@@ -525,10 +532,10 @@ export async function POST(request: NextRequest) {
     // Create PayPal order
     try {
       const paypalMode = process.env.PAYPAL_MODE || 'sandbox';
-      const paypalBaseUrl = paypalMode === 'live' 
-        ? 'https://api-m.paypal.com' 
+      const paypalBaseUrl = paypalMode === 'live'
+        ? 'https://api-m.paypal.com'
         : 'https://api-m.sandbox.paypal.com';
-      
+
       const paypalClientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID?.trim();
       const paypalSecret = process.env.PAYPAL_CLIENT_SECRET?.trim();
 
@@ -601,7 +608,7 @@ export async function POST(request: NextRequest) {
       // Use USD amount for PayPal (convert from SAR)
       const paypalAmount = totalAmountUsd || (totalAmount / 3.75); // Fallback to conversion if not provided
       let amountValue = parseFloat(paypalAmount.toFixed(2));
-      
+
       // Validate amount
       if (isNaN(amountValue) || amountValue <= 0) {
         throw new Error(`Invalid amount: ${paypalAmount}`);
@@ -620,7 +627,7 @@ export async function POST(request: NextRequest) {
 
       // Ensure amount has exactly 2 decimal places
       const formattedAmount = amountValue.toFixed(2);
-      
+
       // Minimal payload with ABSOLUTELY NO database references
       // PayPal order creation should be completely independent of our database
       // No custom_id, no reference_id, no description, no application_context
@@ -648,7 +655,7 @@ export async function POST(request: NextRequest) {
       });
 
       const paypalOrder = await paypalOrderResponse.json();
-      
+
       // Check for PayPal API errors
       if (!paypalOrderResponse.ok || paypalOrder.error || paypalOrder.name === 'UNPROCESSABLE_ENTITY') {
         // Log full error details for debugging
@@ -663,7 +670,7 @@ export async function POST(request: NextRequest) {
           payload: paypalOrderPayload,
           fullResponse: paypalOrder,
         });
-        
+
         // Extract detailed error message
         let errorMessage = paypalOrder.message || paypalOrder.name || 'Unknown error';
         if (errorDetails.length > 0) {
@@ -677,29 +684,29 @@ export async function POST(request: NextRequest) {
             errorMessage += ` - ${detailMessages.join('; ')}`;
           }
         }
-        
+
         // Check for specific common issues
-        const currencyIssue = errorDetails.find((d: any) => 
-          d.field?.toLowerCase().includes('currency') || 
+        const currencyIssue = errorDetails.find((d: any) =>
+          d.field?.toLowerCase().includes('currency') ||
           d.issue?.toLowerCase().includes('currency') ||
           d.description?.toLowerCase().includes('currency')
         );
-        
-        const amountIssue = errorDetails.find((d: any) => 
-          d.field?.toLowerCase().includes('amount') || 
+
+        const amountIssue = errorDetails.find((d: any) =>
+          d.field?.toLowerCase().includes('amount') ||
           d.field?.toLowerCase().includes('value') ||
           d.issue?.toLowerCase().includes('amount') ||
           d.issue?.toLowerCase().includes('minimum') ||
           d.issue?.toLowerCase().includes('maximum')
         );
 
-        const businessIssue = errorDetails.find((d: any) => 
+        const businessIssue = errorDetails.find((d: any) =>
           d.issue?.toLowerCase().includes('business') ||
           d.issue?.toLowerCase().includes('account') ||
           d.issue?.toLowerCase().includes('restriction') ||
           d.issue?.toLowerCase().includes('verification')
         );
-        
+
         // Provide helpful hints based on error type
         let helpfulHint = '';
         if (currencyIssue) {
@@ -708,14 +715,14 @@ export async function POST(request: NextRequest) {
           helpfulHint = ' - Note: Amount might be too small (minimum $0.01) or too large, or your account has limits.';
         } else if (businessIssue) {
           helpfulHint = ' - Note: Your PayPal account might have restrictions. Check your PayPal account status, verification level, and ensure your business account is properly set up.';
-        } else if (paypalOrder.message?.toLowerCase().includes('semantically incorrect') || 
-                   paypalOrder.message?.toLowerCase().includes('business validation')) {
+        } else if (paypalOrder.message?.toLowerCase().includes('semantically incorrect') ||
+          paypalOrder.message?.toLowerCase().includes('business validation')) {
           helpfulHint = ' - Note: This usually means your PayPal account has restrictions or the order structure is invalid. Check: 1) Account verification status, 2) Business account setup, 3) Currency support, 4) Account limits.';
         }
-        
+
         throw new Error(`PayPal API error: ${errorMessage}${helpfulHint} Status: ${paypalOrderResponse.status}. Debug ID: ${paypalOrder.debug_id || 'N/A'}`);
       }
-      
+
       if (paypalOrder.id) {
         // Verify PayPal order ID format (should be a string, not UUID)
         if (typeof paypalOrder.id !== 'string' || paypalOrder.id.length < 10) {
@@ -747,7 +754,7 @@ export async function POST(request: NextRequest) {
       // Do NOT return database order ID as fallback - PayPal SDK won't accept it
       // Instead, throw the error so the client can handle it properly
       return NextResponse.json(
-        { 
+        {
           error: `فشل في إنشاء طلب PayPal: ${paypalError.message || 'خطأ غير معروف'}. يرجى التحقق من إعدادات PayPal.`,
           details: process.env.NODE_ENV === 'development' ? paypalError.message : undefined,
         },
