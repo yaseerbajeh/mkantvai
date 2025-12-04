@@ -484,6 +484,7 @@ export default function ProductDetailPage() {
             id: foundProduct.id,
             name: foundProduct.name,
             price: foundProduct.price,
+            discounted_price: foundProduct.discounted_price,
             duration: foundProduct.duration,
             code: foundProduct.product_code,
             description: foundProduct.description,
