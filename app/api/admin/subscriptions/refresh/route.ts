@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { order_id, active_subscription_id } = body;
+    const { order_id, active_subscription_id, inventory_subscription_id } = body;
 
     if (!order_id && !active_subscription_id) {
       return NextResponse.json(
@@ -70,11 +70,12 @@ export async function POST(request: NextRequest) {
     const { data, error } = await supabaseAdmin.rpc('refresh_subscription_from_inventory', {
       p_order_id: order_id || null,
       p_active_subscription_id: active_subscription_id || null,
+      p_inventory_subscription_id: inventory_subscription_id || null,
     });
 
     if (error) {
       console.error('Error refreshing subscription:', error);
-      
+
       // Check for specific error messages
       if (error.message.includes('لا توجد اشتراكات متاحة')) {
         return NextResponse.json(
@@ -82,7 +83,7 @@ export async function POST(request: NextRequest) {
           { status: 400 }
         );
       }
-      
+
       if (error.message.includes('غير موجود')) {
         return NextResponse.json(
           { error: error.message },

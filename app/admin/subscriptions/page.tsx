@@ -79,30 +79,32 @@ export default function AdminSubscriptionsPage() {
   const [subscriptions, setSubscriptions] = useState<ActiveSubscription[]>([]);
   const [filteredSubscriptions, setFilteredSubscriptions] = useState<ActiveSubscription[]>([]);
   const [categories, setCategories] = useState<Array<{ id: string; name: string; name_en?: string }>>([]);
-  
+
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
-  
+
   // Dialogs
   const [manualEntryDialogOpen, setManualEntryDialogOpen] = useState(false);
   const [csvImportDialogOpen, setCsvImportDialogOpen] = useState(false);
   const [renewDialogOpen, setRenewDialogOpen] = useState(false);
   const [selectedSubscription, setSelectedSubscription] = useState<ActiveSubscription | null>(null);
   const [renewalDuration, setRenewalDuration] = useState<string>('');
-  
+
   // Refresh subscription dialog
   const [refreshDialogOpen, setRefreshDialogOpen] = useState(false);
   const [refreshingSubscription, setRefreshingSubscription] = useState(false);
-  
+  const [availableSubscriptions, setAvailableSubscriptions] = useState<any[]>([]);
+  const [selectedInventorySubscription, setSelectedInventorySubscription] = useState<string>('random');
+
   // Subscription code view dialog
   const [viewCodeDialogOpen, setViewCodeDialogOpen] = useState(false);
   const [viewingSubscriptionCode, setViewingSubscriptionCode] = useState<string>('');
-  
+
   // Edit subscription dialog
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingSubscription, setEditingSubscription] = useState<ActiveSubscription | null>(null);
-  
+
   // Manual entry form
   const [manualForm, setManualForm] = useState({
     customer_name: '',
@@ -115,11 +117,11 @@ export default function AdminSubscriptionsPage() {
     expiration_date: new Date(),
     product_code: '',
   });
-  
+
   // CSV import
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [importing, setImporting] = useState(false);
-  
+
   // Actions
   const [actionLoading, setActionLoading] = useState<Set<string>>(new Set());
 
@@ -239,7 +241,7 @@ export default function AdminSubscriptionsPage() {
       }
 
       setCategories(data || []);
-      
+
       // Set default category if form is empty (only if form hasn't been initialized yet)
       // Only set default when dialog is closed to avoid overriding user selections
       if (data && data.length > 0 && !manualEntryDialogOpen) {
@@ -261,7 +263,7 @@ export default function AdminSubscriptionsPage() {
     if (!productCode || productCode.trim() === '') {
       return null;
     }
-    
+
     try {
       const response = await fetch('/api/admin/products');
       if (!response.ok) throw new Error('Failed to fetch products');
@@ -290,7 +292,7 @@ export default function AdminSubscriptionsPage() {
     if (categoryName) {
       return categoryName;
     }
-    
+
     // Fallback: if no category, use a default based on product code
     // This should rarely happen if products are properly categorized
     if (productCode) {
@@ -308,7 +310,7 @@ export default function AdminSubscriptionsPage() {
         return 'اشتراكات IPTV'; // Default category name
       }
     }
-    
+
     // Final fallback
     return 'اشتراكات IPTV';
   };
@@ -502,25 +504,25 @@ export default function AdminSubscriptionsPage() {
 
       // Process subscriptions: calculate due_days, fix expiration_date if needed, and override subscription_type from category
       const subscriptionsToUpdate: Array<{ id: string; expiration_date: string; subscription_duration: string }> = [];
-      
+
       const subscriptionsWithDueDays = (subscriptionsData || []).map((sub: any) => {
         // Get category from products map (fetched from categories table)
         const category = productsMap[sub.product_code] || null;
         // Priority: use Arabic name first, then English name
         const categoryName = category?.name || category?.name_en || null;
-        
+
         // Determine subscription type from category name (from categories table) and product code
         // Category name is the primary source of truth
         const correctSubscriptionType = getSubscriptionTypeFromCategory(
           categoryName,
           sub.product_code
         );
-        
+
         // Check if current subscription_type should be preserved or overridden
         const currentSubscriptionType = sub.subscription_type;
         const isCurrentTypeValid = isValidCategoryName(currentSubscriptionType);
         const isCurrentTypeOldFormat = currentSubscriptionType && oldFormats.includes(currentSubscriptionType.toLowerCase());
-        
+
         // Only override if:
         // 1. Current type is empty/null
         // 2. Current type is an old format (iptv, shahid, netflix, package)
@@ -531,22 +533,22 @@ export default function AdminSubscriptionsPage() {
           finalSubscriptionType = correctSubscriptionType;
         }
         // Otherwise, preserve the manually set valid category
-        
+
         // Check if expiration_date needs to be recalculated based on product duration
         let expirationDate = sub.expiration_date;
-        
+
         if (sub.product_code && productsDurationMap[sub.product_code] && sub.start_date) {
           // Get product duration
           const productDuration = productsDurationMap[sub.product_code];
-          
+
           // Calculate correct expiration date based on start_date + product duration
           const correctExpirationDate = calculateExpirationDate(sub.start_date, productDuration);
           const currentExpirationDate = new Date(sub.expiration_date);
           const correctExpirationDateObj = new Date(correctExpirationDate);
-          
+
           // Check if expiration date is incorrect (more than 2 days difference)
           const daysDifference = Math.abs((correctExpirationDateObj.getTime() - currentExpirationDate.getTime()) / (1000 * 60 * 60 * 24));
-          
+
           if (daysDifference > 2) {
             // Expiration date is incorrect, mark for update
             expirationDate = correctExpirationDate.toISOString();
@@ -555,7 +557,7 @@ export default function AdminSubscriptionsPage() {
               expiration_date: expirationDate,
               subscription_duration: productDuration
             });
-            
+
             console.log(`Subscription ${sub.id} expiration date needs update:`, {
               productCode: sub.product_code,
               currentExpiration: sub.expiration_date,
@@ -565,7 +567,7 @@ export default function AdminSubscriptionsPage() {
             });
           }
         }
-        
+
         // Debug logging (can be removed in production)
         if (sub.product_code && categoryName) {
           console.log('Subscription type determination:', {
@@ -577,7 +579,7 @@ export default function AdminSubscriptionsPage() {
             finalType: finalSubscriptionType
           });
         }
-        
+
         return {
           ...sub,
           expiration_date: expirationDate,
@@ -592,12 +594,12 @@ export default function AdminSubscriptionsPage() {
         for (const update of subscriptionsToUpdate) {
           const { error: updateError } = await supabase
             .from('active_subscriptions')
-            .update({ 
+            .update({
               expiration_date: update.expiration_date,
               subscription_duration: update.subscription_duration
             })
             .eq('id', update.id);
-          
+
           if (updateError) {
             console.error(`Error updating subscription ${update.id}:`, updateError);
           }
@@ -677,7 +679,7 @@ export default function AdminSubscriptionsPage() {
       'start_date',
       'product_code'
     ];
-    
+
     // Example data row
     // Note: If product_code (SUB-BASIC-3M) is provided, duration and expiration_date will be auto-calculated
     const exampleRow = [
@@ -691,7 +693,7 @@ export default function AdminSubscriptionsPage() {
       '2025-01-15',
       'SUB-BASIC-3M'
     ];
-    
+
     // Create CSV content with BOM for UTF-8 support
     const csvContent = [
       headers.join(','),
@@ -708,7 +710,7 @@ export default function AdminSubscriptionsPage() {
       '# - التواريخ بصيغة: YYYY-MM-DD (مثال: 2025-04-15)',
       '# - يُنصح بإدخال product_code لتحديث المدة والتواريخ تلقائياً'
     ].join('\n');
-    
+
     // Create blob with UTF-8 BOM for Excel compatibility
     const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
@@ -795,7 +797,7 @@ export default function AdminSubscriptionsPage() {
 
     // Ensure we use the selected renewal duration, not the original
     const durationToSend = renewalDuration || selectedSubscription.subscription_duration;
-    
+
     console.log('Frontend - Renewal preparation:', {
       subscriptionId: selectedSubscription.id,
       renewalDurationState: renewalDuration,
@@ -810,9 +812,9 @@ export default function AdminSubscriptionsPage() {
         subscriptionId: selectedSubscription.id,
         newDuration: durationToSend,
       };
-      
+
       console.log('Sending renewal request:', requestBody);
-      
+
       const response = await fetch('/api/admin/subscriptions/renew', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -834,19 +836,19 @@ export default function AdminSubscriptionsPage() {
       setRenewDialogOpen(false);
       setSelectedSubscription(null);
       setRenewalDuration('');
-      
+
       // Force refresh subscriptions immediately
       // Clear any cached data first
       setSubscriptions([]);
-      
+
       // Small delay to ensure database consistency
       await new Promise(resolve => setTimeout(resolve, 200));
-      
+
       await fetchSubscriptions();
       console.log('Subscriptions refreshed after renewal');
       console.log('Renewed subscription should have expiration:', result.renewalDetails?.newExpirationDate);
       console.log('Updated subscription data:', result.subscription);
-      
+
       // Verify the subscription was updated in the fetched data
       // Wait a bit more for state to update
       setTimeout(() => {
@@ -858,10 +860,10 @@ export default function AdminSubscriptionsPage() {
             startDate: updated.start_date,
             expectedExpiration: result.renewalDetails?.newExpirationDate,
             expectedStartDate: result.renewalDetails?.newStartDate,
-            expirationMatches: updated.expiration_date === result.renewalDetails?.newExpirationDate || 
-                              Math.abs(new Date(updated.expiration_date).getTime() - new Date(result.renewalDetails?.newExpirationDate || 0).getTime()) < 1000,
+            expirationMatches: updated.expiration_date === result.renewalDetails?.newExpirationDate ||
+              Math.abs(new Date(updated.expiration_date).getTime() - new Date(result.renewalDetails?.newExpirationDate || 0).getTime()) < 1000,
             startDateMatches: updated.start_date === result.renewalDetails?.newStartDate ||
-                             Math.abs(new Date(updated.start_date).getTime() - new Date(result.renewalDetails?.newStartDate || 0).getTime()) < 1000,
+              Math.abs(new Date(updated.start_date).getTime() - new Date(result.renewalDetails?.newStartDate || 0).getTime()) < 1000,
           });
         } else {
           console.warn('Updated subscription not found in list after refresh');
@@ -950,6 +952,28 @@ export default function AdminSubscriptionsPage() {
 
   const handleRefreshSubscription = async (subscription: ActiveSubscription) => {
     setSelectedSubscription(subscription);
+    setSelectedInventorySubscription('random'); // Reset selection
+    setAvailableSubscriptions([]); // Reset list
+
+    // Fetch available subscriptions from inventory for this product_code
+    if (subscription.product_code) {
+      try {
+        const { data, error } = await supabase
+          .from('subscriptions')
+          .select('*')
+          .eq('product_code', subscription.product_code)
+          .order('created_at', { ascending: true });
+
+        if (!error && data) {
+          setAvailableSubscriptions(data);
+        } else if (error) {
+          console.error('Error fetching available subscriptions:', error);
+        }
+      } catch (error) {
+        console.error('Error fetching available subscriptions:', error);
+      }
+    }
+
     setRefreshDialogOpen(true);
   };
 
@@ -976,6 +1000,11 @@ export default function AdminSubscriptionsPage() {
         requestBody.active_subscription_id = selectedSubscription.id;
       }
 
+      // Add selected inventory subscription if chosen (not random)
+      if (selectedInventorySubscription && selectedInventorySubscription !== 'random') {
+        requestBody.inventory_subscription_id = selectedInventorySubscription;
+      }
+
       const response = await fetch('/api/admin/subscriptions/refresh', {
         method: 'POST',
         headers: {
@@ -998,7 +1027,7 @@ export default function AdminSubscriptionsPage() {
 
       setRefreshDialogOpen(false);
       setSelectedSubscription(null);
-      
+
       // Refresh subscriptions list
       await fetchSubscriptions();
     } catch (error: any) {
@@ -1069,7 +1098,7 @@ export default function AdminSubscriptionsPage() {
       'عدد التجديدات',
       'تم إرسال التذكير',
     ];
-    
+
     const rows = filteredSubscriptions.map(sub => [
       sub.customer_name || '',
       sub.customer_email || '',
@@ -1096,7 +1125,7 @@ export default function AdminSubscriptionsPage() {
     link.download = `subscriptions-${format(new Date(), 'yyyy-MM-dd')}.csv`;
     link.click();
     URL.revokeObjectURL(link.href);
-    
+
     toast({
       title: 'نجح',
       description: `تم تصدير ${filteredSubscriptions.length} اشتراك`,
@@ -1176,21 +1205,21 @@ export default function AdminSubscriptionsPage() {
     const expired = subscriptions.filter(s => s.due_days <= 0).length;
     const byType = {
       // Count subscriptions by category name (dynamic based on actual category names)
-      iptv: subscriptions.filter(s => 
-        s.subscription_type?.includes('IPTV') || s.subscription_type?.includes('iptv') || 
+      iptv: subscriptions.filter(s =>
+        s.subscription_type?.includes('IPTV') || s.subscription_type?.includes('iptv') ||
         s.subscription_type === 'اشتراكات IPTV'
       ).length,
-      shahid: subscriptions.filter(s => 
-        s.subscription_type?.includes('شاهد') || s.subscription_type?.includes('Shahid') || 
+      shahid: subscriptions.filter(s =>
+        s.subscription_type?.includes('شاهد') || s.subscription_type?.includes('Shahid') ||
         s.subscription_type?.includes('shahid')
       ).length,
-      netflix: subscriptions.filter(s => 
-        s.subscription_type?.includes('نتـFlix') || s.subscription_type?.includes('نتفليكس') || 
+      netflix: subscriptions.filter(s =>
+        s.subscription_type?.includes('نتـFlix') || s.subscription_type?.includes('نتفليكس') ||
         s.subscription_type?.includes('Netflix') || s.subscription_type?.includes('netflix') ||
         s.subscription_type?.includes('مميزة') || s.subscription_type === 'الاشتراكات المميزة'
       ).length,
-      package: subscriptions.filter(s => 
-        s.subscription_type?.includes('باقة') || s.subscription_type?.includes('package') || 
+      package: subscriptions.filter(s =>
+        s.subscription_type?.includes('باقة') || s.subscription_type?.includes('package') ||
         s.subscription_type?.includes('بكجات') || s.subscription_type === 'البكجات'
       ).length,
     };
@@ -1472,12 +1501,12 @@ export default function AdminSubscriptionsPage() {
                                 sub.subscription_type?.includes('IPTV') || sub.subscription_type?.includes('iptv')
                                   ? 'border-purple-500 text-purple-400'
                                   : sub.subscription_type?.includes('نتـFlix') || sub.subscription_type?.includes('نتفليكس') || sub.subscription_type?.includes('Netflix') || sub.subscription_type?.includes('netflix') || sub.subscription_type?.includes('مميزة')
-                                  ? 'border-red-500 text-red-400'
-                                  : sub.subscription_type?.includes('شاهد') || sub.subscription_type?.includes('Shahid') || sub.subscription_type?.includes('shahid')
-                                  ? 'border-blue-500 text-blue-400'
-                                  : sub.subscription_type?.includes('باقة') || sub.subscription_type?.includes('package') || sub.subscription_type?.includes('بكجات')
-                                  ? 'border-green-500 text-green-400'
-                                  : 'border-gray-500 text-gray-400' // Default for unknown categories
+                                    ? 'border-red-500 text-red-400'
+                                    : sub.subscription_type?.includes('شاهد') || sub.subscription_type?.includes('Shahid') || sub.subscription_type?.includes('shahid')
+                                      ? 'border-blue-500 text-blue-400'
+                                      : sub.subscription_type?.includes('باقة') || sub.subscription_type?.includes('package') || sub.subscription_type?.includes('بكجات')
+                                        ? 'border-green-500 text-green-400'
+                                        : 'border-gray-500 text-gray-400' // Default for unknown categories
                               }
                             >
                               {sub.subscription_type || 'غير محدد'}
@@ -1509,15 +1538,15 @@ export default function AdminSubscriptionsPage() {
                                 sub.due_days <= 0
                                   ? 'destructive'
                                   : sub.due_days <= 4
-                                  ? 'default'
-                                  : 'outline'
+                                    ? 'default'
+                                    : 'outline'
                               }
                               className={
                                 sub.due_days <= 0
                                   ? 'bg-red-500'
                                   : sub.due_days <= 4
-                                  ? 'bg-orange-500'
-                                  : 'border-slate-600 text-slate-300'
+                                    ? 'bg-orange-500'
+                                    : 'border-slate-600 text-slate-300'
                               }
                             >
                               {sub.due_days <= 0 ? 'منتهي' : `${sub.due_days} يوم`}
@@ -1785,43 +1814,43 @@ export default function AdminSubscriptionsPage() {
                   const productCode = e.target.value;
                   // Store the current subscription_type before fetching product
                   const currentSubscriptionType = manualForm.subscription_type;
-                  
+
                   setManualForm({ ...manualForm, product_code: productCode });
-                  
+
                   // Fetch product and update duration if found
                   if (productCode && productCode.trim() !== '') {
                     const product = await fetchProductByCode(productCode);
                     if (product) {
                       // Get product category name (Arabic first, then English)
                       const productCategoryName = product.categories?.name || product.categories?.name_en || null;
-                      
+
                       // Update duration and recalculate expiration date
                       const updates: any = {
                         product_code: productCode,
                       };
-                      
+
                       if (product.duration) {
                         const newDuration = product.duration;
                         const newExpirationDate = calculateExpirationDate(manualForm.start_date, newDuration);
                         updates.subscription_duration = newDuration;
                         updates.expiration_date = newExpirationDate;
-                        
+
                         toast({
                           title: 'تم تحديث المدة',
                           description: `تم تعيين المدة من المنتج: ${newDuration}`,
                         });
                       }
-                      
+
                       // Only update subscription_type if:
                       // 1. User hasn't manually selected a category (empty or default)
                       // 2. Product has a valid category
-                      const isDefaultOrEmpty = !currentSubscriptionType || 
+                      const isDefaultOrEmpty = !currentSubscriptionType ||
                         (categories.length > 0 && currentSubscriptionType === categories[0].name);
-                      
+
                       if (isDefaultOrEmpty && productCategoryName) {
                         updates.subscription_type = productCategoryName;
                       }
-                      
+
                       setManualForm(prev => ({
                         ...prev,
                         ...updates,
@@ -2002,43 +2031,43 @@ export default function AdminSubscriptionsPage() {
                   const productCode = e.target.value;
                   // Store the current subscription_type before fetching product
                   const currentSubscriptionType = manualForm.subscription_type;
-                  
+
                   setManualForm({ ...manualForm, product_code: productCode });
-                  
+
                   // Fetch product and update duration if found
                   if (productCode && productCode.trim() !== '') {
                     const product = await fetchProductByCode(productCode);
                     if (product) {
                       // Get product category name (Arabic first, then English)
                       const productCategoryName = product.categories?.name || product.categories?.name_en || null;
-                      
+
                       // Update duration and recalculate expiration date
                       const updates: any = {
                         product_code: productCode,
                       };
-                      
+
                       if (product.duration) {
                         const newDuration = product.duration;
                         const newExpirationDate = calculateExpirationDate(manualForm.start_date, newDuration);
                         updates.subscription_duration = newDuration;
                         updates.expiration_date = newExpirationDate;
-                        
+
                         toast({
                           title: 'تم تحديث المدة',
                           description: `تم تعيين المدة من المنتج: ${newDuration}`,
                         });
                       }
-                      
+
                       // Only update subscription_type if:
                       // 1. User hasn't manually selected a category (empty or default)
                       // 2. Product has a valid category
-                      const isDefaultOrEmpty = !currentSubscriptionType || 
+                      const isDefaultOrEmpty = !currentSubscriptionType ||
                         (categories.length > 0 && currentSubscriptionType === categories[0].name);
-                      
+
                       if (isDefaultOrEmpty && productCategoryName) {
                         updates.subscription_type = productCategoryName;
                       }
-                      
+
                       setManualForm(prev => ({
                         ...prev,
                         ...updates,
@@ -2205,12 +2234,12 @@ export default function AdminSubscriptionsPage() {
                   <span className="text-slate-400">العميل:</span>{' '}
                   <span className="text-white">{selectedSubscription.customer_name}</span>
                 </div>
-                        <div>
-                          <span className="text-slate-400">نوع الاشتراك:</span>{' '}
-                          <span className="text-white">
-                            {selectedSubscription.subscription_type || 'غير محدد'}
-                          </span>
-                        </div>
+                <div>
+                  <span className="text-slate-400">نوع الاشتراك:</span>{' '}
+                  <span className="text-white">
+                    {selectedSubscription.subscription_type || 'غير محدد'}
+                  </span>
+                </div>
                 <div>
                   <span className="text-slate-400">المدة الحالية:</span>{' '}
                   <span className="text-white">{selectedSubscription.subscription_duration}</span>
@@ -2222,7 +2251,7 @@ export default function AdminSubscriptionsPage() {
                   </span>
                 </div>
               </div>
-              
+
               <div>
                 <Label>مدة التجديد *</Label>
                 <Select
@@ -2300,27 +2329,65 @@ export default function AdminSubscriptionsPage() {
             <div className="space-y-4">
               <div className="space-y-2">
                 <div>
-                  <span className="text-slate-400">العميل:</span>{' '}
-                  <span className="text-white">{selectedSubscription.customer_name}</span>
+                  <span className="text-gray-600">العميل:</span>{' '}
+                  <span className="text-gray-900 font-medium">{selectedSubscription.customer_name}</span>
                 </div>
                 <div>
-                  <span className="text-slate-400">البريد الإلكتروني:</span>{' '}
-                  <span className="text-white">{selectedSubscription.customer_email}</span>
+                  <span className="text-gray-600">البريد الإلكتروني:</span>{' '}
+                  <span className="text-gray-900 font-medium">{selectedSubscription.customer_email}</span>
                 </div>
                 <div>
-                  <span className="text-slate-400">الاشتراك الحالي:</span>{' '}
-                  <span className="text-white font-mono">{selectedSubscription.subscription_code}</span>
+                  <span className="text-gray-600">الاشتراك الحالي:</span>{' '}
+                  <span className="text-gray-900 font-mono font-medium">{selectedSubscription.subscription_code}</span>
                 </div>
                 <div>
-                  <span className="text-slate-400">رمز المنتج:</span>{' '}
-                  <span className="text-white">{selectedSubscription.product_code || 'غير محدد'}</span>
+                  <span className="text-gray-600">رمز المنتج:</span>{' '}
+                  <span className="text-gray-900 font-medium">{selectedSubscription.product_code || 'غير محدد'}</span>
                 </div>
+
+                {/* Subscription Selector */}
+                {availableSubscriptions.length > 0 && (
+                  <div className="space-y-2 pt-2 border-t border-gray-200">
+                    <Label htmlFor="inventory-subscription" className="text-gray-700 font-medium">
+                      اختر اشتراك محدد (اختياري)
+                    </Label>
+                    <Select
+                      value={selectedInventorySubscription}
+                      onValueChange={setSelectedInventorySubscription}
+                    >
+                      <SelectTrigger id="inventory-subscription" className="bg-white border-gray-300 text-gray-900">
+                        <SelectValue placeholder="اختيار عشوائي (افتراضي)" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-white border-gray-200">
+                        <SelectItem value="random" className="text-gray-900">
+                          اختيار عشوائي (افتراضي)
+                        </SelectItem>
+                        {availableSubscriptions.map((sub) => (
+                          <SelectItem key={sub.id} value={sub.id} className="text-gray-900">
+                            {sub.subscription_code}{sub.subscription_meta ? ` - ${sub.subscription_meta}` : ''}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-gray-600">
+                      متاح: {availableSubscriptions.length} اشتراك في المخزون
+                    </p>
+                  </div>
+                )}
+
+                {availableSubscriptions.length === 0 && selectedSubscription.product_code && (
+                  <div className="bg-red-50 border border-red-300 rounded-lg p-3">
+                    <p className="text-red-700 text-sm font-medium">
+                      لا توجد اشتراكات متاحة في المخزون لهذا المنتج
+                    </p>
+                  </div>
+                )}
               </div>
-              <div className="bg-yellow-900/20 border border-yellow-700 rounded-lg p-3">
-                <p className="text-yellow-300 text-sm">
+              <div className="bg-yellow-50 border border-yellow-300 rounded-lg p-3">
+                <p className="text-yellow-800 text-sm font-medium">
                   سيتم جلب اشتراك جديد من المخزون يطابق رمز المنتج. سيتم تحديث الاشتراك في:
                 </p>
-                <ul className="list-disc list-inside text-yellow-200 text-sm mt-2 space-y-1">
+                <ul className="list-disc list-inside text-yellow-700 text-sm mt-2 space-y-1">
                   <li>صفحة طلباتي</li>
                   <li>صفحة إدارة الاشتراكات</li>
                   <li>جميع الصفحات ذات الصلة</li>
