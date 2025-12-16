@@ -3,6 +3,14 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
+if (typeof window !== 'undefined') {
+  console.log('Supabase Config:', {
+    hasUrl: !!supabaseUrl,
+    hasKey: !!supabaseAnonKey,
+    urlPrefix: supabaseUrl ? supabaseUrl.substring(0, 8) + '...' : 'undefined'
+  });
+}
+
 // Client-side Supabase client with proper session persistence
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {

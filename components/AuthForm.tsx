@@ -46,13 +46,17 @@ export default function AuthForm() {
   });
 
   const handleSendOtp = async (email: string) => {
+    console.log('AuthForm: handleSendOtp called for', email);
     setSendingOtp(true);
     setError(null);
     setSuccessMessage(null);
 
     const result = await signInWithOtp(email);
 
+    console.log('AuthForm: signInWithOtp result:', result);
+
     if (result.error) {
+      console.error('AuthForm: OTP error:', result.error);
       setError(result.error.message);
       setSendingOtp(false);
       return;
@@ -86,6 +90,7 @@ export default function AuthForm() {
   };
 
   const handleSubmit = async (data: OtpFormData) => {
+    console.log('AuthForm: handleSubmit called', data);
     if (!otpSent) {
       if (!data.email || !data.email.trim()) {
         form.setError('email', { message: 'يرجى إدخال البريد الإلكتروني' });
@@ -169,8 +174,8 @@ export default function AuthForm() {
                 </Alert>
               )}
 
-              <Button 
-                type="submit" 
+              <Button
+                type="submit"
                 onClick={(e) => {
                   // Prevent double submission but allow form to validate and submit
                   if (sendingOtp) {
@@ -179,7 +184,7 @@ export default function AuthForm() {
                   }
                   // Let the form handle submission naturally
                 }}
-                className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white font-semibold h-12 text-lg shadow-lg" 
+                className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white font-semibold h-12 text-lg shadow-lg"
                 disabled={sendingOtp}
               >
                 {sendingOtp ? (
@@ -237,9 +242,9 @@ export default function AuthForm() {
                 </Alert>
               )}
 
-              <Button 
-                type="submit" 
-                className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white font-semibold h-12 text-lg shadow-lg" 
+              <Button
+                type="submit"
+                className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white font-semibold h-12 text-lg shadow-lg"
                 disabled={verifyingOtp}
               >
                 {verifyingOtp ? (

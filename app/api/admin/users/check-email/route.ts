@@ -67,8 +67,29 @@ export async function POST(request: NextRequest) {
 
     // Check if the email exists in authentication system
     try {
-      const { data: authUsers, error: authError } = await supabaseAdmin.auth.admin.listUsers();
-      
+      // 1. First check orders table as a fast path (if they ordered before, they exist)
+      // This saves an expensive auth list call for repeat customers
+      const { data: existingOrder, error: orderError } = await supabaseAdmin
+        .from('orders')
+        .select('id')
+        .eq('email', email)
+        .limit(1)
+        .maybeSingle();
+
+      if (existingOrder) {
+        return NextResponse.json({
+          exists: true,
+          message: 'البريد الإلكتروني مسجل في النظام (وجد طلب سابق)',
+        });
+      }
+
+      // 2. If not found in orders, check Auth users
+      // Increase perPage to maximum (1000) to find users who might not be in the first 50
+      const { data: authUsers, error: authError } = await supabaseAdmin.auth.admin.listUsers({
+        page: 1,
+        perPage: 1000
+      });
+
       if (authError) {
         console.error('Error checking user existence:', authError);
         return NextResponse.json(
@@ -77,14 +98,14 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const userExists = authUsers?.users?.some(user => 
+      const userExists = authUsers?.users?.some(user =>
         user.email?.toLowerCase() === email.toLowerCase()
       );
 
       return NextResponse.json({
         exists: userExists,
-        message: userExists 
-          ? 'البريد الإلكتروني مسجل في النظام' 
+        message: userExists
+          ? 'البريد الإلكتروني مسجل في النظام'
           : 'البريد الإلكتروني غير مسجل في النظام',
       });
     } catch (authCheckError: any) {

@@ -198,12 +198,14 @@ export async function signInWithTwitter(): Promise<AuthResult> {
  */
 export async function signInWithOtp(email: string): Promise<AuthResult> {
   try {
+    console.log('lib/auth: signInWithOtp called for', email);
     const { data, error } = await supabase.auth.signInWithOtp({
       email,
       options: {
         emailRedirectTo: `${window.location.origin}/auth/callback`,
       },
     });
+    console.log('lib/auth: Supabase response', { data, error });
 
     if (error) {
       return { error: { message: error.message, code: error.status?.toString() || error.name } };
