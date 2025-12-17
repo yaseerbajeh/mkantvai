@@ -37,6 +37,7 @@ import {
   FolderTree,
   ChevronDown,
   ChevronUp,
+  Save,
 } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
 
@@ -113,7 +114,7 @@ export default function AdminProductsPage() {
   const [selectedProductCode, setSelectedProductCode] = useState<string>('');
   const [subscriptionCode, setSubscriptionCode] = useState<string>('');
   const [expandedSubscriptions, setExpandedSubscriptions] = useState<Set<string>>(new Set());
-  
+
   // Categories management
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
@@ -507,6 +508,43 @@ export default function AdminProductsPage() {
     }
   };
 
+  const handleInlineUpdateSubscription = async (id: string, newCode: string, productCode: string) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('غير مصرح');
+
+      const response = await fetch(`/api/admin/products/subscription-codes/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          product_code: productCode,
+          subscription_code: newCode,
+        }),
+      });
+
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || 'فشل في تحديث رمز الاشتراك');
+      }
+
+      toast({
+        title: 'نجح',
+        description: 'تم تحديث رمز الاشتراك بنجاح',
+      });
+
+      fetchSubscriptionCodes();
+    } catch (error: any) {
+      toast({
+        title: 'خطأ',
+        description: error.message || 'حدث خطأ',
+        variant: 'destructive',
+      });
+    }
+  };
+
   // Category management handlers
   const handleCreateCategory = () => {
     setEditingCategory(null);
@@ -629,14 +667,14 @@ export default function AdminProductsPage() {
   };
 
   const filteredProducts = products.filter(product => {
-    const matchesSearch = !searchQuery || 
+    const matchesSearch = !searchQuery ||
       product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       product.product_code.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = categoryFilter === 'all' || 
+    const matchesCategory = categoryFilter === 'all' ||
       (product.category_id && product.category_id === categoryFilter) ||
       (categoryFilter === 'all' && sectionFilter === 'all') ||
       (sectionFilter !== 'all' && product.section.toString() === sectionFilter); // Backward compatibility
-    const matchesActive = activeFilter === 'all' || 
+    const matchesActive = activeFilter === 'all' ||
       (activeFilter === 'active' && product.is_active) ||
       (activeFilter === 'inactive' && !product.is_active);
     return matchesSearch && matchesCategory && matchesActive;
@@ -896,10 +934,10 @@ export default function AdminProductsPage() {
                                 const isExpanded = expandedSubscriptions.has(code.id);
                                 const codeLines = code.subscription_code.split('\n');
                                 const isLong = codeLines.length > 3 || code.subscription_code.length > 150;
-                                const displayCode = isExpanded || !isLong 
-                                  ? code.subscription_code 
+                                const displayCode = isExpanded || !isLong
+                                  ? code.subscription_code
                                   : codeLines.slice(0, 3).join('\n') + (codeLines.length > 3 ? '\n...' : '');
-                                
+
                                 return (
                                   <Card key={code.id} className="bg-gray-50 border-gray-300">
                                     <CardContent className="pt-4">
@@ -1097,48 +1135,99 @@ export default function AdminProductsPage() {
 
       {/* Add Subscription Dialog */}
       <Dialog open={addSubscriptionDialogOpen} onOpenChange={setAddSubscriptionDialogOpen}>
-        <DialogContent className="bg-white border-gray-200 text-gray-900 max-w-2xl">
+        <DialogContent className="bg-white border-gray-200 text-gray-900 max-w-4xl max-h-[90vh] flex flex-col">
           <DialogHeader>
-            <DialogTitle>إضافة اشتراك جديد</DialogTitle>
+            <DialogTitle>إدارة المخزون والاشتراكات</DialogTitle>
             <DialogDescription className="text-gray-600">
-              أدخل رمز المنتج ورمز الاشتراك. يمكن أن يحتوي رمز الاشتراك على تعليمات أو بريد إلكتروني وكلمة مرور.
+              إضافة مخزون جديد أو إدارة المخزون الحالي للمنتج
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label>رمز المنتج *</Label>
-              <Select
-                value={selectedProductCode}
-                onValueChange={setSelectedProductCode}
-                required
-              >
-                <SelectTrigger className="bg-white border-gray-300 text-gray-900 mt-2">
-                  <SelectValue placeholder="اختر رمز المنتج" />
-                </SelectTrigger>
-                <SelectContent>
-                  {products.map((p) => (
-                    <SelectItem key={p.id} value={p.product_code}>
-                      {p.product_code} - {p.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 flex-1 overflow-hidden min-h-0">
+            {/* Left Side: Add New */}
+            <div className="flex flex-col gap-4 border-l pl-6 overflow-y-auto">
+              <div>
+                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                  <Plus className="h-5 w-5 text-blue-600" />
+                  إضافة مخزون جديد
+                </h3>
+                <Label>رمز المنتج *</Label>
+                <Select
+                  value={selectedProductCode}
+                  onValueChange={setSelectedProductCode}
+                  required
+                >
+                  <SelectTrigger className="bg-white border-gray-300 text-gray-900 mt-2">
+                    <SelectValue placeholder="اختر رمز المنتج" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {products.map((p) => (
+                      <SelectItem key={p.id} value={p.product_code}>
+                        {p.product_code} - {p.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>رمز الاشتراك *</Label>
+                <Textarea
+                  value={subscriptionCode}
+                  onChange={(e) => setSubscriptionCode(e.target.value)}
+                  placeholder="أدخل رمز الاشتراك... يمكن أن يحتوي على تعليمات أو بريد إلكتروني وكلمة مرور"
+                  className="bg-white border-gray-300 text-gray-900 mt-2 min-h-[150px] font-mono whitespace-pre-wrap break-words"
+                  required
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  يمكنك إدخال عدة أسطر للتعليمات أو معلومات إضافية
+                </p>
+              </div>
+              <Button onClick={handleAddSubscription} className="bg-blue-600 hover:bg-blue-700 w-full mt-4">
+                <Plus className="h-4 w-4 ml-2" />
+                إضافة للمخزون
+              </Button>
             </div>
-            <div>
-              <Label>رمز الاشتراك *</Label>
-              <Textarea
-                value={subscriptionCode}
-                onChange={(e) => setSubscriptionCode(e.target.value)}
-                placeholder="أدخل رمز الاشتراك... يمكن أن يحتوي على تعليمات أو بريد إلكتروني وكلمة مرور"
-                className="bg-white border-gray-300 text-gray-900 mt-2 min-h-[150px] font-mono whitespace-pre-wrap break-words"
-                required
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                يمكنك إدخال عدة أسطر للتعليمات أو معلومات إضافية
-              </p>
+
+            {/* Right Side: Current Inventory */}
+            <div className="flex flex-col min-h-0">
+              <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                <Package className="h-5 w-5 text-green-600" />
+                المخزون الحالي
+                {selectedProductCode && (
+                  <Badge variant="secondary" className="mr-2">
+                    {subscriptionCodes.filter(sc => sc.product_code === selectedProductCode).length}
+                  </Badge>
+                )}
+              </h3>
+
+              {!selectedProductCode ? (
+                <div className="flex flex-col items-center justify-center h-48 text-gray-500 bg-gray-50 rounded-lg border border-dashed border-gray-300">
+                  <Package className="h-12 w-12 mb-2 opacity-50" />
+                  <p>اختر منتج لعرض المخزون</p>
+                </div>
+              ) : (
+                <div className="space-y-3 overflow-y-auto pr-2 flex-1">
+                  {subscriptionCodes
+                    .filter(sc => sc.product_code === selectedProductCode)
+                    .map((code) => (
+                      <SubscriptionItem
+                        key={code.id}
+                        code={code}
+                        onSave={handleInlineUpdateSubscription}
+                        onDelete={handleDeleteSubscriptionCode}
+                      />
+                    ))}
+                  {subscriptionCodes.filter(sc => sc.product_code === selectedProductCode).length === 0 && (
+                    <div className="text-center py-8 bg-gray-50 rounded text-gray-500">
+                      لا يوجد مخزون لهذا المنتج
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
-          <DialogFooter>
+
+          <DialogFooter className="mt-4 border-t pt-4">
             <Button
               variant="outline"
               onClick={() => {
@@ -1148,10 +1237,7 @@ export default function AdminProductsPage() {
               }}
               className="bg-gray-200 border-gray-300 text-gray-900"
             >
-              إلغاء
-            </Button>
-            <Button onClick={handleAddSubscription} className="bg-blue-600 hover:bg-blue-700">
-              إضافة
+              إغلاق
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1283,7 +1369,7 @@ function ProductFormDialog({
     if (product) {
       const duration = product.duration || '';
       const isPredefined = predefinedDurations.some(d => d.value === duration);
-      
+
       setFormData({
         product_code: product.product_code,
         name: product.name,
@@ -1342,10 +1428,10 @@ function ProductFormDialog({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Get duration value based on type
-    const durationValue = durationType === 'predefined' 
-      ? formData.duration 
+    const durationValue = durationType === 'predefined'
+      ? formData.duration
       : customDuration;
 
     if (!durationValue || durationValue.trim() === '') {
@@ -1439,8 +1525,8 @@ function ProductFormDialog({
             </div>
             <div>
               <Label>المدة *</Label>
-              <Select 
-                value={durationType === 'predefined' ? formData.duration : 'other'} 
+              <Select
+                value={durationType === 'predefined' ? formData.duration : 'other'}
                 onValueChange={(value) => {
                   if (value === 'other') {
                     setDurationType('custom');
@@ -1479,8 +1565,8 @@ function ProductFormDialog({
             </div>
             <div>
               <Label>التصنيف *</Label>
-              <Select 
-                value={formData.category_id} 
+              <Select
+                value={formData.category_id}
                 onValueChange={(value) => setFormData({ ...formData, category_id: value })}
                 required
               >
@@ -1639,18 +1725,15 @@ function CategoryFormDialog({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const submitData = {
+    onSave({
       ...formData,
       display_order: parseInt(formData.display_order),
-      name_en: formData.name_en || null,
-      description: formData.description || null,
-    };
-    onSave(submitData);
+    });
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-white border-gray-200 text-gray-900 max-w-2xl">
+      <DialogContent className="bg-white border-gray-200 text-gray-900">
         <DialogHeader>
           <DialogTitle>{category ? 'تعديل التصنيف' : 'إضافة تصنيف جديد'}</DialogTitle>
         </DialogHeader>
@@ -1661,7 +1744,7 @@ function CategoryFormDialog({
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               required
-              className="bg-slate-900 border-slate-700 text-white mt-2"
+              className="bg-white border-gray-300 text-gray-900 mt-2"
             />
           </div>
           <div>
@@ -1669,7 +1752,7 @@ function CategoryFormDialog({
             <Input
               value={formData.name_en}
               onChange={(e) => setFormData({ ...formData, name_en: e.target.value })}
-              className="bg-slate-900 border-slate-700 text-white mt-2"
+              className="bg-white border-gray-300 text-gray-900 mt-2"
             />
           </div>
           <div>
@@ -1677,30 +1760,27 @@ function CategoryFormDialog({
             <Textarea
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              className="bg-slate-900 border-slate-700 text-white mt-2"
-              rows={3}
+              className="bg-white border-gray-300 text-gray-900 mt-2"
             />
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label>ترتيب العرض</Label>
-              <Input
-                type="number"
-                value={formData.display_order}
-                onChange={(e) => setFormData({ ...formData, display_order: e.target.value })}
-                className="bg-white border-gray-300 text-gray-900 mt-2"
-              />
-            </div>
-            <div className="flex items-center space-x-2 space-x-reverse pt-8">
-              <input
-                type="checkbox"
-                id="is_active"
-                checked={formData.is_active}
-                onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
-                className="w-4 h-4"
-              />
-              <Label htmlFor="is_active">نشط</Label>
-            </div>
+          <div>
+            <Label>ترتيب العرض</Label>
+            <Input
+              type="number"
+              value={formData.display_order}
+              onChange={(e) => setFormData({ ...formData, display_order: e.target.value })}
+              className="bg-white border-gray-300 text-gray-900 mt-2"
+            />
+          </div>
+          <div className="flex items-center space-x-2 space-x-reverse">
+            <input
+              type="checkbox"
+              id="cat_is_active"
+              checked={formData.is_active}
+              onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
+              className="rounded"
+            />
+            <Label htmlFor="cat_is_active">نشط</Label>
           </div>
           <DialogFooter>
             <Button
@@ -1720,4 +1800,60 @@ function CategoryFormDialog({
     </Dialog>
   );
 }
+
+function SubscriptionItem({
+  code,
+  onSave,
+  onDelete
+}: {
+  code: SubscriptionCode,
+  onSave: (id: string, newCode: string, productCode: string) => void,
+  onDelete: (id: string) => void
+}) {
+  const [val, setVal] = useState(code.subscription_code);
+  const isDirty = val !== code.subscription_code;
+
+  return (
+    <Card className="bg-gray-50 border-gray-300 shadow-sm relative group hover:border-blue-300 transition-colors">
+      <CardContent className="p-3">
+        <div className="flex gap-2">
+          <div className="flex-1">
+            <Textarea
+              value={val}
+              onChange={(e) => setVal(e.target.value)}
+              className="bg-white border-gray-200 text-sm font-mono min-h-[80px] resize-y"
+            />
+            {isDirty && (
+              <p className="text-amber-600 text-xs mt-1">
+                * تغييرات غير محفوظة
+              </p>
+            )}
+          </div>
+          <div className="flex flex-col gap-2">
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={() => onSave(code.id, val, code.product_code)}
+              disabled={!isDirty}
+              className={`h-8 w-8 ${isDirty ? 'text-green-600 hover:bg-green-50' : 'text-gray-300'}`}
+              title="حفظ التعديلات"
+            >
+              <Save className="h-4 w-4" />
+            </Button>
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={() => onDelete(code.id)}
+              className="h-8 w-8 text-red-400 hover:text-red-500 hover:bg-red-50"
+              title="حذف"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 
