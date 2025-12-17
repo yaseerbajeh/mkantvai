@@ -10,17 +10,17 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/lib/supabase';
-import { 
-  Loader2, 
-  Package, 
-  ShoppingCart, 
-  CreditCard, 
-  Trash2, 
-  Tag, 
-  Calendar, 
-  MessageCircle, 
-  Key, 
-  UserPlus, 
+import {
+  Loader2,
+  Package,
+  ShoppingCart,
+  CreditCard,
+  Trash2,
+  Tag,
+  Calendar,
+  MessageCircle,
+  Key,
+  UserPlus,
   TrendingUp,
   DollarSign,
   Users,
@@ -83,6 +83,7 @@ const navigationItems = [
   { href: '/admin/tickets', label: 'تذاكر الدعم', icon: MessageCircle, color: 'pink' },
   { href: '/admin/leads', label: 'إدارة العملاء المحتملين', icon: UserPlus, color: 'emerald' },
   { href: '/admin/commissions', label: 'لوحة العمولات', icon: TrendingUp, color: 'indigo' },
+  { href: '/admin/accounts-stock', label: 'مخزون الحسابات', icon: Key, color: 'blue' },
 ];
 
 function AdminDashboardPageContent() {
