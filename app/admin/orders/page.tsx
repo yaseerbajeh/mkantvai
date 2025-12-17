@@ -21,10 +21,10 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/lib/supabase';
-import { 
-  CheckCircle2, 
-  Loader2, 
-  Search, 
+import {
+  CheckCircle2,
+  Loader2,
+  Search,
   Calendar as CalendarIcon,
   Download,
   ArrowUpDown,
@@ -34,7 +34,8 @@ import {
   DollarSign,
   ShoppingCart,
   Plus,
-  Trash2
+  Trash2,
+  FileText
 } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Legend, ResponsiveContainer } from 'recharts';
@@ -81,30 +82,30 @@ export default function AdminOrdersPage() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [orders, setOrders] = useState<Order[]>([]);
-  
+
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined);
   const [dateTo, setDateTo] = useState<Date | undefined>(undefined);
   const [quickFilter, setQuickFilter] = useState<string>('all');
-  
+
   // Sorting
   const [sortField, setSortField] = useState<SortField>('created_at');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
-  
+
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
-  
+
   // Complete order state
   const [completingOrders, setCompletingOrders] = useState<Set<string>>(new Set());
-  
+
   // Delete order state
   const [deletingOrders, setDeletingOrders] = useState<Set<string>>(new Set());
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [orderToDelete, setOrderToDelete] = useState<Order | null>(null);
-  
+
   // Manual order creation state
   const [manualOrderDialogOpen, setManualOrderDialogOpen] = useState(false);
   const [products, setProducts] = useState<any[]>([]);
@@ -132,11 +133,16 @@ export default function AdminOrdersPage() {
     selected_subscription_code: '', // Optional: manually select subscription code
   });
 
+  // Subscription code view state
+  const [orderSubscriptionCodes, setOrderSubscriptionCodes] = useState<Map<string, string>>(new Map());
+  const [viewCodeDialogOpen, setViewCodeDialogOpen] = useState(false);
+  const [viewingSubscriptionCode, setViewingSubscriptionCode] = useState<string>('');
+
   useEffect(() => {
     const checkAuth = async () => {
       try {
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        
+
         if (sessionError) {
           console.error('Session error:', sessionError);
           toast({
@@ -157,7 +163,7 @@ export default function AdminOrdersPage() {
         }
 
         const adminEmailsStr = process.env.NEXT_PUBLIC_ADMIN_EMAILS || '';
-        
+
         if (!adminEmailsStr) {
           if (process.env.NODE_ENV === 'production') {
             toast({
@@ -170,7 +176,7 @@ export default function AdminOrdersPage() {
           }
         } else {
           const adminEmails = adminEmailsStr.split(',').map(e => e.trim()).filter(Boolean);
-          
+
           if (adminEmails.length > 0 && !adminEmails.includes(session.user.email || '')) {
             toast({
               title: 'غير مصرح',
@@ -207,7 +213,7 @@ export default function AdminOrdersPage() {
     } else {
       const now = new Date();
       const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      
+
       switch (quickFilter) {
         case 'today':
           setDateFrom(today);
@@ -248,12 +254,12 @@ export default function AdminOrdersPage() {
           'Authorization': `Bearer ${session.access_token}`,
         },
       });
-      
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.error || 'فشل في جلب المنتجات');
       }
-      
+
       const result = await response.json();
       setProducts(result.products || []);
     } catch (error: any) {
@@ -300,7 +306,7 @@ export default function AdminOrdersPage() {
 
       if (error) {
         console.error('Error fetching orders:', error);
-        
+
         if (error.message?.includes('permission denied') || error.message?.includes('denied')) {
           toast({
             title: 'خطأ في الصلاحيات',
@@ -325,8 +331,8 @@ export default function AdminOrdersPage() {
 
       // Debug: Log order YAFBBUEG if found in raw data
       if (data) {
-        const yafOrder = (data as Order[]).find(o => 
-          o.order_number === 'YAFBBUEG' || 
+        const yafOrder = (data as Order[]).find(o =>
+          o.order_number === 'YAFBBUEG' ||
           o.id.slice(0, 8).toUpperCase() === 'YAFBBUEG'
         );
         if (yafOrder) {
@@ -351,7 +357,7 @@ export default function AdminOrdersPage() {
           }
           return false;
         }
-        
+
         // Must have a valid product name
         if (!order.product_name || order.product_name.trim() === '') {
           if (process.env.NODE_ENV === 'development') {
@@ -359,7 +365,7 @@ export default function AdminOrdersPage() {
           }
           return false;
         }
-        
+
         // Must have a valid price (allow 0 for 100% discount promo code orders)
         // Check total_amount if available, otherwise check price
         const orderPrice = order.total_amount !== undefined ? order.total_amount : order.price;
@@ -377,7 +383,7 @@ export default function AdminOrdersPage() {
           }
           return false;
         }
-        
+
         // Exclude orders that look like abandoned cart placeholders
         // (orders without proper payment flow or customer data)
         // If it's a cart order, ensure it has order_items
@@ -387,24 +393,24 @@ export default function AdminOrdersPage() {
           }
           return false;
         }
-        
+
         // Filter out abandoned payment attempts - orders where user clicked pay but abandoned
         // These are: pending status + payment_method set + payment_status not COMPLETED
         // These will appear in abandoned carts page, so don't show in orders
         // NOTE: Manual orders with payment_method='manual' should NOT be filtered out
         // Only filter out PayPal abandoned payments, not manual orders
-        if (order.status === 'pending' && 
-            order.payment_method && 
-            order.payment_method.includes('paypal') &&
-            order.payment_method !== 'manual' &&
-            order.payment_status !== 'COMPLETED') {
+        if (order.status === 'pending' &&
+          order.payment_method &&
+          order.payment_method.includes('paypal') &&
+          order.payment_method !== 'manual' &&
+          order.payment_status !== 'COMPLETED') {
           // This is an abandoned payment - exclude it
           if (process.env.NODE_ENV === 'development') {
             console.log('Filtered out order (abandoned payment):', order.id, { status: order.status, payment_method: order.payment_method, payment_status: order.payment_status });
           }
           return false;
         }
-        
+
         return true;
       });
 
@@ -417,6 +423,25 @@ export default function AdminOrdersPage() {
       }
 
       setOrders(validOrders);
+
+      // Fetch subscription codes for these orders
+      if (validOrders.length > 0) {
+        const orderIds = validOrders.map(o => o.id);
+        const { data: subsData, error: subsError } = await supabase
+          .from('active_subscriptions')
+          .select('order_id, subscription_code')
+          .in('order_id', orderIds);
+
+        if (!subsError && subsData) {
+          const subMap = new Map<string, string>();
+          subsData.forEach((sub: any) => {
+            if (sub.order_id && sub.subscription_code) {
+              subMap.set(sub.order_id, sub.subscription_code);
+            }
+          });
+          setOrderSubscriptionCodes(subMap);
+        }
+      }
     } catch (error: any) {
       console.error('Fetch orders error:', error);
       toast({
@@ -436,7 +461,7 @@ export default function AdminOrdersPage() {
     // Search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(order => 
+      filtered = filtered.filter(order =>
         order.order_number?.toLowerCase().includes(query) ||
         order.name.toLowerCase().includes(query) ||
         order.email.toLowerCase().includes(query) ||
@@ -511,7 +536,7 @@ export default function AdminOrdersPage() {
   // Analytics calculations
   const analytics = useMemo(() => {
     const filtered = filteredAndSortedOrders;
-    
+
     const totalOrders = filtered.length;
     const paidOrders = filtered.filter(o => o.status === 'paid').length;
     const approvedOrders = filtered.filter(o => o.status === 'approved').length;
@@ -521,7 +546,7 @@ export default function AdminOrdersPage() {
     const ordersByDate: { [key: string]: number } = {};
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    
+
     filtered.forEach(order => {
       const orderDate = new Date(order.created_at);
       if (orderDate >= thirtyDaysAgo) {
@@ -597,14 +622,14 @@ export default function AdminOrdersPage() {
     if (sortField !== field) {
       return <ArrowUpDown className="h-4 w-4 ml-1 opacity-50" />;
     }
-    return sortDirection === 'asc' ? 
-      <ArrowUp className="h-4 w-4 ml-1" /> : 
+    return sortDirection === 'asc' ?
+      <ArrowUp className="h-4 w-4 ml-1" /> :
       <ArrowDown className="h-4 w-4 ml-1" />;
   };
 
   const handleCompleteOrder = async (orderId: string) => {
     setCompletingOrders(prev => new Set(prev).add(orderId));
-    
+
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) {
@@ -646,7 +671,7 @@ export default function AdminOrdersPage() {
           .select('*, order_items(*)')
           .in('status', ['paid', 'approved', 'pending'])
           .order('created_at', { ascending: false });
-        
+
         if (!ordersError && ordersData) {
           setOrders(ordersData as Order[]);
         }
@@ -676,7 +701,7 @@ export default function AdminOrdersPage() {
     if (!orderToDelete) return;
 
     setDeletingOrders(prev => new Set(prev).add(orderToDelete.id));
-    
+
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) {
@@ -708,7 +733,7 @@ export default function AdminOrdersPage() {
 
       // Remove order from local state
       setOrders(prevOrders => prevOrders.filter(o => o.id !== orderToDelete.id));
-      
+
       // Close dialog
       setDeleteDialogOpen(false);
       setOrderToDelete(null);
@@ -910,10 +935,10 @@ export default function AdminOrdersPage() {
               } else if (order.is_cart_order && (!order.order_items || order.order_items.length === 0)) {
                 filteredOut = true;
                 filterReason = 'Cart order without order_items';
-              } else if (order.status === 'pending' && 
-                          order.payment_method && 
-                          order.payment_method.includes('paypal') &&
-                          order.payment_status !== 'COMPLETED') {
+              } else if (order.status === 'pending' &&
+                order.payment_method &&
+                order.payment_method.includes('paypal') &&
+                order.payment_status !== 'COMPLETED') {
                 filteredOut = true;
                 filterReason = 'Abandoned payment attempt';
               }
@@ -923,7 +948,7 @@ export default function AdminOrdersPage() {
               console.error('❌ Order filtered out by validation:', filterReason);
             } else {
               console.log('✅ Order passes all filters. It should appear in the list.');
-              
+
               // Check if it's actually in the fetched orders
               // Query again with the same filter as fetchOrders to see if it's returned
               const { data: filteredOrders, error: filterError } = await supabase
@@ -1033,7 +1058,7 @@ export default function AdminOrdersPage() {
         price: product.price.toString(),
         selected_subscription_code: '', // Reset selected subscription code
       });
-      
+
       // Fetch available subscription codes for this product
       fetchAvailableSubscriptionCodes(product.product_code);
     }
@@ -1089,8 +1114,8 @@ export default function AdminOrdersPage() {
       setEmailValidation({
         isValid: result.exists,
         isChecking: false,
-        message: result.exists 
-          ? 'البريد الإلكتروني مسجل في النظام' 
+        message: result.exists
+          ? 'البريد الإلكتروني مسجل في النظام'
           : 'البريد الإلكتروني غير مسجل في النظام. يجب أن يكون العميل مسجلاً أولاً.',
       });
     } catch (error: any) {
@@ -1195,8 +1220,8 @@ export default function AdminOrdersPage() {
           <div className="flex justify-between items-center mb-8">
             <h1 className="text-3xl font-bold text-gray-900">لوحة تحكم الإدارة - الطلبات</h1>
             <div className="flex gap-2">
-              <Button 
-                onClick={() => setManualOrderDialogOpen(true)} 
+              <Button
+                onClick={() => setManualOrderDialogOpen(true)}
                 className="bg-blue-600 hover:bg-blue-700"
               >
                 <Plus className="h-4 w-4 ml-2" />
@@ -1412,6 +1437,7 @@ export default function AdminOrdersPage() {
                                   <SortIcon field="created_at" />
                                 </div>
                               </TableHead>
+                              <TableHead className="text-gray-900">رمز الاشتراك</TableHead>
                               <TableHead className="text-gray-900">الإجراءات</TableHead>
                             </TableRow>
                           </TableHeader>
@@ -1462,7 +1488,7 @@ export default function AdminOrdersPage() {
                                   {(() => {
                                     // Force read status directly from order object - ensure no transformation
                                     const dbStatus = String(order.status || '').toLowerCase().trim();
-                                    
+
                                     // Debug log for specific order
                                     if (order.order_number === 'YAFBBUEG' || order.id.slice(0, 8).toUpperCase() === 'YAFBBUEG') {
                                       console.log('🔍 Order YAFBBUEG status debug:', {
@@ -1475,11 +1501,11 @@ export default function AdminOrdersPage() {
                                         full_order: JSON.stringify(order, null, 2)
                                       });
                                     }
-                                    
+
                                     // Determine badge color and text based on normalized status
                                     let badgeText = 'قيد الانتظار';
                                     let badgeClass = 'bg-yellow-900/50 text-yellow-500 border-yellow-700';
-                                    
+
                                     if (dbStatus === 'approved') {
                                       badgeText = 'مقبول';
                                       badgeClass = 'bg-green-900/50 text-green-500 border-green-700';
@@ -1497,7 +1523,7 @@ export default function AdminOrdersPage() {
                                       badgeText = `غير معروف (${order.status})`;
                                       badgeClass = 'bg-gray-900/50 text-gray-500 border-gray-700';
                                     }
-                                    
+
                                     return (
                                       <Badge className={badgeClass}>
                                         {badgeText}
@@ -1522,6 +1548,24 @@ export default function AdminOrdersPage() {
                                 </TableCell>
                                 <TableCell className="text-gray-500 text-xs">
                                   {format(new Date(order.created_at), 'yyyy-MM-dd HH:mm', { locale: ar })}
+                                </TableCell>
+                                <TableCell className="text-gray-600">
+                                  {orderSubscriptionCodes.has(order.id) ? (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="text-xs h-7 text-slate-400 hover:text-white"
+                                      onClick={() => {
+                                        setViewingSubscriptionCode(orderSubscriptionCodes.get(order.id) || '');
+                                        setViewCodeDialogOpen(true);
+                                      }}
+                                    >
+                                      <FileText className="h-3 w-3 mr-1" />
+                                      عرض
+                                    </Button>
+                                  ) : (
+                                    <span className="text-gray-400 text-xs">-</span>
+                                  )}
                                 </TableCell>
                                 <TableCell>
                                   <div className="flex gap-2">
@@ -1682,7 +1726,7 @@ export default function AdminOrdersPage() {
                   </CardHeader>
                   <CardContent>
                     {analytics.ordersByStatus.some(s => s.value > 0) ? (
-                      <ChartContainer config={{ 
+                      <ChartContainer config={{
                         مقبول: { label: 'مقبول', color: '#22c55e' },
                         'قيد الانتظار': { label: 'قيد الانتظار', color: '#eab308' },
                         مرفوض: { label: 'مرفوض', color: '#ef4444' },
@@ -1831,6 +1875,32 @@ export default function AdminOrdersPage() {
         </DialogContent>
       </Dialog>
 
+      {/* View Subscription Code Dialog */}
+      <Dialog open={viewCodeDialogOpen} onOpenChange={setViewCodeDialogOpen}>
+        <DialogContent className="bg-white border-gray-200 text-gray-900 max-w-md">
+          <DialogHeader>
+            <DialogTitle>رمز الاشتراك</DialogTitle>
+          </DialogHeader>
+          <div className="mt-4">
+            <pre className="bg-slate-100 p-4 rounded-lg font-mono text-sm whitespace-pre-wrap break-words border border-slate-200 text-slate-800 overflow-x-auto max-h-[400px] overflow-y-auto dir-ltr text-left">
+              {viewingSubscriptionCode}
+            </pre>
+            <Button
+              className="mt-4 w-full bg-slate-800 hover:bg-slate-700 text-white"
+              onClick={() => {
+                navigator.clipboard.writeText(viewingSubscriptionCode);
+                toast({
+                  title: "تم النسخ",
+                  description: "تم نسخ رمز الاشتراك للحافظة",
+                });
+              }}
+            >
+              نسخ الرمز
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Manual Order Creation Dialog */}
       <Dialog open={manualOrderDialogOpen} onOpenChange={setManualOrderDialogOpen}>
         <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -1856,10 +1926,9 @@ export default function AdminOrdersPage() {
                 type="email"
                 value={manualOrderForm.customer_email}
                 onChange={(e) => setManualOrderForm({ ...manualOrderForm, customer_email: e.target.value })}
-                className={`bg-slate-700 border-slate-600 text-white mt-1 ${
-                  emailValidation.isValid === false ? 'border-red-500' : 
+                className={`bg-slate-700 border-slate-600 text-white mt-1 ${emailValidation.isValid === false ? 'border-red-500' :
                   emailValidation.isValid === true ? 'border-green-500' : ''
-                }`}
+                  }`}
                 placeholder="email@example.com"
               />
               {emailValidation.isChecking && (
@@ -1869,9 +1938,8 @@ export default function AdminOrdersPage() {
                 </p>
               )}
               {!emailValidation.isChecking && emailValidation.message && (
-                <p className={`text-xs mt-1 ${
-                  emailValidation.isValid ? 'text-green-400' : 'text-red-400'
-                }`}>
+                <p className={`text-xs mt-1 ${emailValidation.isValid ? 'text-green-400' : 'text-red-400'
+                  }`}>
                   {emailValidation.message}
                 </p>
               )}
@@ -1986,10 +2054,10 @@ export default function AdminOrdersPage() {
             <Button
               onClick={handleManualOrderSubmit}
               disabled={
-                creatingOrder || 
-                !manualOrderForm.customer_name || 
-                !manualOrderForm.customer_email || 
-                !manualOrderForm.product_name || 
+                creatingOrder ||
+                !manualOrderForm.customer_name ||
+                !manualOrderForm.customer_email ||
+                !manualOrderForm.product_name ||
                 !manualOrderForm.price ||
                 emailValidation.isValid === false ||
                 emailValidation.isChecking
