@@ -25,7 +25,8 @@ import {
   DollarSign,
   Users,
   BarChart3,
-  ArrowRight
+  ArrowRight,
+  Star
 } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
 
@@ -84,6 +85,7 @@ const navigationItems = [
   { href: '/admin/leads', label: 'إدارة العملاء المحتملين', icon: UserPlus, color: 'emerald' },
   { href: '/admin/commissions', label: 'لوحة العمولات', icon: TrendingUp, color: 'indigo' },
   { href: '/admin/accounts-stock', label: 'مخزون الحسابات', icon: Key, color: 'blue' },
+  { href: '/admin/ratings', label: 'التقييمات', icon: Star, color: 'yellow' },
 ];
 
 function AdminDashboardPageContent() {
