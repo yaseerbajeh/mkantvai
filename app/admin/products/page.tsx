@@ -436,9 +436,9 @@ export default function AdminProductsPage() {
         description: 'تم إضافة رمز الاشتراك بنجاح',
       });
 
-      setAddSubscriptionDialogOpen(false);
-      setSelectedProductCode('');
-      setSubscriptionCode('');
+      // setAddSubscriptionDialogOpen(false); // Keep dialog open
+      // setSelectedProductCode(''); // Keep product selected
+      setSubscriptionCode(''); // Clear input for next entry
       fetchSubscriptionCodes();
     } catch (error: any) {
       toast({

@@ -154,6 +154,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if subscription_code already exists
+    // Check if subscription_code already exists - REMOVED TO ALLOW DUPLICATES
+    /*
     const { data: existingSubscription } = await supabaseAdmin
       .from('subscriptions')
       .select('id')
@@ -166,6 +168,7 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+    */
 
     // Insert single subscription
     const { data, error } = await supabaseAdmin
