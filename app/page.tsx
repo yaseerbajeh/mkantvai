@@ -51,7 +51,7 @@ export default function Home() {
   const [categoryTitles, setCategoryTitles] = useState<{ [key: string]: string }>({});
   const [productsLoading, setProductsLoading] = useState(true);
   const [aromaProducts, setAromaProducts] = useState<{ [key: string]: any[] }>({});
-  
+
   const { addItem } = useCart();
   const topRatedScrollRef = useRef<HTMLDivElement>(null);
   const trendingScrollRef = useRef<HTMLDivElement>(null);
@@ -72,7 +72,7 @@ export default function Home() {
     'from-green-600/20 via-emerald-600/20 to-green-600/20',
     'from-blue-600/20 via-cyan-600/20 to-teal-600/20',
   ];
-  
+
   const fetchBanner = useCallback(async () => {
     try {
       setBannerLoading(true);
@@ -98,14 +98,14 @@ export default function Home() {
   // Re-fetch banner when window regains focus to ensure latest status after admin changes
   useEffect(() => {
     const handleFocus = () => {
-        fetchBanner();
+      fetchBanner();
     };
     window.addEventListener('focus', handleFocus);
     return () => {
       window.removeEventListener('focus', handleFocus);
     };
   }, [fetchBanner]);
-  
+
   // Countdown timer for promotion
   useEffect(() => {
     if (!promotionalBanner || !promotionalBanner.expiration_date) {
@@ -113,13 +113,13 @@ export default function Home() {
       setCountdown({ days: 0, hours: 0, minutes: 0, seconds: 0 });
       return;
     }
-    
+
     const targetDate = new Date(promotionalBanner.expiration_date).getTime();
-    
+
     const updateCountdown = () => {
       const now = new Date().getTime();
       const distance = targetDate - now;
-      
+
       if (distance > 0) {
         setCountdown({
           days: Math.floor(distance / (1000 * 60 * 60 * 24)),
@@ -133,10 +133,10 @@ export default function Home() {
         setPromotionalBanner(null);
       }
     };
-    
+
     updateCountdown();
     const interval = setInterval(updateCountdown, 1000);
-    
+
     return () => clearInterval(interval);
   }, [promotionalBanner]);
 
@@ -151,7 +151,7 @@ export default function Home() {
           },
         });
         const result = await response.json();
-        
+
         if (!response.ok) {
           throw new Error(result.error || 'فشل في جلب المنتجات');
         }
@@ -168,10 +168,10 @@ export default function Home() {
           Object.keys(result.productsByCategory).forEach((categoryId) => {
             const categoryProducts = result.productsByCategory[categoryId];
             const categoryTitle = titlesToUse[categoryId] || categoryProducts[0]?.categories?.name || categoryProducts[0]?.section_title || 'غير محدد';
-            
+
             // Check if this is the أروما category
             const isAromaCategory = categoryTitle === 'أروما' || categoryTitle.includes('أروما');
-            
+
             const mappedProducts = categoryProducts.map((product: any) => ({
               ...product,
               code: product.product_code,
@@ -181,7 +181,7 @@ export default function Home() {
               available_stock: product.available_stock || 0,
               purchase_count: product.purchase_count || 0,
             }));
-            
+
             if (isAromaCategory) {
               // Group aroma products by package type
               mappedProducts.forEach((product: any) => {
@@ -193,7 +193,7 @@ export default function Home() {
                 } else if (product.name.includes('باقة فاخرة') || product.product_code.includes('LUXURY')) {
                   packageType = 'premium';
                 }
-                
+
                 if (packageType) {
                   if (!aromaGrouped[packageType]) {
                     aromaGrouped[packageType] = [];
@@ -212,7 +212,7 @@ export default function Home() {
             const categoryId = product.category_id || `section-${product.section}`;
             const categoryName = product.categories?.name || product.section_title || `القسم ${product.section}`;
             const isAromaCategory = categoryName === 'أروما' || categoryName.includes('أروما');
-            
+
             const mappedProduct = {
               ...product,
               code: product.product_code,
@@ -222,7 +222,7 @@ export default function Home() {
               available_stock: product.available_stock || 0,
               purchase_count: product.purchase_count || 0,
             };
-            
+
             if (isAromaCategory) {
               // Group aroma products by package type
               let packageType = '';
@@ -233,7 +233,7 @@ export default function Home() {
               } else if (product.name.includes('باقة فاخرة') || product.product_code.includes('LUXURY')) {
                 packageType = 'luxury';
               }
-              
+
               if (packageType) {
                 if (!aromaGrouped[packageType]) {
                   aromaGrouped[packageType] = [];
@@ -319,20 +319,20 @@ export default function Home() {
             setTrendingMovies([]);
           } else {
             const trendingMapped = (trendingJson.items || []).slice(0, 10).map((m: any) => ({
-          id: String(m.tmdb_id),
-          tmdb_id: m.tmdb_id,
-          type: 'movie',
-          title: m.title,
-          synopsis: m.overview,
-          year: m.year,
-          genre: null,
-          platform: null,
-          rating: String(m.rating ?? ''),
-          duration: null,
-          url: m.poster_url,
-          new: null,
-          note: null,
-        })) as unknown as Movie[];
+              id: String(m.tmdb_id),
+              tmdb_id: m.tmdb_id,
+              type: 'movie',
+              title: m.title,
+              synopsis: m.overview,
+              year: m.year,
+              genre: null,
+              platform: null,
+              rating: String(m.rating ?? ''),
+              duration: null,
+              url: m.poster_url,
+              new: null,
+              note: null,
+            })) as unknown as Movie[];
             setTrendingMovies(trendingMapped);
           }
         }
@@ -486,7 +486,7 @@ export default function Home() {
       try {
         const response = await fetch('/api/reviews?limit=12');
         const result = await response.json();
-        
+
         if (response.ok) {
           setReviews(result.reviews || []);
         } else {
@@ -620,7 +620,7 @@ export default function Home() {
                 أخبرنا عن حالتك المزاجية، وسنجد لك الفيلم المثالي
               </p>
             </div>
-            
+
             {/* Buttons - Left Side on Desktop, Bottom on Mobile */}
             <div className="flex-shrink-0 w-full md:w-auto">
               {/* Mobile: Side by side - subscription on left, search on right | Desktop: stacked - search top, subscription bottom */}
@@ -631,7 +631,7 @@ export default function Home() {
                     ابحث عن فيلم الآن
                   </Button>
                 </Link>
-                
+
                 {/* Subscription Button - Left on mobile (second in RTL), Bottom on desktop */}
                 <Link href="/subscribe" className="block flex-1 md:w-auto md:flex-none order-1 md:order-2">
                   <Button size="lg" className="bg-emerald-600 hover:bg-emerald-700 text-lg px-6 md:px-8 py-6 w-full md:w-auto flex items-center justify-center gap-2">
@@ -672,26 +672,26 @@ export default function Home() {
             {/* Aroma Categories - Arena Challenge Design */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-6 items-end justify-center">
               {[
-                { 
-                  key: 'basic', 
-                  title: 'باقة أساسية', 
+                {
+                  key: 'basic',
+                  title: 'باقة أساسية',
                   tier: 'الباقة الأولى: مسلسلات وأفلام ',
                   cardClass: 'starter-card',
                   playerClass: 'starter-player',
                   features: ['خاصية التحميل والتشغيل بدون انترنت ', 'جودة فوركي', "18,000 فلم ومسلسلات"]
                 },
-                { 
-                  key: 'premium', 
-                  title: 'باقة فاخرة', 
+                {
+                  key: 'premium',
+                  title: 'باقة فاخرة',
                   tier: 'الباقة الثالثة: المجد الكامل',
                   cardClass: 'special-card',
                   playerClass: 'special-player',
                   isPopular: true,
                   features: ["جميع الدوريات المحلية والأوروبية", 'جودة 4K/UHD', "جميع قنوات ثمانية و beIN", 'جميع مميزات الباقة الأساسية والمميزة ']
                 },
-                { 
-                  key: 'luxury', 
-                  title: 'باقة مميزة', 
+                {
+                  key: 'luxury',
+                  title: 'باقة مميزة',
                   tier: 'الباقة الثانية: مناسبة لدوري روشن ',
                   cardClass: 'premium-card',
                   playerClass: 'premium-player',
@@ -715,9 +715,8 @@ export default function Home() {
                 return (
                   <div
                     key={categoryConfig.key}
-                    className={`plan-card flex flex-col ${categoryConfig.cardClass} ${
-                      categoryConfig.isPopular ? 'popular' : ''
-                    }`}
+                    className={`plan-card flex flex-col ${categoryConfig.cardClass} ${categoryConfig.isPopular ? 'popular' : ''
+                      }`}
                   >
                     {/* Main Event Badge */}
                     {categoryConfig.isPopular && (
@@ -728,9 +727,8 @@ export default function Home() {
 
                     {/* Player Visual Container */}
                     <div
-                      className={`player-visual-container ${categoryConfig.playerClass} ${
-                        categoryConfig.isPopular ? 'h-64' : 'h-56'
-                      }`}
+                      className={`player-visual-container ${categoryConfig.playerClass} ${categoryConfig.isPopular ? 'h-64' : 'h-56'
+                        }`}
                       style={categoryConfig.isPopular ? {
                         position: 'relative',
                         overflow: 'hidden',
@@ -743,7 +741,7 @@ export default function Home() {
                             src="/logos/starterpack.png"
                             alt={categoryConfig.title}
                             className="absolute inset-0 w-full h-full object-cover"
-                            style={{ 
+                            style={{
                               objectPosition: 'center center'
                             }}
                           />
@@ -752,7 +750,7 @@ export default function Home() {
                             src="/logos/premiumpack.png"
                             alt={categoryConfig.title}
                             className="absolute inset-0 w-full h-full object-cover"
-                            style={{ 
+                            style={{
                               objectPosition: 'center center'
                             }}
                           />
@@ -761,7 +759,7 @@ export default function Home() {
                             src="/logos/specialpack.png"
                             alt={categoryConfig.title}
                             className="absolute inset-0 w-full h-full object-cover"
-                            style={{ 
+                            style={{
                               objectPosition: 'center center'
                             }}
                           />
@@ -797,7 +795,7 @@ export default function Home() {
                           const finalPrice = product.discounted_price && product.discounted_price < product.price
                             ? product.discounted_price
                             : product.price;
-                          
+
                           // Highlight the 12-month option
                           const isHighlight = product.duration.includes('12');
                           const isPopularHighlight = categoryConfig.isPopular && isHighlight;
@@ -805,11 +803,10 @@ export default function Home() {
                           return (
                             <div
                               key={product.id}
-                              className={`flex justify-between items-center p-3 rounded-lg ${
-                                isPopularHighlight
+                              className={`flex justify-between items-center p-3 rounded-lg ${isPopularHighlight
                                   ? 'bg-[#0d59f2]/20 border border-[#0d59f2]'
                                   : 'bg-black/20 border border-white/10'
-                              }`}
+                                }`}
                             >
                               <div>
                                 <p className="font-bold text-white">{product.duration}</p>
@@ -838,13 +835,12 @@ export default function Home() {
                                   }
                                 }}
                                 disabled={product.available_stock === 0}
-                                className={`${
-                                  isHighlight
+                                className={`${isHighlight
                                     ? categoryConfig.isPopular
                                       ? 'popular-button bg-[#0d59f2] hover:bg-[#0d59f2]/90'
                                       : 'bg-[#0d59f2] hover:bg-[#0d59f2]/90'
                                     : 'bg-[#0d59f2]/50 hover:bg-[#0d59f2]/70'
-                                } text-white font-bold text-sm px-4 py-2 ${product.available_stock === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                  } text-white font-bold text-sm px-4 py-2 ${product.available_stock === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
                               >
                                 {product.available_stock === 0 ? 'نفد' : 'اشتري الآن'}
                               </Button>
@@ -935,7 +931,7 @@ export default function Home() {
                   <span className="text-lg md:text-xl font-semibold">
                     6. هل يمكنني الحصول علي فترة للتجربة ؟
                   </span>
-                  
+
                 </AccordionTrigger>
                 <AccordionContent className="text-slate-300 text-base md:text-lg pb-6 text-right" style={{ fontFamily: 'var(--font-arabic)' }}>
                   نعم يمكنك تجربة الخدمة  قبل الإشتراك للتأكد من جودة الخدمة ومدي ملائمتها لأجهزتك وسرعة إتصالك بالإنترنت.
@@ -961,7 +957,7 @@ export default function Home() {
                 </AccordionTrigger>
                 <AccordionContent className="text-slate-300 text-base md:text-lg pb-6 text-right" style={{ fontFamily: 'var(--font-arabic)' }}>
                   نعم، يمكنك ترقية أو تغيير الباقة في أي وقت بالتواصل مع الدعم.
-               
+
                 </AccordionContent>
               </AccordionItem>
 
@@ -1005,12 +1001,12 @@ export default function Home() {
                 const category = productsByCategory[categoryId];
                 const sectionIndex = categoryIndex % sectionGradients.length;
                 const isPackageSection = category.some((p: any) => p.isPackage || p.is_package);
-                
+
                 if (!category || category.length === 0) return null;
-                
+
                 const isBlackFridayActive =
                   promotionalBanner?.banner_type === 'blackfriday' && promotionalBanner?.is_enabled !== false;
-                
+
                 return (
                   <div key={categoryId} id={`category-${categoryId}`} className="scroll-mt-20 w-full">
                     {/* Category Header */}
@@ -1040,21 +1036,14 @@ export default function Home() {
                         <div className="grid grid-cols-2 md:grid-cols-2 gap-2 md:gap-8 w-full max-w-4xl">
                           {category.slice(0, 2).map((product: any) => {
                             const Icon = product.icon || Sparkles;
-                            
+
                             // Package section - long detailed cards
                             return (
                               <Card key={product.id} className="group relative overflow-hidden bg-gradient-to-br from-slate-800/90 to-slate-900/90 border-2 border-slate-700/50 hover:border-slate-500 transition-all duration-300 hover:shadow-2xl hover:shadow-amber-500/20 hover:-translate-y-2 h-full flex flex-col">
                                 <div className={`absolute inset-0 bg-gradient-to-br ${product.gradient} opacity-0 group-hover:opacity-15 transition-opacity duration-300 pointer-events-none`} />
-                                
-                                {/* Black Friday Badge */}
-                                {isBlackFridayActive && promotionalBanner && (
-                                  <div className="absolute top-2 left-0 z-20 transform -rotate-12 origin-left">
-                                    <div className="bg-gradient-to-r from-red-600 to-red-700 text-white px-4 py-1.5 shadow-lg rounded-md">
-                                      <span className="text-xs md:text-sm font-bold whitespace-nowrap">{promotionalBanner.title}</span>
-                                    </div>
-                                  </div>
-                                )}
-                                
+
+
+
                                 <Link href={`/subscribe/${product.code}`} className="block cursor-pointer">
                                   <div className={`relative h-32 md:h-64 w-full overflow-hidden ${product.code === 'SUB-PACKAGE-LEGENDARY' ? 'bg-gradient-to-br from-slate-700 to-slate-800' : `bg-gradient-to-br ${product.gradient}`} p-3 md:p-8`}>
                                     <div className="h-full flex flex-col justify-between">
@@ -1148,21 +1137,14 @@ export default function Home() {
                         <div className="grid grid-cols-3 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-8 lg:gap-10 max-w-6xl">
                           {category.slice(0, 4).map((product: any) => {
                             const Icon = product.icon || Sparkles;
-                            
+
                             // Regular product cards
                             return (
                               <Card key={product.id} className="group relative overflow-hidden bg-gradient-to-br from-slate-800/90 to-slate-900/90 border border-slate-700/50 hover:border-slate-600 transition-all duration-300 hover:shadow-2xl hover:shadow-blue-500/20 hover:-translate-y-1 h-full flex flex-col">
                                 <div className={`absolute inset-0 bg-gradient-to-br ${product.gradient} opacity-0 group-hover:opacity-10 transition-opacity duration-300 pointer-events-none`} />
-                                
-                                {/* Black Friday Badge */}
-                                {isBlackFridayActive && promotionalBanner && (
-                                  <div className="absolute top-2 left-0 z-20 transform -rotate-12 origin-left">
-                                    <div className="bg-gradient-to-r from-red-600 to-red-700 text-white px-3 py-1 shadow-lg rounded-md">
-                                      <span className="text-[10px] md:text-xs font-bold whitespace-nowrap">{promotionalBanner.title}</span>
-                                    </div>
-                                  </div>
-                                )}
-                                
+
+
+
                                 <Link href={`/subscribe/${product.code}`} className="block">
                                   <div className="relative h-24 md:h-40 w-full overflow-hidden bg-gradient-to-br from-slate-700 to-slate-800 cursor-pointer">
                                     {product.image ? (
@@ -1363,12 +1345,12 @@ export default function Home() {
               <h1 className="text-5xl md:text-7xl font-bold text-white mb-4" style={{ fontFamily: 'var(--font-arabic)' }}>
                 مَكَان
               </h1>
-              
+
               {/* Latin Text with Glitch Effect on TU */}
               <div className="relative inline-block mb-3">
                 <span className="text-2xl md:text-3xl font-bold text-white tracking-wider">
                   MAKAAN{' '}
-                  <span 
+                  <span
                     className="relative inline-block"
                     style={{
                       textShadow: `
@@ -1383,7 +1365,7 @@ export default function Home() {
                   </span>
                 </span>
               </div>
-              
+
               {/* Star Icon */}
               <div className="flex justify-center">
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="white" className="mt-2">
@@ -1391,12 +1373,12 @@ export default function Home() {
                 </svg>
               </div>
             </div>
-            
+
             {/* Title Text */}
             <h2 className="text-3xl md:text-5xl font-bold text-white mb-8" style={{ fontFamily: 'var(--font-arabic)' }}>
               ما معك اشتراك تتابع الفلم ؟
             </h2>
-            
+
             {/* CTA Button */}
             <div className="flex justify-center">
               <Link href="/subscribe">
@@ -1460,37 +1442,37 @@ export default function Home() {
               <div className="flex flex-col items-center justify-center p-2 md:p-4 bg-slate-800/50 rounded-xl hover:bg-slate-700/50 transition-all duration-300 hover:scale-110">
                 <img src="/logos/netflix.svg" alt="Netflix" className="h-8 md:h-12 w-auto mb-1 md:mb-2 opacity-90 hover:opacity-100 transition-opacity" />
               </div>
-              
+
               {/* Shahid */}
               <div className="flex flex-col items-center justify-center p-2 md:p-4 bg-slate-800/50 rounded-xl hover:bg-slate-700/50 transition-all duration-300 hover:scale-110">
                 <img src="/logos/shahid.svg" alt="Shahid" className="h-8 md:h-12 w-auto mb-1 md:mb-2 opacity-90 hover:opacity-100 transition-opacity" />
               </div>
-              
+
               {/* IPTV */}
               <div className="flex flex-col items-center justify-center p-2 md:p-4 bg-slate-800/50 rounded-xl hover:bg-slate-700/50 transition-all duration-300 hover:scale-110">
                 <img src="/logos/iptv.png" alt="IPTV" className="h-8 md:h-12 w-auto mb-1 md:mb-2 opacity-90 hover:opacity-100 transition-opacity" />
               </div>
-              
+
               {/* Amazon Prime */}
               <div className="flex flex-col items-center justify-center p-2 md:p-4 bg-slate-800/50 rounded-xl hover:bg-slate-700/50 transition-all duration-300 hover:scale-110">
                 <img src="/logos/amazon-prime.svg" alt="Amazon Prime" className="h-8 md:h-12 w-auto mb-1 md:mb-2 opacity-90 hover:opacity-100 transition-opacity" />
               </div>
-              
+
               {/* Disney+ */}
               <div className="flex flex-col items-center justify-center p-2 md:p-4 bg-slate-800/50 rounded-xl hover:bg-slate-700/50 transition-all duration-300 hover:scale-110">
                 <img src="/logos/disney-plus.svg" alt="Disney+" className="h-8 md:h-12 w-auto mb-1 md:mb-2 opacity-90 hover:opacity-100 transition-opacity" />
               </div>
-              
+
               {/* HBO Max */}
               <div className="flex flex-col items-center justify-center p-2 md:p-4 bg-slate-800/50 rounded-xl hover:bg-slate-700/50 transition-all duration-300 hover:scale-110">
                 <img src="/logos/hbo-max.svg" alt="HBO Max" className="h-8 md:h-12 w-auto mb-1 md:mb-2 opacity-90 hover:opacity-100 transition-opacity" />
               </div>
-              
+
               {/* Hulu */}
               <div className="flex flex-col items-center justify-center p-2 md:p-4 bg-slate-800/50 rounded-xl hover:bg-slate-700/50 transition-all duration-300 hover:scale-110">
                 <img src="/logos/hulu.svg" alt="Hulu" className="h-8 md:h-12 w-auto mb-1 md:mb-2 opacity-90 hover:opacity-100 transition-opacity" />
               </div>
-              
+
               {/* Apple TV+ */}
               <div className="flex flex-col items-center justify-center p-2 md:p-4 bg-slate-800/50 rounded-xl hover:bg-slate-700/50 transition-all duration-300 hover:scale-110">
                 <img src="/logos/apple-tv.svg" alt="Apple TV+" className="h-8 md:h-12 w-auto mb-1 md:mb-2 opacity-90 hover:opacity-100 transition-opacity" />
@@ -1587,7 +1569,7 @@ export default function Home() {
           <div className="absolute top-0 left-0 w-96 h-96 bg-blue-500 rounded-full blur-3xl"></div>
           <div className="absolute bottom-0 right-0 w-96 h-96 bg-purple-500 rounded-full blur-3xl"></div>
         </div>
-        
+
         <div className="container mx-auto px-4 relative z-10">
           <div className="max-w-5xl mx-auto">
             <div className="text-center mb-16">
@@ -1596,7 +1578,7 @@ export default function Home() {
               </h2>
               <div className="w-24 h-1 bg-gradient-to-r from-blue-500 to-purple-500 mx-auto rounded-full"></div>
             </div>
-            
+
             {/* Benefits Grid */}
             <div className="grid grid-cols-3 gap-2 md:gap-6 mb-12">
               <div className="group relative bg-gradient-to-br from-blue-600/20 to-blue-800/20 border border-blue-500/30 rounded-2xl p-4 md:p-8 hover:border-blue-400/50 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-blue-500/20">
@@ -1610,7 +1592,7 @@ export default function Home() {
                   </p>
                 </div>
               </div>
-              
+
               <div className="group relative bg-gradient-to-br from-purple-600/20 to-purple-800/20 border border-purple-500/30 rounded-2xl p-4 md:p-8 hover:border-purple-400/50 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-purple-500/20">
                 <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-transparent rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
                 <div className="relative z-10">
@@ -1622,7 +1604,7 @@ export default function Home() {
                   </p>
                 </div>
               </div>
-              
+
               <div className="group relative bg-gradient-to-br from-pink-600/20 to-pink-800/20 border border-pink-500/30 rounded-2xl p-4 md:p-8 hover:border-pink-400/50 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-pink-500/20">
                 <div className="absolute inset-0 bg-gradient-to-br from-pink-500/10 to-transparent rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
                 <div className="relative z-10">
@@ -1635,7 +1617,7 @@ export default function Home() {
                 </div>
               </div>
             </div>
-            
+
             {/* App Features Section */}
             <div className="grid grid-cols-2 gap-2 md:gap-6 mb-12">
               <div className="group relative bg-gradient-to-br from-cyan-600/20 to-teal-600/20 border border-cyan-500/30 rounded-2xl p-4 md:p-8 hover:border-cyan-400/50 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-cyan-500/20">
@@ -1649,7 +1631,7 @@ export default function Home() {
                   </p>
                 </div>
               </div>
-              
+
               <div className="group relative bg-gradient-to-br from-orange-600/20 to-amber-600/20 border border-orange-500/30 rounded-2xl p-4 md:p-8 hover:border-orange-400/50 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-orange-500/20">
                 <div className="absolute inset-0 bg-gradient-to-br from-orange-500/10 to-transparent rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
                 <div className="relative z-10">
@@ -1662,7 +1644,7 @@ export default function Home() {
                 </div>
               </div>
             </div>
-            
+
             {/* CTA Buttons */}
             <div className="flex flex-col sm:flex-row gap-6 justify-center items-center">
               <Link href="/subscribe">
@@ -1674,7 +1656,7 @@ export default function Home() {
                   اطلب الان
                 </Button>
               </Link>
-              
+
               <Link href="/trial">
                 <Button
                   size="lg"
@@ -1693,7 +1675,7 @@ export default function Home() {
       {/* Customer Reviews Carousel Section */}
       <section className="py-20 bg-black relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-b from-slate-900/50 to-black"></div>
-        
+
         <div className="container mx-auto px-4 relative z-10">
           <div className="max-w-7xl mx-auto">
             <div className="text-center mb-12">
@@ -1704,7 +1686,7 @@ export default function Home() {
                 شاهد ما يقوله عملاؤنا عن خدماتنا
               </p>
             </div>
-            
+
             {reviewsLoading ? (
               <div className="text-center py-12">
                 <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
@@ -1733,11 +1715,10 @@ export default function Home() {
                           {[1, 2, 3, 4, 5].map((star) => (
                             <Star
                               key={star}
-                              className={`w-5 h-5 ${
-                                star <= review.rating
+                              className={`w-5 h-5 ${star <= review.rating
                                   ? 'fill-yellow-400 text-yellow-400'
                                   : 'text-slate-600'
-                              }`}
+                                }`}
                             />
                           ))}
                         </div>
@@ -1779,7 +1760,7 @@ export default function Home() {
                     </CarouselItem>
                   ))}
                 </CarouselContent>
-                
+
                 {/* Navigation Buttons */}
                 <CarouselPrevious className="left-2 md:-left-12 bg-slate-800/90 hover:bg-slate-700 border-slate-700 text-white hover:text-blue-400 transition-all duration-200 shadow-xl z-10 hidden sm:flex" />
                 <CarouselNext className="right-2 md:-right-12 bg-slate-800/90 hover:bg-slate-700 border-slate-700 text-white hover:text-blue-400 transition-all duration-200 shadow-xl z-10 hidden sm:flex" />

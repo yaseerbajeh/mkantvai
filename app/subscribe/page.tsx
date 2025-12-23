@@ -54,7 +54,7 @@ export default function SubscribePage() {
     is_enabled?: boolean;
   } | null>(null);
   const [countdown, setCountdown] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
-  
+
   // Check user authentication
   useEffect(() => {
     const checkAuth = async () => {
@@ -82,7 +82,7 @@ export default function SubscribePage() {
           },
         });
         const result = await response.json();
-        
+
         if (!response.ok) {
           throw new Error(result.error || 'فشل في جلب المنتجات');
         }
@@ -103,10 +103,10 @@ export default function SubscribePage() {
           Object.keys(result.productsByCategory).forEach((categoryId) => {
             const categoryProducts = result.productsByCategory[categoryId];
             const categoryTitle = titlesToUse[categoryId] || categoryProducts[0]?.categories?.name || categoryProducts[0]?.section_title || 'غير محدد';
-            
+
             // Check if this is the أروما category
             const isAromaCategory = categoryTitle === 'أروما' || categoryTitle.includes('أروما');
-            
+
             const mappedProducts = categoryProducts.map((product: any) => ({
               ...product,
               code: product.product_code,
@@ -116,7 +116,7 @@ export default function SubscribePage() {
               available_stock: product.available_stock || 0,
               purchase_count: product.purchase_count || 0,
             }));
-            
+
             if (isAromaCategory) {
               // Group aroma products by package type
               mappedProducts.forEach((product: any) => {
@@ -128,7 +128,7 @@ export default function SubscribePage() {
                 } else if (product.name.includes('باقة فاخرة') || product.product_code.includes('LUXURY')) {
                   packageType = 'premium';
                 }
-                
+
                 if (packageType) {
                   if (!aromaGrouped[packageType]) {
                     aromaGrouped[packageType] = [];
@@ -147,7 +147,7 @@ export default function SubscribePage() {
           result.products.forEach((product: any) => {
             const categoryId = product.category_id || `section-${product.section}`;
             const categoryName = product.categories?.name || product.section_title || `القسم ${product.section}`;
-            
+
             if (!grouped[categoryId]) {
               grouped[categoryId] = [];
               titles[categoryId] = categoryName;
@@ -201,7 +201,7 @@ export default function SubscribePage() {
     window.addEventListener('focus', handleFocus);
     return () => window.removeEventListener('focus', handleFocus);
   }, [fetchBanner]);
-  
+
   // Countdown timer for promotion
   useEffect(() => {
     if (!promotionalBanner || !promotionalBanner.expiration_date) {
@@ -209,18 +209,18 @@ export default function SubscribePage() {
       setCountdown({ days: 0, hours: 0, minutes: 0, seconds: 0 });
       return;
     }
-    
+
     const targetDate = new Date(promotionalBanner.expiration_date).getTime();
-    
+
     const updateCountdown = () => {
       const now = new Date().getTime();
       const distance = targetDate - now;
-      
+
       if (distance < 0) {
         setCountdown({ days: 0, hours: 0, minutes: 0, seconds: 0 });
         return;
       }
-      
+
       setCountdown({
         days: Math.floor(distance / (1000 * 60 * 60 * 24)),
         hours: Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
@@ -228,10 +228,10 @@ export default function SubscribePage() {
         seconds: Math.floor((distance % (1000 * 60)) / 1000),
       });
     };
-    
+
     updateCountdown();
     const interval = setInterval(updateCountdown, 1000);
-    
+
     return () => clearInterval(interval);
   }, [promotionalBanner]);
 
@@ -322,7 +322,7 @@ export default function SubscribePage() {
                       } else if (titleLower.includes('netflix')) {
                         return '/logos/netflix.svg';
                       } else if (titleLower.includes('شاه') || titleLower.includes('shahid')) {
-                        return 'https://c.top4top.io/p_35923vyyf1.jpeg';
+                        return '/logos/shahid.svg';
                       } else if (titleLower.includes('أروما') || titleLower.includes('iptv') || titleLower.includes('اروما')) {
                         return '/logos/iptv.png';
                       }
@@ -354,10 +354,10 @@ export default function SubscribePage() {
                               />
                             </div>
                           )}
-                          
+
                           {/* Gradient Overlay */}
                           <div className={`absolute inset-0 bg-gradient-to-br ${firstProduct.gradient} opacity-0 group-hover:opacity-20 transition-opacity duration-300 pointer-events-none z-0`} />
-                          
+
                           {/* Category Icon/Logo */}
                           <div className="flex items-center justify-center mb-4 h-16">
                             {categoryIcon ? (
@@ -445,26 +445,26 @@ export default function SubscribePage() {
                 {/* Aroma Categories - Arena Challenge Design */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-6 items-end justify-center">
                   {[
-                    { 
-                      key: 'basic', 
-                      title: 'باقة أساسية', 
+                    {
+                      key: 'basic',
+                      title: 'باقة أساسية',
                       tier: 'الباقة الأولى: مسلسلات وأفلام ',
                       cardClass: 'starter-card',
                       playerClass: 'starter-player',
                       features: ['خاصية التحميل والتشغيل بدون انترنت ', 'جودة فوركي', "18,000 فلم ومسلسلات"]
                     },
-                    { 
-                      key: 'premium', 
-                      title: 'باقة فاخرة', 
+                    {
+                      key: 'premium',
+                      title: 'باقة فاخرة',
                       tier: 'الباقة الثالثة: المجد الكامل',
                       cardClass: 'special-card',
                       playerClass: 'special-player',
                       isPopular: true,
                       features: ["جميع الدوريات المحلية والأوروبية", 'جودة 4K/UHD', "جميع قنوات ثمانية و beIN", 'جميع مميزات الباقة الأساسية والمميزة ']
                     },
-                    { 
-                      key: 'luxury', 
-                      title: 'باقة مميزة', 
+                    {
+                      key: 'luxury',
+                      title: 'باقة مميزة',
                       tier: 'الباقة الثانية: مناسبة لدوري روشن ',
                       cardClass: 'premium-card',
                       playerClass: 'premium-player',
@@ -488,9 +488,8 @@ export default function SubscribePage() {
                     return (
                       <div
                         key={categoryConfig.key}
-                        className={`plan-card flex flex-col ${categoryConfig.cardClass} ${
-                          categoryConfig.isPopular ? 'popular' : ''
-                        }`}
+                        className={`plan-card flex flex-col ${categoryConfig.cardClass} ${categoryConfig.isPopular ? 'popular' : ''
+                          }`}
                       >
                         {/* Main Event Badge */}
                         {categoryConfig.isPopular && (
@@ -501,9 +500,8 @@ export default function SubscribePage() {
 
                         {/* Player Visual Container */}
                         <div
-                          className={`player-visual-container ${categoryConfig.playerClass} ${
-                            categoryConfig.isPopular ? 'h-64' : 'h-56'
-                          }`}
+                          className={`player-visual-container ${categoryConfig.playerClass} ${categoryConfig.isPopular ? 'h-64' : 'h-56'
+                            }`}
                           style={categoryConfig.isPopular ? {
                             position: 'relative',
                             overflow: 'hidden',
@@ -516,7 +514,7 @@ export default function SubscribePage() {
                                 src="/logos/starterpack.png"
                                 alt={categoryConfig.title}
                                 className="absolute inset-0 w-full h-full object-cover"
-                                style={{ 
+                                style={{
                                   objectPosition: 'center center'
                                 }}
                               />
@@ -525,7 +523,7 @@ export default function SubscribePage() {
                                 src="/logos/premiumpack.png"
                                 alt={categoryConfig.title}
                                 className="absolute inset-0 w-full h-full object-cover"
-                                style={{ 
+                                style={{
                                   objectPosition: 'center center'
                                 }}
                               />
@@ -534,7 +532,7 @@ export default function SubscribePage() {
                                 src="/logos/specialpack.png"
                                 alt={categoryConfig.title}
                                 className="absolute inset-0 w-full h-full object-cover"
-                                style={{ 
+                                style={{
                                   objectPosition: 'center center'
                                 }}
                               />
@@ -570,7 +568,7 @@ export default function SubscribePage() {
                               const finalPrice = product.discounted_price && product.discounted_price < product.price
                                 ? product.discounted_price
                                 : product.price;
-                              
+
                               // Highlight the 12-month option
                               const isHighlight = product.duration.includes('12');
                               const isPopularHighlight = categoryConfig.isPopular && isHighlight;
@@ -578,11 +576,10 @@ export default function SubscribePage() {
                               return (
                                 <div
                                   key={product.id}
-                                  className={`flex justify-between items-center p-3 rounded-lg ${
-                                    isPopularHighlight
-                                      ? 'bg-[#0d59f2]/20 border border-[#0d59f2]'
-                                      : 'bg-black/20 border border-white/10'
-                                  }`}
+                                  className={`flex justify-between items-center p-3 rounded-lg ${isPopularHighlight
+                                    ? 'bg-[#0d59f2]/20 border border-[#0d59f2]'
+                                    : 'bg-black/20 border border-white/10'
+                                    }`}
                                 >
                                   <div>
                                     <p className="font-bold text-white">{product.duration}</p>
@@ -611,13 +608,12 @@ export default function SubscribePage() {
                                       }
                                     }}
                                     disabled={product.available_stock === 0}
-                                    className={`${
-                                      isHighlight
-                                        ? categoryConfig.isPopular
-                                          ? 'popular-button bg-[#0d59f2] hover:bg-[#0d59f2]/90'
-                                          : 'bg-[#0d59f2] hover:bg-[#0d59f2]/90'
-                                        : 'bg-[#0d59f2]/50 hover:bg-[#0d59f2]/70'
-                                    } text-white font-bold text-sm px-4 py-2 ${product.available_stock === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                    className={`${isHighlight
+                                      ? categoryConfig.isPopular
+                                        ? 'popular-button bg-[#0d59f2] hover:bg-[#0d59f2]/90'
+                                        : 'bg-[#0d59f2] hover:bg-[#0d59f2]/90'
+                                      : 'bg-[#0d59f2]/50 hover:bg-[#0d59f2]/70'
+                                      } text-white font-bold text-sm px-4 py-2 ${product.available_stock === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
                                   >
                                     {product.available_stock === 0 ? 'نفد' : 'اشتري الآن'}
                                   </Button>
@@ -647,12 +643,12 @@ export default function SubscribePage() {
               const sectionGradient = sectionGradients[sectionIndex];
               // Check if this category contains package products
               const isPackageSection = category.some((p: any) => p.isPackage || p.is_package);
-              
+
               if (!category || category.length === 0) return null;
-              
+
               const isBlackFridayActive =
                 promotionalBanner?.banner_type === 'blackfriday' && promotionalBanner?.is_enabled !== false;
-              
+
               return (
                 <div key={categoryId} id={`category-${categoryId}`} className="mb-20 scroll-mt-20">
                   {/* Category Header */}
@@ -679,30 +675,24 @@ export default function SubscribePage() {
                   <div className={isPackageSection ? "grid grid-cols-2 md:grid-cols-2 gap-3 md:gap-8" : "grid grid-cols-2 md:grid-cols-3 gap-2 md:gap-6"}>
                     {category.map((product: any) => {
                       const Icon = product.icon || Sparkles;
-                    
-                    // Package section - long detailed cards
-                    if (isPackageSection && product.isPackage) {
-                      return (
-                        <Card key={product.id} className="group relative overflow-hidden bg-gradient-to-br from-slate-800/90 to-slate-900/90 border-2 border-slate-700/50 hover:border-slate-500 transition-all duration-300 hover:shadow-2xl hover:shadow-amber-500/20 hover:-translate-y-2 h-full flex flex-col">
+
+                      // Package section - long detailed cards
+                      if (isPackageSection && product.isPackage) {
+                        return (
+                          <Card key={product.id} className="group relative overflow-hidden bg-gradient-to-br from-slate-800/90 to-slate-900/90 border-2 border-slate-700/50 hover:border-slate-500 transition-all duration-300 hover:shadow-2xl hover:shadow-amber-500/20 hover:-translate-y-2 h-full flex flex-col">
                             {/* Gradient overlay */}
                             <div className={`absolute inset-0 bg-gradient-to-br ${product.gradient} opacity-0 group-hover:opacity-15 transition-opacity duration-300 pointer-events-none`} />
-                            
+
                             {/* Black Friday Badge */}
-                            {isBlackFridayActive && promotionalBanner && (
-                              <div className="absolute top-2 left-0 z-20 transform -rotate-12 origin-left">
-                                <div className="bg-gradient-to-r from-red-600 to-red-700 text-white px-4 py-1.5 shadow-lg rounded-md">
-                                  <span className="text-xs md:text-sm font-bold whitespace-nowrap">{promotionalBanner.title}</span>
-                                </div>
-                              </div>
-                            )}
-                            
+
+
                             {/* Promo Banner */}
                             {product.promo_banner_text && (
                               <div className="absolute top-2 right-2 z-20 bg-gradient-to-r from-red-500 to-orange-500 text-white text-xs md:text-sm font-bold px-3 md:px-4 py-1 md:py-2 rounded-lg shadow-lg">
                                 {product.promo_banner_text}
                               </div>
                             )}
-                            
+
                             {/* Package Header with Logos - Clickable Link */}
                             <Link href={`/subscribe/${product.code}`} className="block cursor-pointer">
                               <div className={`relative h-48 md:h-64 w-full overflow-hidden ${product.code === 'SUB-PACKAGE-LEGENDARY' ? 'bg-gradient-to-br from-slate-700 to-slate-800' : `bg-gradient-to-br ${product.gradient}`} p-6 md:p-8`}>
@@ -796,7 +786,7 @@ export default function SubscribePage() {
 
                               {/* CTA Buttons */}
                               <div className="space-y-2 relative z-10">
-                                <Button 
+                                <Button
                                   disabled={product.available_stock === 0}
                                   onClick={(e) => {
                                     e.preventDefault();
@@ -809,19 +799,19 @@ export default function SubscribePage() {
                                   {product.available_stock > 0 && <ArrowRight className="mr-2 h-5 w-5 md:h-6 md:w-6 group-hover:translate-x-1 transition-transform" />}
                                 </Button>
                                 <Button
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation(); // Prevent navigation to product page
-                                  if (product.available_stock > 0) {
-                                    addItem({
-                                      product_code: product.code,
-                                      product_name: product.name,
-                                      price: product.discounted_price && product.discounted_price < product.price ? product.discounted_price : product.price,
-                                      quantity: 1,
-                                      image: product.image,
-                                    });
-                                  }
-                                }}
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation(); // Prevent navigation to product page
+                                    if (product.available_stock > 0) {
+                                      addItem({
+                                        product_code: product.code,
+                                        product_name: product.name,
+                                        price: product.discounted_price && product.discounted_price < product.price ? product.discounted_price : product.price,
+                                        quantity: 1,
+                                        image: product.image,
+                                      });
+                                    }
+                                  }}
                                   disabled={product.available_stock === 0}
                                   className={`w-full bg-red-600 hover:bg-red-700 text-white py-3 md:py-4 text-sm md:text-base relative z-20 ${product.available_stock === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
                                 >
@@ -831,15 +821,15 @@ export default function SubscribePage() {
                               </div>
                             </CardContent>
                           </Card>
-                      );
-                    }
-                    
-                    // Regular product cards (sections 1-3)
-                    return (
-                      <Card key={product.id} className="group relative overflow-hidden bg-gradient-to-br from-slate-800/90 to-slate-900/90 border border-slate-700/50 hover:border-slate-600 transition-all duration-300 hover:shadow-2xl hover:shadow-blue-500/20 hover:-translate-y-1 h-full flex flex-col">
+                        );
+                      }
+
+                      // Regular product cards (sections 1-3)
+                      return (
+                        <Card key={product.id} className="group relative overflow-hidden bg-gradient-to-br from-slate-800/90 to-slate-900/90 border border-slate-700/50 hover:border-slate-600 transition-all duration-300 hover:shadow-2xl hover:shadow-blue-500/20 hover:-translate-y-1 h-full flex flex-col">
                           {/* Gradient overlay */}
                           <div className={`absolute inset-0 bg-gradient-to-br ${product.gradient} opacity-0 group-hover:opacity-10 transition-opacity duration-300 pointer-events-none`} />
-                          
+
                           {/* Black Friday Badge */}
                           {isBlackFridayActive && promotionalBanner && (
                             <div className="absolute top-2 left-0 z-20 transform -rotate-12 origin-left">
@@ -848,68 +838,68 @@ export default function SubscribePage() {
                               </div>
                             </div>
                           )}
-                          
+
                           {/* Product Image - Clickable Link */}
                           <Link href={`/subscribe/${product.code}`} className="block">
                             <div className="relative h-32 md:h-48 w-full overflow-hidden bg-gradient-to-br from-slate-700 to-slate-800 cursor-pointer">
-                            {/* Section 1: Two images side by side */}
-                            {'image2' in product && product.image2 ? (
-                              <div className="h-full w-full flex relative">
-                                {/* Left image */}
-                                <div className="relative w-1/2 h-full overflow-hidden">
-                                  <Image
-                                    src={product.image}
-                                    alt={`${product.name} - Image 1`}
-                                    fill
-                                    className="object-cover group-hover:scale-110 transition-transform duration-500 md:scale-90"
-                                    sizes="(max-width: 768px) 16vw, 15vw"
-                                  />
+                              {/* Section 1: Two images side by side */}
+                              {'image2' in product && product.image2 ? (
+                                <div className="h-full w-full flex relative">
+                                  {/* Left image */}
+                                  <div className="relative w-1/2 h-full overflow-hidden">
+                                    <Image
+                                      src={product.image}
+                                      alt={`${product.name} - Image 1`}
+                                      fill
+                                      className="object-cover group-hover:scale-110 transition-transform duration-500 md:scale-90"
+                                      sizes="(max-width: 768px) 16vw, 15vw"
+                                    />
+                                  </div>
+                                  {/* Right image */}
+                                  <div className="relative w-1/2 h-full overflow-hidden">
+                                    <Image
+                                      src={product.image2}
+                                      alt={`${product.name} - Image 2`}
+                                      fill
+                                      className="object-cover group-hover:scale-110 transition-transform duration-500 md:scale-90"
+                                      sizes="(max-width: 768px) 16vw, 15vw"
+                                    />
+                                  </div>
+                                  {/* IPTV Logo overlay for Section 1 */}
+                                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                    <img
+                                      src="/logos/iptv.png"
+                                      alt="IPTV"
+                                      className="h-12 w-12 md:h-16 md:w-16 object-contain opacity-80"
+                                    />
+                                  </div>
                                 </div>
-                                {/* Right image */}
-                                <div className="relative w-1/2 h-full overflow-hidden">
-                                  <Image
-                                    src={product.image2}
-                                    alt={`${product.name} - Image 2`}
-                                    fill
-                                    className="object-cover group-hover:scale-110 transition-transform duration-500 md:scale-90"
-                                    sizes="(max-width: 768px) 16vw, 15vw"
-                                  />
-                                </div>
-                                {/* IPTV Logo overlay for Section 1 */}
-                                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                  <img
-                                    src="/logos/iptv.png"
-                                    alt="IPTV"
-                                    className="h-12 w-12 md:h-16 md:w-16 object-contain opacity-80"
-                                  />
-                                </div>
-                              </div>
-                            ) : 'image' in product && product.image ? (
-                              // Section 2 & 3: Single image or logo
-                              product.image.endsWith('.svg') ? (
-                                <div className="h-full w-full flex items-center justify-center bg-gradient-to-br from-slate-700 to-slate-800 p-4">
-                                  <img
-                                    src={product.image}
-                                    alt={product.name}
-                                    className="h-16 md:h-24 w-auto object-contain opacity-90 group-hover:opacity-100 transition-opacity"
-                                  />
-                                </div>
+                              ) : 'image' in product && product.image ? (
+                                // Section 2 & 3: Single image or logo
+                                product.image.endsWith('.svg') ? (
+                                  <div className="h-full w-full flex items-center justify-center bg-gradient-to-br from-slate-700 to-slate-800 p-4">
+                                    <img
+                                      src={product.image}
+                                      alt={product.name}
+                                      className="h-16 md:h-24 w-auto object-contain opacity-90 group-hover:opacity-100 transition-opacity"
+                                    />
+                                  </div>
+                                ) : (
+                                  <div className="relative h-full w-full">
+                                    <Image
+                                      src={product.image}
+                                      alt={product.name}
+                                      fill
+                                      className="object-cover group-hover:scale-110 transition-transform duration-500"
+                                      sizes="(max-width: 768px) 33vw, 30vw"
+                                    />
+                                  </div>
+                                )
                               ) : (
-                                <div className="relative h-full w-full">
-                                  <Image
-                                    src={product.image}
-                                    alt={product.name}
-                                    fill
-                                    className="object-cover group-hover:scale-110 transition-transform duration-500"
-                                    sizes="(max-width: 768px) 33vw, 30vw"
-                                  />
+                                <div className={`h-full w-full bg-gradient-to-br ${product.gradient} flex items-center justify-center`}>
+                                  <ImageIcon className="w-10 h-10 md:w-16 md:h-16 text-white/30" />
                                 </div>
-                              )
-                            ) : (
-                              <div className={`h-full w-full bg-gradient-to-br ${product.gradient} flex items-center justify-center`}>
-                                <ImageIcon className="w-10 h-10 md:w-16 md:h-16 text-white/30" />
-                              </div>
-                            )}
+                              )}
                             </div>
                           </Link>
 
@@ -986,7 +976,7 @@ export default function SubscribePage() {
 
                             {/* CTA Buttons */}
                             <div className="space-y-2 relative z-10">
-                              <Button 
+                              <Button
                                 disabled={product.available_stock === 0}
                                 onClick={(e) => {
                                   e.preventDefault();
@@ -1020,7 +1010,7 @@ export default function SubscribePage() {
                             </div>
                           </CardContent>
                         </Card>
-                    );
+                      );
                     })}
                   </div>
                 </div>
@@ -1030,10 +1020,10 @@ export default function SubscribePage() {
         </div>
       </main>
       <Footer />
-      
+
       {/* Auth Dialog */}
-      <AuthDialog 
-        open={authDialogOpen} 
+      <AuthDialog
+        open={authDialogOpen}
         onOpenChange={setAuthDialogOpen}
         onSuccess={() => router.refresh()}
       />
