@@ -749,11 +749,11 @@ export default function SubscribePage() {
 
 
                                                         {/* Promo Banner */}
-                                                        {product.promo_banner_text && (
+                                                        {/* {product.promo_banner_text && (
                                                             <div className="absolute top-2 right-2 z-20 bg-gradient-to-r from-red-500 to-orange-500 text-white text-xs md:text-sm font-bold px-3 md:px-4 py-1 md:py-2 rounded-lg shadow-lg">
                                                                 {product.promo_banner_text}
                                                             </div>
-                                                        )}
+                                                        )} */}
 
                                                         {/* Package Header with Logos - Clickable Link */}
                                                         <Link href={`/subscribe/${product.code}`} className="block cursor-pointer">
@@ -893,13 +893,13 @@ export default function SubscribePage() {
                                                     <div className={`absolute inset-0 bg-gradient-to-br ${product.gradient} opacity-0 group-hover:opacity-10 transition-opacity duration-300 pointer-events-none`} />
 
                                                     {/* Black Friday Badge */}
-                                                    {isBlackFridayActive && promotionalBanner && (
+                                                    {/* {isBlackFridayActive && promotionalBanner && (
                                                         <div className="absolute top-2 left-0 z-20 transform -rotate-12 origin-left">
                                                             <div className="bg-gradient-to-r from-red-600 to-red-700 text-white px-3 py-1 shadow-lg rounded-md">
                                                                 <span className="text-[10px] md:text-xs font-bold whitespace-nowrap">{promotionalBanner.title}</span>
                                                             </div>
                                                         </div>
-                                                    )}
+                                                    )} */}
 
                                                     {/* Product Image - Clickable Link */}
                                                     <Link href={`/subscribe/${product.code}`} className="block">
