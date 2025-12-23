@@ -333,7 +333,7 @@ export default function SubscribePage() {
 
                             {/* Categories Showcase */}
                             {!loading && Object.keys(productsByCategory).length > 0 && (
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mt-12">
+                                <div className="grid grid-cols-4 md:grid-cols-2 lg:grid-cols-4 gap-1 md:gap-6 mt-12">
                                     {/* Manual Aroma Box in Banner */}
                                     <div
                                         onClick={() => {
@@ -343,22 +343,22 @@ export default function SubscribePage() {
                                         className="group relative cursor-pointer"
                                     >
                                         <div
-                                            className="relative h-full bg-gradient-to-br from-slate-800/90 to-slate-900/90 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 hover:border-slate-500 transition-all duration-300 hover:shadow-2xl hover:shadow-blue-500/20 hover:-translate-y-2 overflow-hidden"
+                                            className="relative h-full bg-gradient-to-br from-slate-800/90 to-slate-900/90 backdrop-blur-sm border border-slate-700/50 rounded-xl md:rounded-2xl p-2 md:p-6 hover:border-slate-500 transition-all duration-300 hover:shadow-2xl hover:shadow-blue-500/20 md:hover:-translate-y-2 overflow-hidden"
                                         >
                                             <div className="absolute inset-0 bg-gradient-to-br from-blue-600/20 to-cyan-600/20 opacity-0 group-hover:opacity-20 transition-opacity duration-300 pointer-events-none z-0" />
-                                            <div className="flex items-center justify-center mb-4 h-16">
-                                                <div className="bg-white/10 backdrop-blur-sm rounded-lg p-2 border border-white/20 group-hover:scale-110 transition-transform">
-                                                    <img src="/logos/iptv3d.png" alt="Aroma logo" className="h-12 w-12 object-contain" />
+                                            <div className="flex items-center justify-center mb-1 md:mb-4 h-8 md:h-16">
+                                                <div className="bg-white/10 backdrop-blur-sm rounded-lg p-1 md:p-2 border border-white/20 group-hover:scale-110 transition-transform">
+                                                    <img src="/logos/iptv3d.png" alt="Aroma logo" className="h-6 w-6 md:h-12 md:w-12 object-contain" />
                                                 </div>
                                             </div>
                                             <div className="relative z-10 text-center">
-                                                <h3 className="text-xl font-bold text-white mb-2 group-hover:text-blue-300 transition-colors">
+                                                <h3 className="text-[10px] md:text-xl font-bold text-white mb-0 md:mb-2 group-hover:text-blue-300 transition-colors truncate">
                                                     باقات أروما
                                                 </h3>
-                                                <p className="text-sm text-slate-400 mb-4">
+                                                <p className="hidden md:block text-sm text-slate-400 mb-4">
                                                     حصري ومميز
                                                 </p>
-                                                <div className="flex items-center justify-center gap-2 text-blue-400">
+                                                <div className="hidden md:flex items-center justify-center gap-2 text-blue-400">
                                                     <span className="text-sm font-semibold">استكشف الباقات</span>
                                                     <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
                                                 </div>
@@ -366,7 +366,7 @@ export default function SubscribePage() {
                                         </div>
                                     </div>
 
-                                    {Object.keys(productsByCategory).slice(0, 4).map((categoryId, idx) => {
+                                    {Object.keys(productsByCategory).slice(0, 3).map((categoryId, idx) => {
                                         const category = productsByCategory[categoryId];
                                         const categoryTitle = categoryTitles[categoryId] || 'غير محدد';
                                         const firstProduct = category[0];
@@ -403,7 +403,7 @@ export default function SubscribePage() {
                                                 className="group relative cursor-pointer"
                                             >
                                                 <div
-                                                    className="relative h-full bg-gradient-to-br from-slate-800/90 to-slate-900/90 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 hover:border-slate-500 transition-all duration-300 hover:shadow-2xl hover:shadow-blue-500/20 hover:-translate-y-2 overflow-hidden"
+                                                    className="relative h-full bg-gradient-to-br from-slate-800/90 to-slate-900/90 backdrop-blur-sm border border-slate-700/50 rounded-xl md:rounded-2xl p-2 md:p-6 hover:border-slate-500 transition-all duration-300 hover:shadow-2xl hover:shadow-blue-500/20 md:hover:-translate-y-2 overflow-hidden"
                                                     style={{ animationDelay: `${delay}ms` }}
                                                 >
                                                     {/* Netflix Icon Overlay for Netflix category - Always visible, behind gradient */}
@@ -412,7 +412,7 @@ export default function SubscribePage() {
                                                             <img
                                                                 src="/logos/netflix.svg"
                                                                 alt="Netflix"
-                                                                className="h-32 w-32 md:h-40 md:w-40 object-contain"
+                                                                className="h-10 w-10 md:h-40 md:w-40 object-contain"
                                                             />
                                                         </div>
                                                     )}
@@ -421,43 +421,43 @@ export default function SubscribePage() {
                                                     <div className={`absolute inset-0 bg-gradient-to-br ${firstProduct.gradient} opacity-0 group-hover:opacity-20 transition-opacity duration-300 pointer-events-none z-0`} />
 
                                                     {/* Category Icon/Logo */}
-                                                    <div className="flex items-center justify-center mb-4 h-16">
+                                                    <div className="flex items-center justify-center mb-1 md:mb-4 h-8 md:h-16">
                                                         {categoryIcon ? (
-                                                            <div className="bg-white/10 backdrop-blur-sm rounded-lg p-2 border border-white/20 group-hover:scale-110 transition-transform">
+                                                            <div className="bg-white/10 backdrop-blur-sm rounded-lg p-1 md:p-2 border border-white/20 group-hover:scale-110 transition-transform">
                                                                 <img
                                                                     src={categoryIcon}
                                                                     alt={`${categoryTitle} logo`}
-                                                                    className="h-12 w-12 object-contain"
+                                                                    className="h-6 w-6 md:h-12 md:w-12 object-contain"
                                                                 />
                                                             </div>
                                                         ) : firstProduct.logos && firstProduct.logos.length > 0 ? (
-                                                            <div className="flex items-center gap-2">
+                                                            <div className="flex items-center gap-1 md:gap-2">
                                                                 {firstProduct.logos.slice(0, 2).map((logo: string, logoIdx: number) => (
-                                                                    <div key={logoIdx} className="bg-white/10 backdrop-blur-sm rounded-lg p-2 border border-white/20 group-hover:scale-110 transition-transform">
+                                                                    <div key={logoIdx} className="bg-white/10 backdrop-blur-sm rounded-lg p-1 md:p-2 border border-white/20 group-hover:scale-110 transition-transform">
                                                                         <img
                                                                             src={logo}
                                                                             alt={`${categoryTitle} logo`}
-                                                                            className="h-8 w-8 object-contain"
+                                                                            className="h-4 w-4 md:h-8 md:w-8 object-contain"
                                                                         />
                                                                     </div>
                                                                 ))}
                                                             </div>
                                                         ) : (
-                                                            <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 border border-white/20 group-hover:scale-110 transition-transform">
-                                                                <Package className="h-10 w-10 text-white" />
+                                                            <div className="bg-white/10 backdrop-blur-sm rounded-lg p-2 md:p-4 border border-white/20 group-hover:scale-110 transition-transform">
+                                                                <Package className="h-4 w-4 md:h-10 md:w-10 text-white" />
                                                             </div>
                                                         )}
                                                     </div>
 
                                                     {/* Category Info */}
                                                     <div className="relative z-10 text-center">
-                                                        <h3 className="text-xl font-bold text-white mb-2 group-hover:text-blue-300 transition-colors">
+                                                        <h3 className="text-[10px] md:text-xl font-bold text-white mb-0 md:mb-2 group-hover:text-blue-300 transition-colors truncate">
                                                             {categoryTitle}
                                                         </h3>
-                                                        <p className="text-sm text-slate-400 mb-4">
+                                                        <p className="hidden md:block text-sm text-slate-400 mb-4">
                                                             {productCount} {productCount === 1 ? 'منتج' : 'منتجات'} متاحة
                                                         </p>
-                                                        <div className="flex items-center justify-center gap-2 text-blue-400">
+                                                        <div className="hidden md:flex items-center justify-center gap-2 text-blue-400">
                                                             <span className="text-sm font-semibold">استكشف الفئة</span>
                                                             <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
                                                         </div>
@@ -970,9 +970,9 @@ export default function SubscribePage() {
                                                             <CardTitle className="text-sm md:text-xl text-white mb-1 md:mb-2 group-hover:text-blue-300 transition-colors">
                                                                 {product.name}
                                                             </CardTitle>
-                                                            <CardDescription className="text-slate-400 text-xs md:text-sm min-h-[32px] md:min-h-[40px]">
+                                                            {/* <CardDescription className="text-slate-400 text-xs md:text-sm min-h-[32px] md:min-h-[40px]">
                                                                 {product.description}
-                                                            </CardDescription>
+                                                            </CardDescription> */}
                                                         </Link>
                                                     </CardHeader>
 
