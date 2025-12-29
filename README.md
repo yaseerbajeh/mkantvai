@@ -1,2 +1,2 @@
 ﻿# mkantvai
-ai platform for mkantv
+E-commerce platform with CRM Panel for Admin
