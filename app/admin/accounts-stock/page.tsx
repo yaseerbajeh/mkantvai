@@ -237,6 +237,12 @@ export default function AccountsStockPage() {
 
     if (!user) return null;
 
+    const sortedAccounts = [...filteredAccounts].sort((a, b) => {
+        if (!a.expiration_date) return 1;
+        if (!b.expiration_date) return -1;
+        return new Date(a.expiration_date).getTime() - new Date(b.expiration_date).getTime();
+    });
+
     return (
         <div className="min-h-screen bg-[#F8F9FA]">
             <Header />
@@ -289,103 +295,109 @@ export default function AccountsStockPage() {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {filteredAccounts.length === 0 ? (
+                                {sortedAccounts.length === 0 ? (
                                     <TableRow>
                                         <TableCell colSpan={6} className="text-center py-12 text-gray-500">
                                             لا توجد حسابات حالياً
                                         </TableCell>
                                     </TableRow>
                                 ) : (
-                                    filteredAccounts.map((account) => (
-                                        <TableRow key={account.id} className="hover:bg-gray-50 transition-colors">
-                                            <TableCell className="font-medium text-gray-900 dir-ltr text-left">
-                                                <div className="flex items-center gap-2">
-                                                    <span className="truncate max-w-[200px]" title={account.email}>{account.email}</span>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        className="h-6 w-6 p-0 hover:bg-gray-200"
-                                                        onClick={() => copyToClipboard(account.email)}
-                                                    >
-                                                        <Copy className="h-3 w-3 text-gray-400" />
-                                                    </Button>
-                                                </div>
-                                                {account.notes && (
-                                                    <p className="text-xs text-gray-500 mt-1 truncate max-w-[200px]">{account.notes}</p>
-                                                )}
-                                            </TableCell>
-                                            <TableCell className="dir-ltr text-left">
-                                                <div className="flex items-center gap-2">
-                                                    <span className="font-mono bg-gray-100 px-2 py-1 rounded text-sm min-w-[100px] block text-center">
-                                                        {visiblePasswords[account.id] ? account.password : '••••••••'}
-                                                    </span>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        className="h-8 w-8 p-0"
-                                                        onClick={() => togglePasswordVisibility(account.id)}
-                                                    >
-                                                        {visiblePasswords[account.id] ? <EyeOff className="h-4 w-4 text-gray-500" /> : <Eye className="h-4 w-4 text-gray-500" />}
-                                                    </Button>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        className="h-8 w-8 p-0"
-                                                        onClick={() => copyToClipboard(account.password || '')}
-                                                    >
-                                                        <Copy className="h-4 w-4 text-gray-500" />
-                                                    </Button>
-                                                </div>
-                                            </TableCell>
-                                            <TableCell>
-                                                {account.expiration_date ? (
-                                                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                                                        <CalendarIcon className="h-4 w-4 text-gray-400" />
-                                                        {format(new Date(account.expiration_date), 'yyyy-MM-dd')}
+                                    sortedAccounts.map((account) => {
+                                        const isExpiringSoon = account.expiration_date &&
+                                            Math.ceil((new Date(account.expiration_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) <= 3;
+
+                                        return (
+                                            <TableRow key={account.id} className="hover:bg-gray-50 transition-colors">
+                                                <TableCell className="font-medium text-gray-900 dir-ltr text-left">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="truncate max-w-[200px]" title={account.email}>{account.email}</span>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="h-6 w-6 p-0 hover:bg-gray-200"
+                                                            onClick={() => copyToClipboard(account.email)}
+                                                        >
+                                                            <Copy className="h-3 w-3 text-gray-400" />
+                                                        </Button>
                                                     </div>
-                                                ) : '-'}
-                                            </TableCell>
-                                            <TableCell>
-                                                {account.renew_until ? (
-                                                    <div className="flex items-center gap-2 text-sm text-green-600 bg-green-50 px-2 py-1 rounded-full w-fit">
-                                                        <ShieldAlert className="h-3 w-3" />
-                                                        {format(new Date(account.renew_until), 'yyyy-MM-dd')}
+                                                    {account.notes && (
+                                                        <p className="text-xs text-gray-500 mt-1 truncate max-w-[200px]">{account.notes}</p>
+                                                    )}
+                                                </TableCell>
+                                                <TableCell className="dir-ltr text-left">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="font-mono bg-gray-100 px-2 py-1 rounded text-sm min-w-[100px] block text-center">
+                                                            {visiblePasswords[account.id] ? account.password : '••••••••'}
+                                                        </span>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="h-8 w-8 p-0"
+                                                            onClick={() => togglePasswordVisibility(account.id)}
+                                                        >
+                                                            {visiblePasswords[account.id] ? <EyeOff className="h-4 w-4 text-gray-500" /> : <Eye className="h-4 w-4 text-gray-500" />}
+                                                        </Button>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="h-8 w-8 p-0"
+                                                            onClick={() => copyToClipboard(account.password || '')}
+                                                        >
+                                                            <Copy className="h-4 w-4 text-gray-500" />
+                                                        </Button>
                                                     </div>
-                                                ) : '-'}
-                                            </TableCell>
-                                            <TableCell>
-                                                {account.type ? (
-                                                    <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-                                                        {account.type}
-                                                    </Badge>
-                                                ) : '-'}
-                                            </TableCell>
-                                            <TableCell>
-                                                <div className="flex justify-center gap-2">
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        onClick={() => {
-                                                            setCurrentAccount(account);
-                                                            setIsEditing(true);
-                                                            setIsDialogOpen(true);
-                                                        }}
-                                                        className="hover:text-blue-600 hover:bg-blue-50"
-                                                    >
-                                                        <Edit className="h-4 w-4" />
-                                                    </Button>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        onClick={() => handleDelete(account.id)}
-                                                        className="hover:text-red-600 hover:bg-red-50"
-                                                    >
-                                                        <Trash2 className="h-4 w-4" />
-                                                    </Button>
-                                                </div>
-                                            </TableCell>
-                                        </TableRow>
-                                    ))
+                                                </TableCell>
+                                                <TableCell>
+                                                    {account.expiration_date ? (
+                                                        <div className={`flex items-center gap-2 text-sm px-2 py-1 rounded-md w-fit ${isExpiringSoon ? 'bg-yellow-100 text-yellow-800 border border-yellow-200' : 'text-gray-600'}`}>
+                                                            <CalendarIcon className={`h-4 w-4 ${isExpiringSoon ? 'text-yellow-600' : 'text-gray-400'}`} />
+                                                            {format(new Date(account.expiration_date), 'yyyy-MM-dd')}
+                                                            {isExpiringSoon && <span className="text-xs font-semibold mr-1">(ينتهي قريباً)</span>}
+                                                        </div>
+                                                    ) : '-'}
+                                                </TableCell>
+                                                <TableCell>
+                                                    {account.renew_until ? (
+                                                        <div className="flex items-center gap-2 text-sm text-green-600 bg-green-50 px-2 py-1 rounded-full w-fit">
+                                                            <ShieldAlert className="h-3 w-3" />
+                                                            {format(new Date(account.renew_until), 'yyyy-MM-dd')}
+                                                        </div>
+                                                    ) : '-'}
+                                                </TableCell>
+                                                <TableCell>
+                                                    {account.type ? (
+                                                        <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                                                            {account.type}
+                                                        </Badge>
+                                                    ) : '-'}
+                                                </TableCell>
+                                                <TableCell>
+                                                    <div className="flex justify-center gap-2">
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            onClick={() => {
+                                                                setCurrentAccount(account);
+                                                                setIsEditing(true);
+                                                                setIsDialogOpen(true);
+                                                            }}
+                                                            className="hover:text-blue-600 hover:bg-blue-50"
+                                                        >
+                                                            <Edit className="h-4 w-4" />
+                                                        </Button>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            onClick={() => handleDelete(account.id)}
+                                                            className="hover:text-red-600 hover:bg-red-50"
+                                                        >
+                                                            <Trash2 className="h-4 w-4" />
+                                                        </Button>
+                                                    </div>
+                                                </TableCell>
+                                            </TableRow>
+                                        );
+                                    })
                                 )}
                             </TableBody>
                         </Table>
