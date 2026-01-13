@@ -105,17 +105,18 @@ export default function AdminSubscriptionsPage() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingSubscription, setEditingSubscription] = useState<ActiveSubscription | null>(null);
 
-  // Manual entry form
+  // Manual entry form - simplified: name, phone, category, end date, optional subscription code
   const [manualForm, setManualForm] = useState({
     customer_name: '',
-    customer_email: '',
     customer_phone: '',
-    subscription_code: '',
-    subscription_type: '', // Now accepts any category name
-    subscription_duration: '1 شهر',
-    start_date: new Date(),
+    subscription_code: '', // Optional
+    subscription_type: '', // Category name
     expiration_date: new Date(),
-    product_code: '',
+    // These are computed/defaulted on submission:
+    customer_email: '', // Will be empty or auto-generated
+    subscription_duration: '', // Computed from expiration_date
+    start_date: new Date(), // Always today on submission
+    product_code: '', // Optional, not shown in form
   });
 
   // CSV import
@@ -622,18 +623,32 @@ export default function AdminSubscriptionsPage() {
 
   const handleManualEntry = async () => {
     try {
+      // Calculate duration based on expiration date from today
+      const today = new Date();
+      const expDate = new Date(manualForm.expiration_date);
+      const diffDays = Math.ceil((expDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      let duration = '1 شهر';
+      if (diffDays > 330) duration = '12 شهر';
+      else if (diffDays > 150) duration = '6 أشهر';
+      else if (diffDays > 60) duration = '3 أشهر';
+      else if (diffDays > 20) duration = '1 شهر';
+      else duration = `${diffDays} يوم`;
+
+      // Generate a subscription code if not provided
+      const subscriptionCode = manualForm.subscription_code || `SUB-${Date.now().toString(36).toUpperCase()}`;
+
       const { error } = await supabase
         .from('active_subscriptions')
         .insert({
           customer_name: manualForm.customer_name,
-          customer_email: manualForm.customer_email,
+          customer_email: manualForm.customer_phone ? `${manualForm.customer_phone}@manual.local` : 'manual@local',
           customer_phone: manualForm.customer_phone || null,
-          subscription_code: manualForm.subscription_code,
+          subscription_code: subscriptionCode,
           subscription_type: manualForm.subscription_type,
-          subscription_duration: manualForm.subscription_duration,
-          start_date: manualForm.start_date.toISOString(),
+          subscription_duration: duration,
+          start_date: today.toISOString(),
           expiration_date: manualForm.expiration_date.toISOString(),
-          product_code: manualForm.product_code || null,
+          product_code: null,
         });
 
       if (error) throw error;
@@ -646,13 +661,13 @@ export default function AdminSubscriptionsPage() {
       setManualEntryDialogOpen(false);
       setManualForm({
         customer_name: '',
-        customer_email: '',
         customer_phone: '',
         subscription_code: '',
         subscription_type: categories.length > 0 ? categories[0].name : '',
-        subscription_duration: '1 شهر',
-        start_date: new Date(),
         expiration_date: new Date(),
+        customer_email: '',
+        subscription_duration: '',
+        start_date: new Date(),
         product_code: '',
       });
       fetchSubscriptions();
@@ -1286,97 +1301,159 @@ export default function AdminSubscriptionsPage() {
             <p className="text-gray-600">إدارة وتتبع اشتراكات العملاء</p>
           </div>
 
-          {/* Statistics Cards */}
+          {/* Statistics Cards - Improved UI */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            <Card className="bg-white border-gray-200">
+            {/* Total Subscriptions */}
+            <Card className="border-0 shadow-md bg-gradient-to-br from-blue-50 to-white overflow-hidden">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-gray-600">إجمالي الاشتراكات</CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-sm font-medium text-blue-600">إجمالي الاشتراكات</CardTitle>
+                  <div className="h-8 w-8 rounded-lg bg-blue-100 flex items-center justify-center">
+                    <FileText className="h-4 w-4 text-blue-600" />
+                  </div>
+                </div>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-gray-900">{stats.total}</div>
+                <div className="text-3xl font-bold text-gray-900">{stats.total}</div>
               </CardContent>
             </Card>
-            <Card className="bg-white border-gray-200">
+
+            {/* Expiring Soon */}
+            <Card className="border-0 shadow-md bg-gradient-to-br from-orange-50 to-white overflow-hidden">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-gray-600">على وشك الانتهاء (4 أيام)</CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-sm font-medium text-orange-600">على وشك الانتهاء</CardTitle>
+                  <div className="h-8 w-8 rounded-lg bg-orange-100 flex items-center justify-center">
+                    <AlertTriangle className="h-4 w-4 text-orange-600" />
+                  </div>
+                </div>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-orange-400">{stats.expiringSoon}</div>
+                <div className="text-3xl font-bold text-orange-600">{stats.expiringSoon}</div>
+                <div className="text-xs text-gray-500 mt-1">خلال 4 أيام</div>
               </CardContent>
             </Card>
-            <Card className="bg-white border-gray-200">
+
+            {/* Expired */}
+            <Card className="border-0 shadow-md bg-gradient-to-br from-red-50 to-white overflow-hidden">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-gray-600">منتهية</CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-sm font-medium text-red-600">منتهية</CardTitle>
+                  <div className="h-8 w-8 rounded-lg bg-red-100 flex items-center justify-center">
+                    <X className="h-4 w-4 text-red-600" />
+                  </div>
+                </div>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-red-400">{stats.expired}</div>
+                <div className="text-3xl font-bold text-red-600">{stats.expired}</div>
               </CardContent>
             </Card>
-            <Card className="bg-white border-gray-200">
+
+            {/* Renewal Rate */}
+            <Card className="border-0 shadow-md bg-gradient-to-br from-green-50 to-white overflow-hidden">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-gray-600">معدل التجديد</CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-sm font-medium text-green-600">معدل التجديد</CardTitle>
+                  <div className="h-8 w-8 rounded-lg bg-green-100 flex items-center justify-center">
+                    <RefreshCw className="h-4 w-4 text-green-600" />
+                  </div>
+                </div>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-green-400">{stats.renewalRate}%</div>
+                <div className="text-3xl font-bold text-green-600">{stats.renewalRate}%</div>
                 <div className="text-xs text-gray-500 mt-1">{stats.renewed} من {stats.total}</div>
               </CardContent>
             </Card>
           </div>
 
-          {/* Expiring Soon Banner */}
+          {/* Expiring Soon Banner - Improved UI */}
           {expiringSoon.length > 0 && (
-            <Card className="bg-orange-500/10 border-orange-500/50 mb-6">
-              <CardHeader>
-                <CardTitle className="text-orange-400 flex items-center gap-2">
-                  <AlertTriangle className="h-5 w-5" />
-                  اشتراكات على وشك الانتهاء ({expiringSoon.length})
+            <Card className="mb-6 overflow-hidden border-0 shadow-lg">
+              {/* Gradient Header */}
+              <div className="bg-gradient-to-r from-orange-500 to-amber-500 px-6 py-4">
+                <CardTitle className="text-white flex items-center gap-3">
+                  <div className="bg-white/20 p-2 rounded-lg">
+                    <AlertTriangle className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <div className="text-lg font-bold">اشتراكات على وشك الانتهاء</div>
+                    <div className="text-sm text-white/80 font-normal">{expiringSoon.length} اشتراك يحتاج متابعة</div>
+                  </div>
                 </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3 max-h-64 overflow-y-auto">
+              </div>
+
+              <CardContent className="p-4 bg-gradient-to-b from-orange-50 to-white">
+                <div className="space-y-3 max-h-80 overflow-y-auto">
                   {expiringSoon.map((sub) => (
                     <div
                       key={sub.id}
-                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                      className="flex items-center justify-between p-4 bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow"
                     >
-                      <div className="flex-1">
-                        <div className="text-gray-900 font-medium">{sub.customer_name}</div>
-                        <div className="text-sm text-gray-600">{sub.customer_email}</div>
-                        <div className="text-xs text-gray-500">
-                          {sub.subscription_type || 'غير محدد'} • ينتهي في {sub.due_days} يوم
+                      {/* Customer Info */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <div className="text-gray-900 font-semibold truncate">{sub.customer_name}</div>
+                          <Badge
+                            variant="outline"
+                            className={`text-xs ${sub.due_days <= 1
+                              ? 'border-red-500 text-red-600 bg-red-50'
+                              : sub.due_days <= 2
+                                ? 'border-orange-500 text-orange-600 bg-orange-50'
+                                : 'border-amber-500 text-amber-600 bg-amber-50'
+                              }`}
+                          >
+                            {sub.due_days === 1 ? 'غداً' : sub.due_days === 0 ? 'اليوم' : `${sub.due_days} أيام`}
+                          </Badge>
+                        </div>
+                        <div className="text-sm text-gray-500 mt-1">
+                          {sub.customer_phone || 'لا يوجد رقم'}
+                        </div>
+                        <div className="text-xs text-gray-400 mt-0.5">
+                          {sub.subscription_type || 'غير محدد'}
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
+
+                      {/* Action Buttons */}
+                      <div className="flex items-center gap-2 ml-4">
+                        {/* WhatsApp Button */}
                         {sub.customer_phone && (
                           <Button
                             size="sm"
                             variant="outline"
-                            className="border-green-500 text-green-400 hover:bg-green-500/10"
+                            className="h-9 w-9 p-0 border-green-500 text-green-600 hover:bg-green-50 hover:text-green-700"
                             onClick={() => window.open(getWhatsAppUrl(sub.customer_phone), '_blank')}
+                            title="تواصل عبر واتساب"
                           >
                             <Phone className="h-4 w-4" />
                           </Button>
                         )}
+
+                        {/* Contacted Toggle Button */}
                         <Button
                           size="sm"
-                          variant="outline"
-                          className="border-blue-500 text-blue-400 hover:bg-blue-500/10"
-                          onClick={() => window.open(getEmailUrl(sub.customer_email), '_blank')}
-                        >
-                          <Mail className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant={sub.reminder_sent ? 'default' : 'outline'}
                           onClick={() => handleReminderSent(sub)}
                           disabled={actionLoading.has(sub.id)}
+                          className={`min-w-[100px] transition-all duration-300 ${sub.reminder_sent
+                            ? 'bg-green-600 hover:bg-green-700 text-white border-green-600'
+                            : 'bg-white hover:bg-gray-50 text-gray-700 border-gray-300'
+                            }`}
+                          variant={sub.reminder_sent ? 'default' : 'outline'}
                         >
                           {actionLoading.has(sub.id) ? (
                             <Loader2 className="h-4 w-4 animate-spin" />
                           ) : (
                             <>
-                              <MessageSquare className="h-4 w-4 mr-1" />
-                              {sub.reminder_sent ? 'تم الإرسال' : 'إرسال تذكير'}
+                              {sub.reminder_sent ? (
+                                <>
+                                  <CheckCircle2 className="h-4 w-4 mr-1.5" />
+                                  تم التواصل
+                                </>
+                              ) : (
+                                <>
+                                  <Phone className="h-4 w-4 mr-1.5" />
+                                  تم التواصل
+                                </>
+                              )}
                             </>
                           )}
                         </Button>
@@ -1669,58 +1746,53 @@ export default function AdminSubscriptionsPage() {
         </div>
       </main>
 
-      {/* Manual Entry Dialog */}
+      {/* Manual Entry Dialog - Simplified */}
       <Dialog open={manualEntryDialogOpen} onOpenChange={setManualEntryDialogOpen}>
-        <DialogContent className="bg-white border-gray-200 text-gray-900 max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="bg-white border-gray-200 text-gray-900 max-w-md">
           <DialogHeader>
-            <DialogTitle>إضافة اشتراك يدوياً</DialogTitle>
-            <DialogDescription className="text-slate-400">
-              أضف اشتراك جديد يدوياً
+            <DialogTitle className="text-xl font-bold text-gray-900 flex items-center gap-2">
+              <Plus className="h-5 w-5 text-blue-600" />
+              إضافة اشتراك جديد
+            </DialogTitle>
+            <DialogDescription className="text-gray-500">
+              أدخل بيانات العميل الأساسية لإضافة اشتراك
             </DialogDescription>
           </DialogHeader>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label>اسم العميل *</Label>
+
+          <div className="space-y-4 py-4">
+            {/* Customer Name */}
+            <div className="space-y-2">
+              <Label className="text-gray-700 font-medium">اسم العميل *</Label>
               <Input
                 value={manualForm.customer_name}
                 onChange={(e) => setManualForm({ ...manualForm, customer_name: e.target.value })}
-                className="bg-slate-700 border-slate-600 text-white"
+                className="bg-gray-50 border-gray-300 text-gray-900 focus:border-blue-500 focus:ring-blue-500"
+                placeholder="أدخل اسم العميل"
               />
             </div>
-            <div>
-              <Label>البريد الإلكتروني *</Label>
-              <Input
-                type="email"
-                value={manualForm.customer_email}
-                onChange={(e) => setManualForm({ ...manualForm, customer_email: e.target.value })}
-                className="bg-slate-700 border-slate-600 text-white"
-              />
-            </div>
-            <div>
-              <Label>رقم الهاتف</Label>
+
+            {/* Phone Number */}
+            <div className="space-y-2">
+              <Label className="text-gray-700 font-medium">رقم الهاتف *</Label>
               <Input
                 value={manualForm.customer_phone}
                 onChange={(e) => setManualForm({ ...manualForm, customer_phone: e.target.value })}
-                className="bg-slate-700 border-slate-600 text-white"
+                className="bg-gray-50 border-gray-300 text-gray-900 focus:border-blue-500 focus:ring-blue-500"
+                placeholder="مثال: 966501234567"
+                dir="ltr"
               />
             </div>
-            <div>
-              <Label>رمز الاشتراك *</Label>
-              <Input
-                value={manualForm.subscription_code}
-                onChange={(e) => setManualForm({ ...manualForm, subscription_code: e.target.value })}
-                className="bg-slate-700 border-slate-600 text-white"
-              />
-            </div>
-            <div>
-              <Label>نوع الاشتراك (التصنيف) *</Label>
+
+            {/* Category Selector */}
+            <div className="space-y-2">
+              <Label className="text-gray-700 font-medium">التصنيف *</Label>
               <Select
                 value={manualForm.subscription_type}
                 onValueChange={(value: string) =>
                   setManualForm({ ...manualForm, subscription_type: value })
                 }
               >
-                <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
+                <SelectTrigger className="bg-gray-50 border-gray-300 text-gray-900">
                   <SelectValue placeholder="اختر التصنيف" />
                 </SelectTrigger>
                 <SelectContent>
@@ -1736,138 +1808,67 @@ export default function AdminSubscriptionsPage() {
                 </SelectContent>
               </Select>
             </div>
-            <div>
-              <Label>مدة الاشتراك *</Label>
-              <Input
-                value={manualForm.subscription_duration}
-                onChange={(e) => {
-                  const duration = e.target.value;
-                  setManualForm({
-                    ...manualForm,
-                    subscription_duration: duration,
-                    expiration_date: calculateExpirationDate(manualForm.start_date, duration),
-                  });
-                }}
-                className="bg-slate-700 border-slate-600 text-white"
-                placeholder="مثال: 3 أشهر"
-              />
-            </div>
-            <div>
-              <Label>تاريخ البدء *</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="w-full justify-start text-left font-normal bg-slate-700 border-slate-600 text-white"
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {format(manualForm.start_date, 'yyyy-MM-dd', { locale: ar })}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0 bg-slate-800 border-slate-700">
-                  <Calendar
-                    mode="single"
-                    selected={manualForm.start_date}
-                    onSelect={(date) => {
-                      if (date) {
-                        setManualForm({
-                          ...manualForm,
-                          start_date: date,
-                          expiration_date: calculateExpirationDate(date, manualForm.subscription_duration),
-                        });
-                      }
-                    }}
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-            <div>
-              <Label>تاريخ الانتهاء *</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="w-full justify-start text-left font-normal bg-slate-700 border-slate-600 text-white"
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {format(manualForm.expiration_date, 'yyyy-MM-dd', { locale: ar })}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0 bg-slate-800 border-slate-700">
-                  <Calendar
-                    mode="single"
-                    selected={manualForm.expiration_date}
-                    onSelect={(date) => {
-                      if (date) {
-                        setManualForm({ ...manualForm, expiration_date: date });
-                      }
-                    }}
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-            <div className="col-span-2">
-              <Label>رمز المنتج (اختياري)</Label>
-              <Input
-                value={manualForm.product_code}
-                onChange={async (e) => {
-                  const productCode = e.target.value;
-                  // Store the current subscription_type before fetching product
-                  const currentSubscriptionType = manualForm.subscription_type;
 
-                  setManualForm({ ...manualForm, product_code: productCode });
-
-                  // Fetch product and update duration if found
-                  if (productCode && productCode.trim() !== '') {
-                    const product = await fetchProductByCode(productCode);
-                    if (product) {
-                      // Get product category name (Arabic first, then English)
-                      const productCategoryName = product.categories?.name || product.categories?.name_en || null;
-
-                      // Update duration and recalculate expiration date
-                      const updates: any = {
-                        product_code: productCode,
-                      };
-
-                      if (product.duration) {
-                        const newDuration = product.duration;
-                        const newExpirationDate = calculateExpirationDate(manualForm.start_date, newDuration);
-                        updates.subscription_duration = newDuration;
-                        updates.expiration_date = newExpirationDate;
-
-                        toast({
-                          title: 'تم تحديث المدة',
-                          description: `تم تعيين المدة من المنتج: ${newDuration}`,
-                        });
-                      }
-
-                      // Only update subscription_type if:
-                      // 1. User hasn't manually selected a category (empty or default)
-                      // 2. Product has a valid category
-                      const isDefaultOrEmpty = !currentSubscriptionType ||
-                        (categories.length > 0 && currentSubscriptionType === categories[0].name);
-
-                      if (isDefaultOrEmpty && productCategoryName) {
-                        updates.subscription_type = productCategoryName;
-                      }
-
-                      setManualForm(prev => ({
-                        ...prev,
-                        ...updates,
-                      }));
+            {/* End Date - With Text Input + Calendar */}
+            <div className="space-y-2">
+              <Label className="text-gray-700 font-medium">تاريخ الانتهاء *</Label>
+              <div className="flex gap-2">
+                <Input
+                  type="text"
+                  value={format(manualForm.expiration_date, 'yyyy-MM-dd')}
+                  onChange={(e) => {
+                    const dateStr = e.target.value;
+                    const parsed = new Date(dateStr);
+                    if (!isNaN(parsed.getTime())) {
+                      setManualForm({ ...manualForm, expiration_date: parsed });
                     }
-                  }
-                }}
-                className="bg-slate-700 border-slate-600 text-white"
-                placeholder="أدخل رمز المنتج للحصول على المدة تلقائياً"
+                  }}
+                  className="flex-1 bg-gray-50 border-gray-300 text-gray-900 focus:border-blue-500 focus:ring-blue-500"
+                  placeholder="YYYY-MM-DD"
+                  dir="ltr"
+                />
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="px-3 bg-gray-50 border-gray-300 text-gray-700 hover:bg-gray-100"
+                    >
+                      <CalendarIcon className="h-4 w-4" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0 bg-white border-gray-200">
+                    <Calendar
+                      mode="single"
+                      selected={manualForm.expiration_date}
+                      onSelect={(date) => {
+                        if (date) {
+                          setManualForm({ ...manualForm, expiration_date: date });
+                        }
+                      }}
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+              <p className="text-xs text-gray-500">يمكنك كتابة التاريخ مباشرة أو اختياره من التقويم</p>
+            </div>
+
+            {/* Subscription Code - Optional */}
+            <div className="space-y-2">
+              <Label className="text-gray-700 font-medium">رمز الاشتراك <span className="text-gray-400 font-normal">(اختياري)</span></Label>
+              <Input
+                value={manualForm.subscription_code}
+                onChange={(e) => setManualForm({ ...manualForm, subscription_code: e.target.value })}
+                className="bg-gray-50 border-gray-300 text-gray-900 focus:border-blue-500 focus:ring-blue-500"
+                placeholder="سيتم إنشاء رمز تلقائياً إذا ترك فارغاً"
               />
             </div>
           </div>
-          <DialogFooter>
+
+          <DialogFooter className="gap-2 sm:gap-0">
             <Button
               variant="outline"
               onClick={() => setManualEntryDialogOpen(false)}
-              className="border-slate-600 text-slate-300"
+              className="border-gray-300 text-gray-700 hover:bg-gray-100"
             >
               إلغاء
             </Button>
@@ -1875,16 +1876,18 @@ export default function AdminSubscriptionsPage() {
               onClick={handleManualEntry}
               disabled={
                 !manualForm.customer_name ||
-                !manualForm.customer_email ||
-                !manualForm.subscription_code
+                !manualForm.customer_phone ||
+                !manualForm.subscription_type
               }
-              className="bg-blue-600 hover:bg-blue-700"
+              className="bg-blue-600 hover:bg-blue-700 text-white"
             >
-              إضافة
+              <Plus className="h-4 w-4 mr-2" />
+              إضافة الاشتراك
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
 
       {/* Edit Subscription Dialog */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
