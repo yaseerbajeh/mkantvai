@@ -19,6 +19,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import Header from '@/components/Header';
@@ -48,6 +49,8 @@ import {
   BellOff,
   Bell,
   Send,
+  Save,
+  FileEdit,
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
@@ -144,6 +147,12 @@ export default function AdminSubscriptionsPage() {
   // Auto-reminder state
   const [reminderRunning, setReminderRunning] = useState(false);
   const [lastReminderResult, setLastReminderResult] = useState<{ sent: number; skipped: number; errors: number } | null>(null);
+
+  // WhatsApp templates
+  const [templates, setTemplates] = useState<Array<{ id: string; stage: number; template_name: string; template_body: string; is_active: boolean }>>([]);
+  const [editingTemplates, setEditingTemplates] = useState<Record<number, string>>({});
+  const [savingTemplate, setSavingTemplate] = useState<number | null>(null);
+  const [templatesExpanded, setTemplatesExpanded] = useState(false);
 
   // Actions
   const [actionLoading, setActionLoading] = useState<Set<string>>(new Set());
@@ -1319,6 +1328,53 @@ export default function AdminSubscriptionsPage() {
     }
   };
 
+  // Fetch WhatsApp templates
+  const fetchTemplates = async () => {
+    try {
+      const res = await fetch('/api/admin/whatsapp-templates');
+      const data = await res.json();
+      if (data.templates) {
+        setTemplates(data.templates);
+        const edits: Record<number, string> = {};
+        data.templates.forEach((t: any) => { edits[t.stage] = t.template_body; });
+        setEditingTemplates(edits);
+      }
+    } catch (e) {
+      console.error('Error fetching templates:', e);
+    }
+  };
+
+  // Save WhatsApp template
+  const saveTemplate = async (stage: number) => {
+    setSavingTemplate(stage);
+    try {
+      const res = await fetch('/api/admin/whatsapp-templates', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          stage,
+          template_body: editingTemplates[stage],
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast({ title: 'تم حفظ القالب بنجاح' });
+        fetchTemplates();
+      } else {
+        throw new Error(data.error || 'فشل في حفظ القالب');
+      }
+    } catch (error: any) {
+      toast({ title: 'خطأ', description: error.message, variant: 'destructive' });
+    } finally {
+      setSavingTemplate(null);
+    }
+  };
+
+  // Load templates on mount
+  useEffect(() => {
+    fetchTemplates();
+  }, []);
+
   // Handle opt-out toggle
   const handleOptOutToggle = async (sub: ActiveSubscription) => {
     setActionLoading(prev => new Set(prev).add(sub.id));
@@ -1329,7 +1385,13 @@ export default function AdminSubscriptionsPage() {
         .update({ whatsapp_opt_out: newOptOut })
         .eq('id', sub.id);
 
-      if (error) throw error;
+      if (error) {
+        // Check if column doesn't exist (migration not run)
+        if (error.message?.includes('whatsapp_opt_out') || error.code === '42703' || error.code === 'PGRST204') {
+          throw new Error('عمود whatsapp_opt_out غير موجود. يرجى تشغيل migration في قاعدة البيانات أولاً');
+        }
+        throw error;
+      }
 
       setSubscriptions(prev =>
         prev.map(s => s.id === sub.id ? { ...s, whatsapp_opt_out: newOptOut } : s)
@@ -1528,6 +1590,83 @@ export default function AdminSubscriptionsPage() {
                 )}
               </div>
             </CardContent>
+          </Card>
+
+          {/* WhatsApp Message Templates Editor */}
+          <Card className="mb-6 overflow-hidden border-0 shadow-lg">
+            <div
+              className="bg-gradient-to-r from-emerald-600 to-teal-600 px-6 py-4 cursor-pointer"
+              onClick={() => setTemplatesExpanded(!templatesExpanded)}
+            >
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-white flex items-center gap-3">
+                  <div className="bg-white/20 p-2 rounded-lg">
+                    <FileEdit className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <div className="text-lg font-bold">قوالب رسائل واتساب</div>
+                    <div className="text-sm text-white/80 font-normal">
+                      تعديل رسائل التذكير التلقائية - المتغيرات: {'{name}'} {'{product}'} {'{expiry_date}'} {'{renewal_link}'}
+                    </div>
+                  </div>
+                </CardTitle>
+                <ChevronLeft className={`h-5 w-5 text-white transition-transform ${templatesExpanded ? '-rotate-90' : ''}`} />
+              </div>
+            </div>
+
+            {templatesExpanded && (
+              <CardContent className="p-6 bg-gradient-to-b from-emerald-50 to-white">
+                {templates.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">
+                    <p>لا توجد قوالب بعد. تأكد من تشغيل migration في قاعدة البيانات.</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {templates.map((template) => (
+                      <div key={template.id} className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <span className={`inline-flex items-center justify-center w-7 h-7 rounded-full text-sm font-bold text-white ${template.stage === 1 ? 'bg-amber-500' : 'bg-green-500'}`}>
+                              {template.stage}
+                            </span>
+                            <h3 className="font-bold text-gray-800">{template.template_name}</h3>
+                          </div>
+                          <Badge variant={template.stage === 1 ? 'default' : 'secondary'} className={template.stage === 1 ? 'bg-amber-100 text-amber-700 border-amber-200' : 'bg-green-100 text-green-700 border-green-200'}>
+                            {template.stage === 1 ? 'قبل الانتهاء بيومين' : 'يوم الانتهاء'}
+                          </Badge>
+                        </div>
+                        <Textarea
+                          dir="rtl"
+                          rows={6}
+                          value={editingTemplates[template.stage] || ''}
+                          onChange={(e) => setEditingTemplates(prev => ({ ...prev, [template.stage]: e.target.value }))}
+                          className="mb-3 text-sm bg-gray-50 border-gray-200 text-gray-800 resize-none leading-relaxed"
+                          placeholder="اكتب نص الرسالة..."
+                        />
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs text-gray-400">
+                            المتغيرات: {'{name}'} {'{product}'} {'{expiry_date}'} {'{renewal_link}'}
+                          </p>
+                          <Button
+                            size="sm"
+                            onClick={() => saveTemplate(template.stage)}
+                            disabled={savingTemplate === template.stage || editingTemplates[template.stage] === template.template_body}
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                          >
+                            {savingTemplate === template.stage ? (
+                              <Loader2 className="h-4 w-4 animate-spin mr-1.5" />
+                            ) : (
+                              <Save className="h-4 w-4 mr-1.5" />
+                            )}
+                            حفظ
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            )}
           </Card>
 
           {/* Actions Bar */}
