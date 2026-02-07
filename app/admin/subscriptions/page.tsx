@@ -1453,9 +1453,16 @@ export default function AdminSubscriptionsPage() {
   const saveCategoryRenewalLink = async (categoryId: string) => {
     setSavingRenewalLink(categoryId);
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('يرجى تسجيل الدخول أولاً');
+      }
       const res = await fetch(`/api/admin/categories/${categoryId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
         body: JSON.stringify({ renewal_link: editingRenewalLinks[categoryId] || '' }),
       });
       const data = await res.json();
