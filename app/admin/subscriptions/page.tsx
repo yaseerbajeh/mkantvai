@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
@@ -168,6 +168,15 @@ export default function AdminSubscriptionsPage() {
   const [editingRenewalLinks, setEditingRenewalLinks] = useState<Record<string, string>>({});
   const [savingRenewalLink, setSavingRenewalLink] = useState<string | null>(null);
 
+  // Auto-send toggle (persisted in localStorage)
+  const [autoSendEnabled, setAutoSendEnabled] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('whatsapp_auto_send') !== 'false';
+    }
+    return true;
+  });
+  const autoReminderFired = useRef(false);
+
   // Actions
   const [actionLoading, setActionLoading] = useState<Set<string>>(new Set());
 
@@ -219,8 +228,11 @@ export default function AdminSubscriptionsPage() {
         setUser(session.user);
         fetchSubscriptions();
         fetchCategories();
-        // Auto-trigger WhatsApp reminders on page load
-        triggerAutoReminders();
+        // Auto-trigger WhatsApp reminders on page load (only once, and only if enabled)
+        if (autoSendEnabled && !autoReminderFired.current) {
+          autoReminderFired.current = true;
+          triggerAutoReminders();
+        }
       } catch (error: any) {
         console.error('Auth check error:', error);
         toast({
@@ -1328,6 +1340,12 @@ export default function AdminSubscriptionsPage() {
     return filteredSubscriptions.slice(start, start + pageSize);
   }, [filteredSubscriptions, currentPage, pageSize]);
 
+  // Toggle auto-send on/off
+  const toggleAutoSend = (enabled: boolean) => {
+    setAutoSendEnabled(enabled);
+    localStorage.setItem('whatsapp_auto_send', enabled ? 'true' : 'false');
+  };
+
   // Auto-trigger reminders on page load
   const triggerAutoReminders = async () => {
     if (reminderRunning) return;
@@ -1749,6 +1767,18 @@ export default function AdminSubscriptionsPage() {
                   >
                     <Phone className="h-4 w-4 mr-1.5" />
                     تجربة
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => toggleAutoSend(!autoSendEnabled)}
+                    className={autoSendEnabled
+                      ? 'bg-green-500/80 hover:bg-green-500 text-white border-0'
+                      : 'bg-white/10 hover:bg-white/20 text-white/60 border border-white/20'
+                    }
+                    title={autoSendEnabled ? 'الإرسال التلقائي مفعل - اضغط لإيقاف' : 'الإرسال التلقائي معطل - اضغط لتفعيل'}
+                  >
+                    {autoSendEnabled ? <Bell className="h-4 w-4 mr-1.5" /> : <BellOff className="h-4 w-4 mr-1.5" />}
+                    {autoSendEnabled ? 'تلقائي' : 'تلقائي معطل'}
                   </Button>
                 </div>
               </div>
