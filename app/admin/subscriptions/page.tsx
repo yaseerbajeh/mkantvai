@@ -158,6 +158,11 @@ export default function AdminSubscriptionsPage() {
   const [forceSendRunning, setForceSendRunning] = useState(false);
   const [forceSendConfirmOpen, setForceSendConfirmOpen] = useState(false);
 
+  // Test reminder
+  const [testDialogOpen, setTestDialogOpen] = useState(false);
+  const [testPhone, setTestPhone] = useState('');
+  const [testSending, setTestSending] = useState(false);
+
   // Category renewal links editor
   const [renewalLinksExpanded, setRenewalLinksExpanded] = useState(false);
   const [editingRenewalLinks, setEditingRenewalLinks] = useState<Record<string, string>>({});
@@ -1330,13 +1335,32 @@ export default function AdminSubscriptionsPage() {
     try {
       const res = await fetch('/api/admin/subscriptions/send-reminders', { method: 'POST' });
       const data = await res.json();
+      if (!res.ok) {
+        toast({
+          title: 'خطأ في إرسال التذكيرات',
+          description: data.error || data.details || 'حدث خطأ غير متوقع',
+          variant: 'destructive',
+        });
+        return;
+      }
       setLastReminderResult({ sent: data.sent || 0, skipped: data.skipped || 0, errors: data.errors || 0 });
       if (data.sent > 0) {
         toast({ title: `تم إرسال ${data.sent} تذكير تجديد عبر واتساب` });
-        fetchSubscriptions(); // Refresh to show updated stages
+        fetchSubscriptions();
       }
-    } catch (e) {
-      // Silent fail for auto-trigger
+      if (data.errors > 0) {
+        toast({
+          title: `فشل إرسال ${data.errors} تذكير`,
+          description: data.errorDetails?.join('\n') || '',
+          variant: 'destructive',
+        });
+      }
+    } catch (e: any) {
+      toast({
+        title: 'خطأ في الاتصال',
+        description: 'تعذر الاتصال بخادم التذكيرات',
+        variant: 'destructive',
+      });
     } finally {
       setReminderRunning(false);
     }
@@ -1401,6 +1425,14 @@ export default function AdminSubscriptionsPage() {
         body: JSON.stringify({ force: true }),
       });
       const data = await res.json();
+      if (!res.ok) {
+        toast({
+          title: 'خطأ في الإرسال الجماعي',
+          description: data.error || data.details || 'حدث خطأ غير متوقع',
+          variant: 'destructive',
+        });
+        return;
+      }
       if (data.sent > 0) {
         toast({
           title: `تم إرسال ${data.sent} تذكير لجميع المنتهين`,
@@ -1434,6 +1466,88 @@ export default function AdminSubscriptionsPage() {
       toast({ title: 'خطأ', description: error.message, variant: 'destructive' });
     } finally {
       setSavingRenewalLink(null);
+    }
+  };
+
+  // Send test reminder
+  const sendTestReminder = async () => {
+    if (!testPhone.trim()) {
+      toast({ title: 'يرجى إدخال رقم الهاتف', variant: 'destructive' });
+      return;
+    }
+    setTestSending(true);
+    try {
+      // Get stage 2 template body
+      const stage2Template = templates.find(t => t.stage === 2);
+      const res = await fetch('/api/admin/subscriptions/test-reminder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phone: testPhone,
+          customerName: 'عميل تجريبي',
+          subscriptionType: 'اشتراكات IPTV',
+          renewalLink: 'https://mkantvai.com/subscribe',
+          templateBody: stage2Template ? editingTemplates[2] || stage2Template.template_body : undefined,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast({ title: 'تم إرسال الرسالة التجريبية بنجاح' });
+        setTestDialogOpen(false);
+      } else {
+        throw new Error(data.error || 'فشل في الإرسال');
+      }
+    } catch (error: any) {
+      toast({ title: 'خطأ', description: error.message, variant: 'destructive' });
+    } finally {
+      setTestSending(false);
+    }
+  };
+
+  // Send reminder to a single customer
+  const sendReminderToCustomer = async (sub: ActiveSubscription) => {
+    if (!sub.customer_phone) {
+      toast({ title: 'لا يوجد رقم هاتف لهذا العميل', variant: 'destructive' });
+      return;
+    }
+    setActionLoading(prev => new Set(prev).add(sub.id));
+    try {
+      const expiryDate = new Date(sub.expiration_date).toLocaleDateString('ar-EG', {
+        year: 'numeric', month: 'long', day: 'numeric',
+      });
+      const daysLeft = sub.due_days;
+      const stage = daysLeft <= 0 ? 2 : 1;
+      const stageTemplate = templates.find(t => t.stage === stage);
+      // Find renewal link for this category
+      const cat = categories.find(c => c.name === sub.subscription_type);
+      const renewalLink = cat?.renewal_link || 'https://mkantvai.com/subscribe';
+
+      const res = await fetch('/api/admin/subscriptions/test-reminder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phone: sub.customer_phone,
+          customerName: sub.customer_name || 'عزيزنا العميل',
+          subscriptionType: sub.subscription_type || 'الاشتراك',
+          expiryDate,
+          renewalLink,
+          templateBody: stageTemplate?.template_body || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast({ title: `تم إرسال تذكير إلى ${sub.customer_name}` });
+      } else {
+        throw new Error(data.error || 'فشل في الإرسال');
+      }
+    } catch (error: any) {
+      toast({ title: 'خطأ', description: error.message, variant: 'destructive' });
+    } finally {
+      setActionLoading(prev => {
+        const next = new Set(prev);
+        next.delete(sub.id);
+        return next;
+      });
     }
   };
 
@@ -1620,6 +1734,14 @@ export default function AdminSubscriptionsPage() {
                       <AlertCircle className="h-4 w-4 mr-1.5" />
                     )}
                     إرسال لجميع المنتهين ({stats.expired})
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => setTestDialogOpen(true)}
+                    className="bg-white/10 hover:bg-white/20 text-white border border-white/30"
+                  >
+                    <Phone className="h-4 w-4 mr-1.5" />
+                    تجربة
                   </Button>
                 </div>
               </div>
@@ -2070,6 +2192,23 @@ export default function AdminSubscriptionsPage() {
                               >
                                 {sub.whatsapp_opt_out ? <BellOff className="h-4 w-4" /> : <Bell className="h-4 w-4" />}
                               </Button>
+                              {/* Send Reminder to this customer */}
+                              {sub.customer_phone && (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => sendReminderToCustomer(sub)}
+                                  disabled={actionLoading.has(sub.id) || sub.whatsapp_opt_out}
+                                  className="text-violet-400 hover:text-violet-300"
+                                  title={`إرسال تذكير واتساب إلى ${sub.customer_name}`}
+                                >
+                                  {actionLoading.has(sub.id) ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <Send className="h-4 w-4" />
+                                  )}
+                                </Button>
+                              )}
                               <Button
                                 size="sm"
                                 variant="ghost"
@@ -2923,6 +3062,53 @@ export default function AdminSubscriptionsPage() {
               className="border-slate-600 text-slate-300"
             >
               إغلاق
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Test Reminder Dialog */}
+      <Dialog open={testDialogOpen} onOpenChange={setTestDialogOpen}>
+        <DialogContent className="sm:max-w-md" dir="rtl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Phone className="h-5 w-5 text-violet-600" />
+              إرسال رسالة تجريبية
+            </DialogTitle>
+            <DialogDescription>
+              أدخل رقم هاتفك لاستلام رسالة تجريبية بقالب المرحلة 2 (انتهاء الاشتراك) مع بيانات وهمية.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div>
+              <Label>رقم الهاتف (مع رمز الدولة)</Label>
+              <Input
+                value={testPhone}
+                onChange={(e) => setTestPhone(e.target.value)}
+                placeholder="966542668201"
+                dir="ltr"
+                className="mt-1"
+              />
+            </div>
+            <div className="bg-gray-50 rounded-lg p-3 text-sm text-gray-600">
+              <p className="font-medium mb-1">سيتم إرسال:</p>
+              <p>الاسم: عميل تجريبي</p>
+              <p>النوع: اشتراكات IPTV</p>
+              <p>التاريخ: تاريخ اليوم</p>
+              <p>الرابط: https://mkantvai.com/subscribe</p>
+            </div>
+          </div>
+          <DialogFooter className="flex gap-2">
+            <Button variant="outline" onClick={() => setTestDialogOpen(false)}>
+              إلغاء
+            </Button>
+            <Button
+              className="bg-violet-600 hover:bg-violet-700 text-white"
+              onClick={sendTestReminder}
+              disabled={testSending}
+            >
+              {testSending ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <Send className="h-4 w-4 mr-1.5" />}
+              إرسال تجريبي
             </Button>
           </DialogFooter>
         </DialogContent>
