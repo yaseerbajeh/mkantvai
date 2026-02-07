@@ -242,6 +242,11 @@ export async function POST(request: NextRequest) {
       is_renewed: true, // Mark as renewed
       reminder_sent: false, // Reset reminder flag for new period
       reminder_sent_at: null,
+      // Reset WhatsApp reminder stages for new period
+      reminder_stage: 0,
+      stage1_sent_at: null,
+      stage2_sent_at: null,
+      last_reminder_error: null,
       // Don't set renewed_from_subscription_id - it references active_subscriptions, not renewed_subscriptions
       // We can track the renewal via the renewed_subscriptions table using original_subscription_id
       renewed_from_subscription_id: null,

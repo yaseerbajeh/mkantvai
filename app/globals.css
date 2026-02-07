@@ -2,21 +2,11 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Janna LT Bold font for Arabic headings */
+/* TheYearofHandicrafts font for all Arabic text */
 @font-face {
-  font-family: 'Janna LT';
-  src: url('https://db.onlinewebfonts.com/t/02c17bf67fd768de6b98bfa15f2a2a92.woff2') format('woff2'),
-       url('https://db.onlinewebfonts.com/t/02c17bf67fd768de6b98bfa15f2a2a92.woff') format('woff');
-  font-weight: 700;
-  font-style: normal;
-  font-display: swap;
-}
-
-/* Wafeq SemiBold font for body text and buttons */
-@font-face {
-  font-family: 'Wafeq';
-  src: url('/fonts/Wafeq-SemiBold.otf') format('opentype');
-  font-weight: 600;
+  font-family: 'TheYearofHandicrafts';
+  src: url('/fonts/TheYearofHandicrafts-Regular.otf') format('opentype');
+  font-weight: 400;
   font-style: normal;
   font-display: swap;
 }
@@ -97,48 +87,42 @@
   }
   body {
     @apply bg-background text-foreground;
-    font-family: 'Wafeq', 'Inter', sans-serif;
+    font-family: 'TheYearofHandicrafts', 'Inter', sans-serif;
   }
-  
+
   /* RTL support */
   [dir="rtl"] {
     direction: rtl;
   }
-  
+
   [dir="rtl"] input,
   [dir="rtl"] textarea {
     text-align: right;
   }
-  
-  /* Apply Janna LT Bold to all headings and bold text */
+
+  /* Apply TheYearofHandicrafts to all headings and bold text */
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Janna LT', 'Inter', sans-serif;
-    font-weight: 700;
+    font-family: 'TheYearofHandicrafts', 'Inter', sans-serif;
   }
-  
+
   .font-bold, .font-semibold, strong, b {
-    font-family: 'Janna LT', 'Inter', sans-serif;
+    font-family: 'TheYearofHandicrafts', 'Inter', sans-serif;
   }
-  
-  /* Apply Wafeq to paragraphs, labels, and buttons */
+
+  /* Apply TheYearofHandicrafts to paragraphs, labels, and buttons */
   p, span, label, button, a, input, select, textarea {
-    font-family: 'Wafeq', 'Inter', sans-serif;
+    font-family: 'TheYearofHandicrafts', 'Inter', sans-serif;
   }
-  
-  /* Ensure buttons use Wafeq */
+
+  /* Ensure buttons use TheYearofHandicrafts */
   .button, [role="button"] {
-    font-family: 'Wafeq', 'Inter', sans-serif;
+    font-family: 'TheYearofHandicrafts', 'Inter', sans-serif;
   }
 }
 
 @layer utilities {
-  .font-janna {
-    font-family: 'Janna LT', 'Inter', sans-serif;
-    font-weight: 700;
-  }
-  
-  .font-wafeq {
-    font-family: 'Wafeq', 'Inter', sans-serif;
+  .font-handicrafts {
+    font-family: 'TheYearofHandicrafts', 'Inter', sans-serif;
   }
   
   .scrollbar-hide::-webkit-scrollbar {

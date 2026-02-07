@@ -44,6 +44,15 @@ import {
   X,
   Sparkles,
   PenSquare,
+  Bot,
+  BellOff,
+  Bell,
+  Send,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+  AlertCircle,
 } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
 import { calculateExpirationDate, parseDurationToDays } from '@/lib/subscription-utils';
@@ -64,6 +73,11 @@ interface ActiveSubscription {
   reminder_sent: boolean;
   reminder_sent_at: string | null;
   last_contacted_at: string | null;
+  reminder_stage: number;
+  stage1_sent_at: string | null;
+  stage2_sent_at: string | null;
+  whatsapp_opt_out: boolean;
+  last_reminder_error: string | null;
   renewed_from_subscription_id: string | null;
   is_renewed: boolean;
   renewal_count: number;
@@ -123,6 +137,14 @@ export default function AdminSubscriptionsPage() {
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [importing, setImporting] = useState(false);
 
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+
+  // Auto-reminder state
+  const [reminderRunning, setReminderRunning] = useState(false);
+  const [lastReminderResult, setLastReminderResult] = useState<{ sent: number; skipped: number; errors: number } | null>(null);
+
   // Actions
   const [actionLoading, setActionLoading] = useState<Set<string>>(new Set());
 
@@ -174,6 +196,8 @@ export default function AdminSubscriptionsPage() {
         setUser(session.user);
         fetchSubscriptions();
         fetchCategories();
+        // Auto-trigger WhatsApp reminders on page load
+        triggerAutoReminders();
       } catch (error: any) {
         console.error('Auth check error:', error);
         toast({
@@ -217,6 +241,7 @@ export default function AdminSubscriptionsPage() {
     });
 
     setFilteredSubscriptions(filtered);
+    setCurrentPage(1); // Reset pagination on filter change
   }, [subscriptions, searchQuery, typeFilter]);
 
   const calculateDueDays = (expirationDate: string): number => {
@@ -1251,10 +1276,74 @@ export default function AdminSubscriptionsPage() {
     };
   }, [subscriptions]);
 
-  // Expiring soon subscriptions (4 days)
-  const expiringSoon = useMemo(() => {
-    return subscriptions.filter(s => s.due_days <= 4 && s.due_days > 0);
+  // Automation stats
+  const automationStats = useMemo(() => {
+    const awaiting = subscriptions.filter(s =>
+      (s.reminder_stage || 0) === 0 && s.due_days <= 7 && s.due_days > 0 && s.customer_phone && !s.whatsapp_opt_out
+    ).length;
+    const stage1Done = subscriptions.filter(s => (s.reminder_stage || 0) >= 1).length;
+    const stage2Done = subscriptions.filter(s => (s.reminder_stage || 0) >= 2).length;
+    const withErrors = subscriptions.filter(s => !!s.last_reminder_error).length;
+    const lastSentAt = subscriptions
+      .map(s => s.stage1_sent_at || s.stage2_sent_at)
+      .filter(Boolean)
+      .sort()
+      .pop();
+
+    return { awaiting, stage1Done, stage2Done, withErrors, lastSentAt };
   }, [subscriptions]);
+
+  // Pagination
+  const totalPages = Math.ceil(filteredSubscriptions.length / pageSize);
+  const paginatedSubscriptions = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredSubscriptions.slice(start, start + pageSize);
+  }, [filteredSubscriptions, currentPage, pageSize]);
+
+  // Auto-trigger reminders on page load
+  const triggerAutoReminders = async () => {
+    if (reminderRunning) return;
+    setReminderRunning(true);
+    try {
+      const res = await fetch('/api/admin/subscriptions/send-reminders', { method: 'POST' });
+      const data = await res.json();
+      setLastReminderResult({ sent: data.sent || 0, skipped: data.skipped || 0, errors: data.errors || 0 });
+      if (data.sent > 0) {
+        toast({ title: `تم إرسال ${data.sent} تذكير تجديد عبر واتساب` });
+        fetchSubscriptions(); // Refresh to show updated stages
+      }
+    } catch (e) {
+      // Silent fail for auto-trigger
+    } finally {
+      setReminderRunning(false);
+    }
+  };
+
+  // Handle opt-out toggle
+  const handleOptOutToggle = async (sub: ActiveSubscription) => {
+    setActionLoading(prev => new Set(prev).add(sub.id));
+    try {
+      const newOptOut = !sub.whatsapp_opt_out;
+      const { error } = await supabase
+        .from('active_subscriptions')
+        .update({ whatsapp_opt_out: newOptOut })
+        .eq('id', sub.id);
+
+      if (error) throw error;
+
+      setSubscriptions(prev =>
+        prev.map(s => s.id === sub.id ? { ...s, whatsapp_opt_out: newOptOut } : s)
+      );
+      toast({
+        title: newOptOut ? 'تم إيقاف التذكيرات' : 'تم تفعيل التذكيرات',
+        description: newOptOut ? 'لن يتم إرسال تذكيرات لهذا الاشتراك' : 'سيتم إرسال تذكيرات لهذا الاشتراك',
+      });
+    } catch (error: any) {
+      toast({ title: 'خطأ', description: error.message, variant: 'destructive' });
+    } finally {
+      setActionLoading(prev => { const next = new Set(prev); next.delete(sub.id); return next; });
+    }
+  };
 
   const whatsappNumber = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || '';
 
@@ -1366,104 +1455,80 @@ export default function AdminSubscriptionsPage() {
             </Card>
           </div>
 
-          {/* Expiring Soon Banner - Improved UI */}
-          {expiringSoon.length > 0 && (
-            <Card className="mb-6 overflow-hidden border-0 shadow-lg">
-              {/* Gradient Header */}
-              <div className="bg-gradient-to-r from-orange-500 to-amber-500 px-6 py-4">
+          {/* Automation Status Dashboard */}
+          <Card className="mb-6 overflow-hidden border-0 shadow-lg">
+            <div className="bg-gradient-to-r from-violet-600 to-indigo-600 px-6 py-4">
+              <div className="flex items-center justify-between">
                 <CardTitle className="text-white flex items-center gap-3">
                   <div className="bg-white/20 p-2 rounded-lg">
-                    <AlertTriangle className="h-5 w-5" />
+                    <Bot className="h-5 w-5" />
                   </div>
                   <div>
-                    <div className="text-lg font-bold">اشتراكات على وشك الانتهاء</div>
-                    <div className="text-sm text-white/80 font-normal">{expiringSoon.length} اشتراك يحتاج متابعة</div>
+                    <div className="text-lg font-bold">حالة التذكير التلقائي</div>
+                    <div className="text-sm text-white/80 font-normal">
+                      إرسال تذكيرات واتساب تلقائية عبر Evolution API
+                    </div>
                   </div>
                 </CardTitle>
+                <Button
+                  size="sm"
+                  onClick={triggerAutoReminders}
+                  disabled={reminderRunning}
+                  className="bg-white/20 hover:bg-white/30 text-white border-0"
+                >
+                  {reminderRunning ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-1.5" />
+                  ) : (
+                    <Send className="h-4 w-4 mr-1.5" />
+                  )}
+                  إرسال التذكيرات
+                </Button>
+              </div>
+            </div>
+
+            <CardContent className="p-4 bg-gradient-to-b from-violet-50 to-white">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {/* Awaiting */}
+                <div className="bg-white rounded-xl border border-gray-100 p-4 text-center shadow-sm">
+                  <div className="text-2xl font-bold text-gray-700">{automationStats.awaiting}</div>
+                  <div className="text-xs text-gray-500 mt-1">بانتظار التذكير</div>
+                  <div className="w-2 h-2 rounded-full bg-gray-300 mx-auto mt-2" />
+                </div>
+                {/* Stage 1 */}
+                <div className="bg-white rounded-xl border border-gray-100 p-4 text-center shadow-sm">
+                  <div className="text-2xl font-bold text-amber-600">{automationStats.stage1Done}</div>
+                  <div className="text-xs text-gray-500 mt-1">مرحلة 1 تم</div>
+                  <div className="w-2 h-2 rounded-full bg-amber-400 mx-auto mt-2" />
+                </div>
+                {/* Stage 2 */}
+                <div className="bg-white rounded-xl border border-gray-100 p-4 text-center shadow-sm">
+                  <div className="text-2xl font-bold text-green-600">{automationStats.stage2Done}</div>
+                  <div className="text-xs text-gray-500 mt-1">مرحلة 2 تم</div>
+                  <div className="w-2 h-2 rounded-full bg-green-400 mx-auto mt-2" />
+                </div>
+                {/* Errors */}
+                <div className="bg-white rounded-xl border border-gray-100 p-4 text-center shadow-sm">
+                  <div className={`text-2xl font-bold ${automationStats.withErrors > 0 ? 'text-red-600' : 'text-gray-400'}`}>
+                    {automationStats.withErrors}
+                  </div>
+                  <div className="text-xs text-gray-500 mt-1">أخطاء</div>
+                  <div className={`w-2 h-2 rounded-full mx-auto mt-2 ${automationStats.withErrors > 0 ? 'bg-red-400' : 'bg-gray-200'}`} />
+                </div>
               </div>
 
-              <CardContent className="p-4 bg-gradient-to-b from-orange-50 to-white">
-                <div className="space-y-3 max-h-80 overflow-y-auto">
-                  {expiringSoon.map((sub) => (
-                    <div
-                      key={sub.id}
-                      className="flex items-center justify-between p-4 bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow"
-                    >
-                      {/* Customer Info */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <div className="text-gray-900 font-semibold truncate">{sub.customer_name}</div>
-                          <Badge
-                            variant="outline"
-                            className={`text-xs ${sub.due_days <= 1
-                              ? 'border-red-500 text-red-600 bg-red-50'
-                              : sub.due_days <= 2
-                                ? 'border-orange-500 text-orange-600 bg-orange-50'
-                                : 'border-amber-500 text-amber-600 bg-amber-50'
-                              }`}
-                          >
-                            {sub.due_days === 1 ? 'غداً' : sub.due_days === 0 ? 'اليوم' : `${sub.due_days} أيام`}
-                          </Badge>
-                        </div>
-                        <div className="text-sm text-gray-500 mt-1">
-                          {sub.customer_phone || 'لا يوجد رقم'}
-                        </div>
-                        <div className="text-xs text-gray-400 mt-0.5">
-                          {sub.subscription_type || 'غير محدد'}
-                        </div>
-                      </div>
-
-                      {/* Action Buttons */}
-                      <div className="flex items-center gap-2 ml-4">
-                        {/* WhatsApp Button */}
-                        {sub.customer_phone && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-9 w-9 p-0 border-green-500 text-green-600 hover:bg-green-50 hover:text-green-700"
-                            onClick={() => window.open(getWhatsAppUrl(sub.customer_phone), '_blank')}
-                            title="تواصل عبر واتساب"
-                          >
-                            <Phone className="h-4 w-4" />
-                          </Button>
-                        )}
-
-                        {/* Contacted Toggle Button */}
-                        <Button
-                          size="sm"
-                          onClick={() => handleReminderSent(sub)}
-                          disabled={actionLoading.has(sub.id)}
-                          className={`min-w-[100px] transition-all duration-300 ${sub.reminder_sent
-                            ? 'bg-green-600 hover:bg-green-700 text-white border-green-600'
-                            : 'bg-white hover:bg-gray-50 text-gray-700 border-gray-300'
-                            }`}
-                          variant={sub.reminder_sent ? 'default' : 'outline'}
-                        >
-                          {actionLoading.has(sub.id) ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <>
-                              {sub.reminder_sent ? (
-                                <>
-                                  <CheckCircle2 className="h-4 w-4 mr-1.5" />
-                                  تم التواصل
-                                </>
-                              ) : (
-                                <>
-                                  <Phone className="h-4 w-4 mr-1.5" />
-                                  تم التواصل
-                                </>
-                              )}
-                            </>
-                          )}
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
+              {/* Footer info */}
+              <div className="mt-3 flex items-center justify-between text-xs text-gray-400">
+                <span>
+                  {automationStats.lastSentAt
+                    ? `آخر إرسال: ${format(new Date(automationStats.lastSentAt), 'yyyy-MM-dd HH:mm')}`
+                    : 'لم يتم الإرسال بعد'}
+                </span>
+                {lastReminderResult && (
+                  <span>آخر تشغيل: {lastReminderResult.sent} مرسل، {lastReminderResult.skipped} متخطى، {lastReminderResult.errors} أخطاء</span>
+                )}
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Actions Bar */}
           <div className="flex flex-wrap items-center gap-4 mb-6">
@@ -1559,7 +1624,7 @@ export default function AdminSubscriptionsPage() {
                         </TableCell>
                       </TableRow>
                     ) : (
-                      filteredSubscriptions.map((sub) => (
+                      paginatedSubscriptions.map((sub) => (
                         <TableRow key={sub.id} className="border-gray-200">
                           <TableCell>
                             <div>
@@ -1686,24 +1751,44 @@ export default function AdminSubscriptionsPage() {
                                   <Sparkles className="h-4 w-4" />
                                 )}
                               </Button>
+                              {/* Reminder Stage Indicator */}
+                              <span
+                                className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                                  sub.last_reminder_error
+                                    ? 'bg-red-900/50 text-red-300'
+                                    : (sub.reminder_stage || 0) >= 2
+                                    ? 'bg-green-900/50 text-green-300'
+                                    : (sub.reminder_stage || 0) >= 1
+                                    ? 'bg-amber-900/50 text-amber-300'
+                                    : 'bg-slate-700 text-slate-400'
+                                }`}
+                                title={
+                                  sub.last_reminder_error
+                                    ? `خطأ: ${sub.last_reminder_error}`
+                                    : `مرحلة ${sub.reminder_stage || 0}/2`
+                                }
+                              >
+                                {sub.last_reminder_error ? (
+                                  <AlertCircle className="h-3 w-3" />
+                                ) : (sub.reminder_stage || 0) >= 2 ? (
+                                  <CheckCircle2 className="h-3 w-3" />
+                                ) : (sub.reminder_stage || 0) >= 1 ? (
+                                  <Bell className="h-3 w-3" />
+                                ) : (
+                                  <MessageSquare className="h-3 w-3" />
+                                )}
+                                {(sub.reminder_stage || 0)}/2
+                              </span>
+                              {/* Opt-out Toggle */}
                               <Button
                                 size="sm"
                                 variant="ghost"
-                                onClick={() => handleReminderSent(sub)}
+                                onClick={() => handleOptOutToggle(sub)}
                                 disabled={actionLoading.has(sub.id)}
-                                className={
-                                  sub.reminder_sent
-                                    ? 'text-green-400 hover:text-green-300'
-                                    : 'text-slate-400 hover:text-slate-300'
-                                }
+                                className={sub.whatsapp_opt_out ? 'text-red-400 hover:text-red-300' : 'text-slate-500 hover:text-slate-300'}
+                                title={sub.whatsapp_opt_out ? 'التذكيرات معطلة - اضغط لتفعيل' : 'التذكيرات مفعلة - اضغط لإيقاف'}
                               >
-                                {actionLoading.has(sub.id) ? (
-                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : sub.reminder_sent ? (
-                                  <CheckCircle2 className="h-4 w-4" />
-                                ) : (
-                                  <MessageSquare className="h-4 w-4" />
-                                )}
+                                {sub.whatsapp_opt_out ? <BellOff className="h-4 w-4" /> : <Bell className="h-4 w-4" />}
                               </Button>
                               <Button
                                 size="sm"
@@ -1741,6 +1826,97 @@ export default function AdminSubscriptionsPage() {
                   </TableBody>
                 </Table>
               </div>
+
+              {/* Pagination */}
+              {filteredSubscriptions.length > 0 && (
+                <div className="flex flex-wrap items-center justify-between gap-4 px-4 py-3 border-t border-gray-200">
+                  {/* Page size selector */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-600">عرض</span>
+                    <Select value={pageSize.toString()} onValueChange={(v) => { setPageSize(Number(v)); setCurrentPage(1); }}>
+                      <SelectTrigger className="w-[70px] h-8 bg-white border-gray-300 text-gray-900">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-white border-gray-200">
+                        {[10, 25, 50, 100].map(size => (
+                          <SelectItem key={size} value={size.toString()} className="text-gray-900">{size}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Range text */}
+                  <span className="text-sm text-gray-500">
+                    عرض {Math.min((currentPage - 1) * pageSize + 1, filteredSubscriptions.length)}-{Math.min(currentPage * pageSize, filteredSubscriptions.length)} من {filteredSubscriptions.length}
+                  </span>
+
+                  {/* Page buttons */}
+                  <div className="flex items-center gap-1">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8 w-8 p-0 border-gray-300"
+                      disabled={currentPage === 1}
+                      onClick={() => setCurrentPage(1)}
+                    >
+                      <ChevronsRight className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8 w-8 p-0 border-gray-300"
+                      disabled={currentPage === 1}
+                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+
+                    {/* Page numbers */}
+                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                      let page: number;
+                      if (totalPages <= 5) {
+                        page = i + 1;
+                      } else if (currentPage <= 3) {
+                        page = i + 1;
+                      } else if (currentPage >= totalPages - 2) {
+                        page = totalPages - 4 + i;
+                      } else {
+                        page = currentPage - 2 + i;
+                      }
+                      return (
+                        <Button
+                          key={page}
+                          size="sm"
+                          variant={currentPage === page ? 'default' : 'outline'}
+                          className={`h-8 w-8 p-0 ${currentPage === page ? 'bg-violet-600 text-white' : 'border-gray-300 text-gray-700'}`}
+                          onClick={() => setCurrentPage(page)}
+                        >
+                          {page}
+                        </Button>
+                      );
+                    })}
+
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8 w-8 p-0 border-gray-300"
+                      disabled={currentPage === totalPages || totalPages === 0}
+                      onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8 w-8 p-0 border-gray-300"
+                      disabled={currentPage === totalPages || totalPages === 0}
+                      onClick={() => setCurrentPage(totalPages)}
+                    >
+                      <ChevronsLeft className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
