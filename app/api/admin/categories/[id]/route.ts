@@ -69,6 +69,7 @@ export async function PUT(
       description,
       display_order,
       is_active,
+      renewal_link,
     } = body;
 
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
@@ -112,6 +113,7 @@ export async function PUT(
     if (description !== undefined) updateData.description = description?.trim() || null;
     if (display_order !== undefined) updateData.display_order = parseInt(display_order);
     if (is_active !== undefined) updateData.is_active = is_active;
+    if (renewal_link !== undefined) updateData.renewal_link = renewal_link?.trim() || null;
 
     // Update category
     const { data, error } = await supabaseAdmin

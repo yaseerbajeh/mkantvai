@@ -95,7 +95,7 @@ export default function AdminSubscriptionsPage() {
   const [loading, setLoading] = useState(true);
   const [subscriptions, setSubscriptions] = useState<ActiveSubscription[]>([]);
   const [filteredSubscriptions, setFilteredSubscriptions] = useState<ActiveSubscription[]>([]);
-  const [categories, setCategories] = useState<Array<{ id: string; name: string; name_en?: string }>>([]);
+  const [categories, setCategories] = useState<Array<{ id: string; name: string; name_en?: string; renewal_link?: string }>>([]);
 
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
@@ -153,6 +153,15 @@ export default function AdminSubscriptionsPage() {
   const [editingTemplates, setEditingTemplates] = useState<Record<number, string>>({});
   const [savingTemplate, setSavingTemplate] = useState<number | null>(null);
   const [templatesExpanded, setTemplatesExpanded] = useState(false);
+
+  // Force send expired
+  const [forceSendRunning, setForceSendRunning] = useState(false);
+  const [forceSendConfirmOpen, setForceSendConfirmOpen] = useState(false);
+
+  // Category renewal links editor
+  const [renewalLinksExpanded, setRenewalLinksExpanded] = useState(false);
+  const [editingRenewalLinks, setEditingRenewalLinks] = useState<Record<string, string>>({});
+  const [savingRenewalLink, setSavingRenewalLink] = useState<string | null>(null);
 
   // Actions
   const [actionLoading, setActionLoading] = useState<Set<string>>(new Set());
@@ -266,7 +275,7 @@ export default function AdminSubscriptionsPage() {
     try {
       const { data, error } = await supabase
         .from('categories')
-        .select('id, name, name_en')
+        .select('id, name, name_en, renewal_link')
         .eq('is_active', true)
         .order('display_order', { ascending: true });
 
@@ -276,6 +285,11 @@ export default function AdminSubscriptionsPage() {
       }
 
       setCategories(data || []);
+
+      // Initialize renewal links editing state
+      const links: Record<string, string> = {};
+      (data || []).forEach((cat: any) => { links[cat.id] = cat.renewal_link || ''; });
+      setEditingRenewalLinks(links);
 
       // Set default category if form is empty (only if form hasn't been initialized yet)
       // Only set default when dialog is closed to avoid overriding user selections
@@ -1375,6 +1389,54 @@ export default function AdminSubscriptionsPage() {
     fetchTemplates();
   }, []);
 
+  // Force send to all expired
+  const triggerForceSendExpired = async () => {
+    if (forceSendRunning) return;
+    setForceSendRunning(true);
+    setForceSendConfirmOpen(false);
+    try {
+      const res = await fetch('/api/admin/subscriptions/send-reminders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ force: true }),
+      });
+      const data = await res.json();
+      if (data.sent > 0) {
+        toast({
+          title: `تم إرسال ${data.sent} تذكير لجميع المنتهين`,
+          description: data.errors > 0 ? `أخطاء: ${data.errors}` : undefined,
+        });
+        fetchSubscriptions();
+      } else {
+        toast({ title: 'لا توجد اشتراكات منتهية لإرسال تذكير لها' });
+      }
+    } catch (e) {
+      toast({ title: 'خطأ', description: 'فشل في إرسال التذكيرات', variant: 'destructive' });
+    } finally {
+      setForceSendRunning(false);
+    }
+  };
+
+  // Save category renewal link
+  const saveCategoryRenewalLink = async (categoryId: string) => {
+    setSavingRenewalLink(categoryId);
+    try {
+      const res = await fetch(`/api/admin/categories/${categoryId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ renewal_link: editingRenewalLinks[categoryId] || '' }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      toast({ title: 'تم حفظ رابط التجديد' });
+      fetchCategories();
+    } catch (error: any) {
+      toast({ title: 'خطأ', description: error.message, variant: 'destructive' });
+    } finally {
+      setSavingRenewalLink(null);
+    }
+  };
+
   // Handle opt-out toggle
   const handleOptOutToggle = async (sub: ActiveSubscription) => {
     setActionLoading(prev => new Set(prev).add(sub.id));
@@ -1532,19 +1594,34 @@ export default function AdminSubscriptionsPage() {
                     </div>
                   </div>
                 </CardTitle>
-                <Button
-                  size="sm"
-                  onClick={triggerAutoReminders}
-                  disabled={reminderRunning}
-                  className="bg-white/20 hover:bg-white/30 text-white border-0"
-                >
-                  {reminderRunning ? (
-                    <Loader2 className="h-4 w-4 animate-spin mr-1.5" />
-                  ) : (
-                    <Send className="h-4 w-4 mr-1.5" />
-                  )}
-                  إرسال التذكيرات
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    onClick={triggerAutoReminders}
+                    disabled={reminderRunning}
+                    className="bg-white/20 hover:bg-white/30 text-white border-0"
+                  >
+                    {reminderRunning ? (
+                      <Loader2 className="h-4 w-4 animate-spin mr-1.5" />
+                    ) : (
+                      <Send className="h-4 w-4 mr-1.5" />
+                    )}
+                    إرسال التذكيرات
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => setForceSendConfirmOpen(true)}
+                    disabled={forceSendRunning || stats.expired === 0}
+                    className="bg-red-500/80 hover:bg-red-500 text-white border-0"
+                  >
+                    {forceSendRunning ? (
+                      <Loader2 className="h-4 w-4 animate-spin mr-1.5" />
+                    ) : (
+                      <AlertCircle className="h-4 w-4 mr-1.5" />
+                    )}
+                    إرسال لجميع المنتهين ({stats.expired})
+                  </Button>
+                </div>
               </div>
             </div>
 
@@ -1606,7 +1683,7 @@ export default function AdminSubscriptionsPage() {
                   <div>
                     <div className="text-lg font-bold">قوالب رسائل واتساب</div>
                     <div className="text-sm text-white/80 font-normal">
-                      تعديل رسائل التذكير التلقائية - المتغيرات: {'{name}'} {'{product}'} {'{expiry_date}'} {'{renewal_link}'}
+                      تعديل رسائل التذكير التلقائية - المتغيرات: {'{name}'} {'{product}'} {'{type}'} {'{expiry_date}'} {'{renewal_link}'}
                     </div>
                   </div>
                 </CardTitle>
@@ -1645,7 +1722,7 @@ export default function AdminSubscriptionsPage() {
                         />
                         <div className="flex items-center justify-between">
                           <p className="text-xs text-gray-400">
-                            المتغيرات: {'{name}'} {'{product}'} {'{expiry_date}'} {'{renewal_link}'}
+                            المتغيرات: {'{name}'} {'{product}'} {'{type}'} {'{expiry_date}'} {'{renewal_link}'}
                           </p>
                           <Button
                             size="sm"
@@ -1663,6 +1740,70 @@ export default function AdminSubscriptionsPage() {
                         </div>
                       </div>
                     ))}
+                  </div>
+                )}
+              </CardContent>
+            )}
+          </Card>
+
+          {/* Category Renewal Links Editor */}
+          <Card className="mb-6 overflow-hidden border-0 shadow-lg">
+            <div
+              className="bg-gradient-to-r from-blue-600 to-cyan-600 px-6 py-4 cursor-pointer"
+              onClick={() => setRenewalLinksExpanded(!renewalLinksExpanded)}
+            >
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-white flex items-center gap-3">
+                  <div className="bg-white/20 p-2 rounded-lg">
+                    <MessageSquare className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <div className="text-lg font-bold">روابط التجديد حسب النوع</div>
+                    <div className="text-sm text-white/80 font-normal">
+                      تحديد رابط تجديد مخصص لكل نوع اشتراك - يُستخدم في {'{'}<span>renewal_link</span>{'}'} بالقوالب
+                    </div>
+                  </div>
+                </CardTitle>
+                <ChevronLeft className={`h-5 w-5 text-white transition-transform ${renewalLinksExpanded ? '-rotate-90' : ''}`} />
+              </div>
+            </div>
+
+            {renewalLinksExpanded && (
+              <CardContent className="p-6 bg-gradient-to-b from-blue-50 to-white">
+                {categories.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">
+                    <p>لا توجد تصنيفات. أضف تصنيفات من صفحة المنتجات.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {categories.map((cat) => (
+                      <div key={cat.id} className="flex items-center gap-3 bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+                        <span className="text-sm font-bold text-gray-700 w-44 shrink-0">{cat.name}</span>
+                        <Input
+                          value={editingRenewalLinks[cat.id] || ''}
+                          onChange={(e) => setEditingRenewalLinks(prev => ({ ...prev, [cat.id]: e.target.value }))}
+                          placeholder="https://mkantvai.com/subscribe"
+                          className="flex-1 bg-gray-50 border-gray-200 text-gray-800"
+                          dir="ltr"
+                        />
+                        <Button
+                          size="sm"
+                          onClick={() => saveCategoryRenewalLink(cat.id)}
+                          disabled={savingRenewalLink === cat.id || editingRenewalLinks[cat.id] === (cat.renewal_link || '')}
+                          className="bg-blue-600 hover:bg-blue-700 text-white shrink-0"
+                        >
+                          {savingRenewalLink === cat.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin mr-1.5" />
+                          ) : (
+                            <Save className="h-4 w-4 mr-1.5" />
+                          )}
+                          حفظ
+                        </Button>
+                      </div>
+                    ))}
+                    <p className="text-xs text-gray-400 mt-2">
+                      الروابط الفارغة ستستخدم الرابط الافتراضي: https://mkantvai.com/subscribe
+                    </p>
                   </div>
                 )}
               </CardContent>
@@ -2782,6 +2923,36 @@ export default function AdminSubscriptionsPage() {
               className="border-slate-600 text-slate-300"
             >
               إغلاق
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Force Send Confirmation Dialog */}
+      <Dialog open={forceSendConfirmOpen} onOpenChange={setForceSendConfirmOpen}>
+        <DialogContent className="sm:max-w-md" dir="rtl">
+          <DialogHeader>
+            <DialogTitle className="text-red-600 flex items-center gap-2">
+              <AlertCircle className="h-5 w-5" />
+              تأكيد الإرسال الجماعي
+            </DialogTitle>
+            <DialogDescription>
+              سيتم إرسال تذكير واتساب لجميع الاشتراكات المنتهية ({stats.expired} اشتراك) بغض النظر عن مرحلة التذكير الحالية.
+              <br />
+              هل أنت متأكد؟
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex gap-2">
+            <Button variant="outline" onClick={() => setForceSendConfirmOpen(false)}>
+              إلغاء
+            </Button>
+            <Button
+              className="bg-red-600 hover:bg-red-700 text-white"
+              onClick={triggerForceSendExpired}
+              disabled={forceSendRunning}
+            >
+              {forceSendRunning ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : null}
+              نعم، إرسال الآن
             </Button>
           </DialogFooter>
         </DialogContent>

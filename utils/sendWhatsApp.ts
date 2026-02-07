@@ -33,6 +33,7 @@ export interface RenewalReminderParams {
   stage: 1 | 2;
   templateBody?: string;
   renewalLink?: string;
+  subscriptionType?: string;
 }
 
 /**
@@ -112,7 +113,7 @@ function replaceTemplateVariables(
 export async function sendRenewalReminder(
   params: RenewalReminderParams
 ): Promise<WhatsAppMessageResult> {
-  const { phone, customerName, productName, expiryDate, stage, templateBody, renewalLink } = params;
+  const { phone, customerName, productName, expiryDate, stage, templateBody, renewalLink, subscriptionType } = params;
 
   // Default templates if none provided from DB
   const defaultTemplates: Record<1 | 2, string> = {
@@ -126,6 +127,7 @@ export async function sendRenewalReminder(
     message = replaceTemplateVariables(templateBody, {
       name: customerName,
       product: productName,
+      type: subscriptionType || productName,
       expiry_date: expiryDate,
       renewal_link: renewalLink || '',
     });

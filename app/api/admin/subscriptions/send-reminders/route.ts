@@ -13,6 +13,15 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // Parse request body for optional force flag
+  let forceMode = false;
+  try {
+    const body = await request.json();
+    forceMode = body?.force === true;
+  } catch {
+    // No body or invalid JSON - default to normal mode
+  }
+
   const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
@@ -23,14 +32,23 @@ export async function POST(request: NextRequest) {
   const errorDetails: string[] = [];
 
   try {
-    // Fetch all active subscriptions that might need reminders
-    const { data: subscriptions, error: fetchError } = await supabaseAdmin
+    // Build subscription query based on mode
+    let query = supabaseAdmin
       .from('active_subscriptions')
       .select('*')
       .not('customer_phone', 'is', null)
       .eq('whatsapp_opt_out', false)
-      .lt('reminder_stage', 2)
       .order('expiration_date', { ascending: true });
+
+    if (forceMode) {
+      // Force mode: get ALL expired subscriptions regardless of stage
+      query = query.lte('expiration_date', new Date().toISOString());
+    } else {
+      // Normal mode: only those not yet at stage 2
+      query = query.lt('reminder_stage', 2);
+    }
+
+    const { data: subscriptions, error: fetchError } = await query;
 
     if (fetchError) {
       console.error('Error fetching subscriptions:', fetchError);
@@ -46,7 +64,9 @@ export async function POST(request: NextRequest) {
         sent: 0,
         skipped: 0,
         errors: 0,
-        message: 'لا توجد اشتراكات تحتاج إلى تذكير',
+        message: forceMode
+          ? 'لا توجد اشتراكات منتهية لإرسال تذكير لها'
+          : 'لا توجد اشتراكات تحتاج إلى تذكير',
       });
     }
 
@@ -60,6 +80,21 @@ export async function POST(request: NextRequest) {
     if (templates) {
       for (const t of templates) {
         templateMap[t.stage] = t.template_body;
+      }
+    }
+
+    // Fetch categories with renewal_link for per-type links
+    const { data: categoriesData } = await supabaseAdmin
+      .from('categories')
+      .select('name, renewal_link')
+      .eq('is_active', true);
+
+    const categoryRenewalLinks: Record<string, string> = {};
+    if (categoriesData) {
+      for (const cat of categoriesData) {
+        if (cat.renewal_link) {
+          categoryRenewalLinks[cat.name] = cat.renewal_link;
+        }
       }
     }
 
@@ -77,12 +112,15 @@ export async function POST(request: NextRequest) {
         // Determine which stage to send
         let targetStage: 1 | 2 | null = null;
 
-        if (daysUntilExpiry <= 0 && currentStage < 2) {
-          // Expired or expiring today -> stage 2
+        if (forceMode) {
+          // Force mode: always send stage 2 to all expired subs
           targetStage = 2;
-        } else if (daysUntilExpiry <= 2 && daysUntilExpiry > 0 && currentStage < 1) {
-          // 2 days or less before expiry -> stage 1
-          targetStage = 1;
+        } else {
+          if (daysUntilExpiry <= 0 && currentStage < 2) {
+            targetStage = 2;
+          } else if (daysUntilExpiry <= 2 && daysUntilExpiry > 0 && currentStage < 1) {
+            targetStage = 1;
+          }
         }
 
         if (!targetStage) {
@@ -90,16 +128,17 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
-        // Check if this specific stage was already sent today (cooldown)
-        const stageTimestampField = targetStage === 1 ? 'stage1_sent_at' : 'stage2_sent_at';
-        const lastSentAt = sub[stageTimestampField];
-        if (lastSentAt) {
-          const lastSent = new Date(lastSentAt);
-          const hoursSinceSent = (now.getTime() - lastSent.getTime()) / (1000 * 60 * 60);
-          if (hoursSinceSent < 23) {
-            // Already sent within the last 23 hours
-            skipped++;
-            continue;
+        // Cooldown check - skip in force mode
+        if (!forceMode) {
+          const stageTimestampField = targetStage === 1 ? 'stage1_sent_at' : 'stage2_sent_at';
+          const lastSentAt = sub[stageTimestampField];
+          if (lastSentAt) {
+            const lastSent = new Date(lastSentAt);
+            const hoursSinceSent = (now.getTime() - lastSent.getTime()) / (1000 * 60 * 60);
+            if (hoursSinceSent < 23) {
+              skipped++;
+              continue;
+            }
           }
         }
 
@@ -115,7 +154,8 @@ export async function POST(request: NextRequest) {
           day: 'numeric',
         });
 
-        const renewalLink = `${baseUrl}/subscribe`;
+        // Per-type renewal link: look up by category name, fall back to default
+        const renewalLink = categoryRenewalLinks[sub.subscription_type] || `${baseUrl}/subscribe`;
 
         const result = await sendRenewalReminder({
           phone: normalizedPhone,
@@ -125,10 +165,11 @@ export async function POST(request: NextRequest) {
           stage: targetStage,
           templateBody: templateMap[targetStage],
           renewalLink,
+          subscriptionType: sub.subscription_type || '',
         });
 
         if (result.success) {
-          // Update subscription with new stage
+          const stageTimestampField = targetStage === 1 ? 'stage1_sent_at' : 'stage2_sent_at';
           const updateData: Record<string, any> = {
             reminder_stage: targetStage,
             [stageTimestampField]: now.toISOString(),
@@ -138,7 +179,6 @@ export async function POST(request: NextRequest) {
             last_reminder_error: null,
           };
 
-          // If going from stage 1 to stage 2, also keep stage1 data
           if (targetStage === 2 && currentStage < 1) {
             updateData.stage1_sent_at = now.toISOString();
           }
@@ -150,7 +190,6 @@ export async function POST(request: NextRequest) {
 
           sent++;
         } else {
-          // Store error but don't advance stage
           await supabaseAdmin
             .from('active_subscriptions')
             .update({ last_reminder_error: result.error || 'Unknown error' })
@@ -177,7 +216,9 @@ export async function POST(request: NextRequest) {
       skipped,
       errors,
       errorDetails: errorDetails.length > 0 ? errorDetails : undefined,
-      message: `تم إرسال ${sent} تذكير، تم تخطي ${skipped}، أخطاء: ${errors}`,
+      message: forceMode
+        ? `[إرسال جماعي] تم إرسال ${sent} تذكير للمنتهين، أخطاء: ${errors}`
+        : `تم إرسال ${sent} تذكير، تم تخطي ${skipped}، أخطاء: ${errors}`,
     });
   } catch (error: any) {
     console.error('Unexpected error in send-reminders:', error);
