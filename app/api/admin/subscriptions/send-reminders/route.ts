@@ -101,7 +101,19 @@ export async function POST(request: NextRequest) {
     const now = new Date();
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://mkantvai.com';
 
+    // Deduplicate by phone - keep the subscription with earliest expiry per phone
+    const phoneMap = new Map<string, typeof subscriptions[0]>();
     for (const sub of subscriptions) {
+      const phone = normalizePhoneNumber(sub.customer_phone);
+      if (!phone) continue;
+      const existing = phoneMap.get(phone);
+      if (!existing || new Date(sub.expiration_date) < new Date(existing.expiration_date)) {
+        phoneMap.set(phone, sub);
+      }
+    }
+    const deduplicatedSubs = Array.from(phoneMap.values());
+
+    for (const sub of deduplicatedSubs) {
       try {
         const expirationDate = new Date(sub.expiration_date);
         const daysUntilExpiry = Math.ceil(
@@ -200,7 +212,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Rate limiting: 3 second delay between messages
-        if (sent + errors < subscriptions.length) {
+        if (sent + errors < deduplicatedSubs.length) {
           await new Promise((resolve) => setTimeout(resolve, 3000));
         }
       } catch (error: any) {
