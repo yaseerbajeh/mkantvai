@@ -147,6 +147,8 @@ export default function AdminSubscriptionsPage() {
   // Auto-reminder state
   const [reminderRunning, setReminderRunning] = useState(false);
   const [lastReminderResult, setLastReminderResult] = useState<{ sent: number; skipped: number; errors: number } | null>(null);
+  const [sendProgress, setSendProgress] = useState<{ current: number; total: number; sent: number; errors: number } | null>(null);
+  const sendAbortRef = useRef(false);
 
   // WhatsApp templates
   const [templates, setTemplates] = useState<Array<{ id: string; stage: number; template_name: string; template_body: string; is_active: boolean }>>([]);
@@ -1346,39 +1348,108 @@ export default function AdminSubscriptionsPage() {
     localStorage.setItem('whatsapp_auto_send', enabled ? 'true' : 'false');
   };
 
-  // Auto-trigger reminders on page load
-  const triggerAutoReminders = async () => {
-    if (reminderRunning) return;
-    setReminderRunning(true);
+  // Send reminders one-by-one with 30s interval to avoid WhatsApp ban
+  const sendRemindersWithInterval = async (forceMode: boolean) => {
+    sendAbortRef.current = false;
     try {
-      const res = await fetch('/api/admin/subscriptions/send-reminders', { method: 'POST' });
-      const data = await res.json();
-      if (!res.ok) {
+      // Step 1: Get eligible list
+      const listRes = await fetch('/api/admin/subscriptions/send-reminders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ listOnly: true, force: forceMode }),
+      });
+      const listData = await listRes.json();
+      if (!listRes.ok) {
         toast({
-          title: 'خطأ في إرسال التذكيرات',
-          description: data.error || data.details || 'حدث خطأ غير متوقع',
+          title: 'خطأ في جلب قائمة التذكيرات',
+          description: listData.error || listData.details || 'حدث خطأ غير متوقع',
           variant: 'destructive',
         });
-        return;
+        return { sent: 0, skipped: 0, errors: 0 };
       }
-      setLastReminderResult({ sent: data.sent || 0, skipped: data.skipped || 0, errors: data.errors || 0 });
-      if (data.sent > 0) {
-        toast({ title: `تم إرسال ${data.sent} تذكير تجديد عبر واتساب` });
-        fetchSubscriptions();
+
+      const eligible = listData.eligible || [];
+      if (eligible.length === 0) {
+        return { sent: 0, skipped: 0, errors: 0 };
       }
-      if (data.errors > 0) {
+
+      // Step 2: Send one-by-one with 30s delay
+      let sent = 0;
+      let errors = 0;
+      const errorDetails: string[] = [];
+
+      setSendProgress({ current: 0, total: eligible.length, sent: 0, errors: 0 });
+
+      for (let i = 0; i < eligible.length; i++) {
+        if (sendAbortRef.current) break;
+
+        const item = eligible[i];
+        setSendProgress({ current: i + 1, total: eligible.length, sent, errors });
+
+        try {
+          const sendRes = await fetch('/api/admin/subscriptions/send-reminders', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              subscriptionId: item.id,
+              targetStage: item.targetStage,
+              force: forceMode,
+            }),
+          });
+          const sendData = await sendRes.json();
+
+          if (sendData.sent > 0) {
+            sent++;
+          } else if (sendData.errors > 0) {
+            errors++;
+            if (sendData.errorDetails) errorDetails.push(...sendData.errorDetails);
+          }
+        } catch {
+          errors++;
+          errorDetails.push(`${item.customer_name}: خطأ في الاتصال`);
+        }
+
+        setSendProgress({ current: i + 1, total: eligible.length, sent, errors });
+
+        // 30-second delay between messages (skip after last)
+        if (i < eligible.length - 1 && !sendAbortRef.current) {
+          await new Promise((resolve) => setTimeout(resolve, 30000));
+        }
+      }
+
+      setSendProgress(null);
+
+      if (errors > 0) {
         toast({
-          title: `فشل إرسال ${data.errors} تذكير`,
-          description: data.errorDetails?.join('\n') || '',
+          title: `فشل إرسال ${errors} تذكير`,
+          description: errorDetails.slice(0, 3).join('\n') || '',
           variant: 'destructive',
         });
       }
+
+      return { sent, skipped: 0, errors };
     } catch (e: any) {
+      setSendProgress(null);
       toast({
         title: 'خطأ في الاتصال',
         description: 'تعذر الاتصال بخادم التذكيرات',
         variant: 'destructive',
       });
+      return { sent: 0, skipped: 0, errors: 0 };
+    }
+  };
+
+  // Auto-trigger reminders on page load
+  const triggerAutoReminders = async () => {
+    if (reminderRunning || forceSendRunning) return;
+    setReminderRunning(true);
+    try {
+      const result = await sendRemindersWithInterval(false);
+      setLastReminderResult({ sent: result.sent, skipped: result.skipped, errors: result.errors });
+      if (result.sent > 0) {
+        toast({ title: `تم إرسال ${result.sent} تذكير تجديد عبر واتساب` });
+        fetchSubscriptions();
+      }
     } finally {
       setReminderRunning(false);
     }
@@ -1433,35 +1504,20 @@ export default function AdminSubscriptionsPage() {
 
   // Force send to all expired
   const triggerForceSendExpired = async () => {
-    if (forceSendRunning) return;
+    if (forceSendRunning || reminderRunning) return;
     setForceSendRunning(true);
     setForceSendConfirmOpen(false);
     try {
-      const res = await fetch('/api/admin/subscriptions/send-reminders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ force: true }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
+      const result = await sendRemindersWithInterval(true);
+      if (result.sent > 0) {
         toast({
-          title: 'خطأ في الإرسال الجماعي',
-          description: data.error || data.details || 'حدث خطأ غير متوقع',
-          variant: 'destructive',
-        });
-        return;
-      }
-      if (data.sent > 0) {
-        toast({
-          title: `تم إرسال ${data.sent} تذكير لجميع المنتهين`,
-          description: data.errors > 0 ? `أخطاء: ${data.errors}` : undefined,
+          title: `تم إرسال ${result.sent} تذكير لجميع المنتهين`,
+          description: result.errors > 0 ? `أخطاء: ${result.errors}` : undefined,
         });
         fetchSubscriptions();
       } else {
         toast({ title: 'لا توجد اشتراكات منتهية لإرسال تذكير لها' });
       }
-    } catch (e) {
-      toast({ title: 'خطأ', description: 'فشل في إرسال التذكيرات', variant: 'destructive' });
     } finally {
       setForceSendRunning(false);
     }
@@ -1737,7 +1793,7 @@ export default function AdminSubscriptionsPage() {
                   <Button
                     size="sm"
                     onClick={triggerAutoReminders}
-                    disabled={reminderRunning}
+                    disabled={reminderRunning || forceSendRunning}
                     className="bg-white/20 hover:bg-white/30 text-white border-0"
                   >
                     {reminderRunning ? (
@@ -1750,7 +1806,7 @@ export default function AdminSubscriptionsPage() {
                   <Button
                     size="sm"
                     onClick={() => setForceSendConfirmOpen(true)}
-                    disabled={forceSendRunning || stats.expired === 0}
+                    disabled={forceSendRunning || reminderRunning || stats.expired === 0}
                     className="bg-red-500/80 hover:bg-red-500 text-white border-0"
                   >
                     {forceSendRunning ? (
@@ -1760,6 +1816,16 @@ export default function AdminSubscriptionsPage() {
                     )}
                     إرسال لجميع المنتهين ({stats.expired})
                   </Button>
+                  {sendProgress && (
+                    <Button
+                      size="sm"
+                      onClick={() => { sendAbortRef.current = true; }}
+                      className="bg-red-600/80 hover:bg-red-600 text-white border-0"
+                    >
+                      <X className="h-4 w-4 mr-1.5" />
+                      إيقاف
+                    </Button>
+                  )}
                   <Button
                     size="sm"
                     onClick={() => setTestDialogOpen(true)}
@@ -1782,6 +1848,28 @@ export default function AdminSubscriptionsPage() {
                   </Button>
                 </div>
               </div>
+              {/* Progress bar for sending */}
+              {sendProgress && (
+                <div className="px-4 pb-2">
+                  <div className="bg-white/10 rounded-lg p-3">
+                    <div className="flex items-center justify-between text-sm text-white mb-2">
+                      <span className="flex items-center gap-2">
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        جاري الإرسال: {sendProgress.current} / {sendProgress.total}
+                      </span>
+                      <span>
+                        تم: {sendProgress.sent} | أخطاء: {sendProgress.errors}
+                      </span>
+                    </div>
+                    <div className="w-full bg-white/20 rounded-full h-2">
+                      <div
+                        className="bg-green-400 h-2 rounded-full transition-all duration-500"
+                        style={{ width: `${(sendProgress.current / sendProgress.total) * 100}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             <CardContent className="p-4 bg-gradient-to-b from-violet-50 to-white">
