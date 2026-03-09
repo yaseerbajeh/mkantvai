@@ -245,10 +245,28 @@ export async function POST(request: NextRequest) {
           updateData.stage1_sent_at = now.toISOString();
         }
 
-        await supabaseAdmin
+        const { error: updateError } = await supabaseAdmin
           .from('active_subscriptions')
           .update(updateData)
           .eq('id', sub.id);
+
+        if (updateError) {
+          console.error('Failed to update reminder_stage after successful send:', updateError);
+          // Mark the error on the subscription so the admin can see it
+          await supabaseAdmin
+            .from('active_subscriptions')
+            .update({ last_reminder_error: `DB update failed: ${updateError.message}` })
+            .eq('id', sub.id);
+
+          return NextResponse.json({
+            success: false,
+            sent: 0,
+            skipped: 0,
+            errors: 1,
+            errorDetails: [`${sub.customer_name}: فشل تحديث مرحلة التذكير - ${updateError.message}`],
+            message: `تم إرسال الرسالة لكن فشل تحديث المرحلة لـ ${sub.customer_name}`,
+          });
+        }
 
         return NextResponse.json({
           success: true,
@@ -388,12 +406,22 @@ export async function POST(request: NextRequest) {
             updateData.stage1_sent_at = now.toISOString();
           }
 
-          await supabaseAdmin
+          const { error: updateError } = await supabaseAdmin
             .from('active_subscriptions')
             .update(updateData)
             .eq('id', sub.data.id);
 
-          sent++;
+          if (updateError) {
+            console.error(`Failed to update reminder_stage for ${sub.data.id}:`, updateError);
+            await supabaseAdmin
+              .from('active_subscriptions')
+              .update({ last_reminder_error: `DB update failed: ${updateError.message}` })
+              .eq('id', sub.data.id);
+            errors++;
+            errorDetails.push(`${sub.data.customer_name}: فشل تحديث المرحلة - ${updateError.message}`);
+          } else {
+            sent++;
+          }
         } else {
           await supabaseAdmin
             .from('active_subscriptions')

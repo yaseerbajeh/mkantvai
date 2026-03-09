@@ -37,10 +37,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Insert into expired_subscriptions
+    // Upsert into expired_subscriptions (handles duplicate IDs gracefully)
     const { error: insertError } = await supabaseAdmin
       .from('expired_subscriptions')
-      .insert({
+      .upsert({
         id: subscription.id,
         order_id: subscription.order_id,
         customer_name: subscription.customer_name,
@@ -61,10 +61,10 @@ export async function POST(request: NextRequest) {
         created_at: subscription.created_at,
         updated_at: subscription.updated_at,
         expired_at: new Date().toISOString(),
-      });
+      }, { onConflict: 'id' });
 
     if (insertError) {
-      console.error('Error inserting into expired_subscriptions:', insertError);
+      console.error('Error upserting into expired_subscriptions:', insertError);
       return NextResponse.json(
         { error: 'Failed to move subscription to expired', details: insertError.message },
         { status: 500 }
