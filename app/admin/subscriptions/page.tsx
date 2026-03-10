@@ -1147,8 +1147,6 @@ export default function AdminSubscriptionsPage() {
         title: 'نجح',
         description: 'تم نقل الاشتراك إلى الاشتراكات المنتهية',
       });
-
-      fetchSubscriptions();
     } catch (error: any) {
       console.error('Error deleting subscription:', error);
       toast({
@@ -1157,6 +1155,7 @@ export default function AdminSubscriptionsPage() {
         variant: 'destructive',
       });
     } finally {
+      fetchSubscriptions();
       setActionLoading(prev => {
         const newSet = new Set(prev);
         newSet.delete(subscription.id);

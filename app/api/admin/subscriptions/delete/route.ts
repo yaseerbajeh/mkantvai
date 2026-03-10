@@ -31,10 +31,11 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (fetchError || !subscription) {
-      return NextResponse.json(
-        { error: 'Subscription not found' },
-        { status: 404 }
-      );
+      // Already moved/deleted — return success so the UI can refresh and clear stale entries
+      return NextResponse.json({
+        success: true,
+        message: 'Subscription already removed from active subscriptions',
+      });
     }
 
     // Upsert into expired_subscriptions (handles duplicate IDs gracefully)
