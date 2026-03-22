@@ -136,6 +136,9 @@ export default function AdminSubscriptionsPage() {
     product_code: '', // Optional, not shown in form
   });
 
+  // Date text state for free typing (prevents reformat-on-keystroke bug)
+  const [expirationDateText, setExpirationDateText] = useState(format(new Date(), 'yyyy-MM-dd'));
+
   // CSV import
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [importing, setImporting] = useState(false);
@@ -737,6 +740,7 @@ export default function AdminSubscriptionsPage() {
         start_date: new Date(),
         product_code: '',
       });
+      setExpirationDateText(format(new Date(), 'yyyy-MM-dd'));
       fetchSubscriptions();
     } catch (error: any) {
       console.error('Error adding subscription:', error);
@@ -1226,6 +1230,7 @@ export default function AdminSubscriptionsPage() {
       expiration_date: new Date(subscription.expiration_date),
       product_code: subscription.product_code || '',
     });
+    setExpirationDateText(format(new Date(subscription.expiration_date), 'yyyy-MM-dd'));
     setEditDialogOpen(true);
   };
 
@@ -1268,6 +1273,7 @@ export default function AdminSubscriptionsPage() {
         expiration_date: new Date(),
         product_code: '',
       });
+      setExpirationDateText(format(new Date(), 'yyyy-MM-dd'));
       fetchSubscriptions();
     } catch (error: any) {
       console.error('Error updating subscription:', error);
@@ -2534,12 +2540,16 @@ export default function AdminSubscriptionsPage() {
               <div className="flex gap-2">
                 <Input
                   type="text"
-                  value={format(manualForm.expiration_date, 'yyyy-MM-dd')}
+                  value={expirationDateText}
                   onChange={(e) => {
                     const dateStr = e.target.value;
-                    const parsed = new Date(dateStr);
-                    if (!isNaN(parsed.getTime())) {
-                      setManualForm({ ...manualForm, expiration_date: parsed });
+                    setExpirationDateText(dateStr);
+                    // Only sync to Date when we have a valid complete date (YYYY-MM-DD)
+                    if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+                      const parsed = new Date(dateStr + 'T00:00:00');
+                      if (!isNaN(parsed.getTime())) {
+                        setManualForm({ ...manualForm, expiration_date: parsed });
+                      }
                     }
                   }}
                   className="flex-1 bg-gray-50 border-gray-300 text-gray-900 focus:border-blue-500 focus:ring-blue-500"
@@ -2562,6 +2572,7 @@ export default function AdminSubscriptionsPage() {
                       onSelect={(date) => {
                         if (date) {
                           setManualForm({ ...manualForm, expiration_date: date });
+                          setExpirationDateText(format(date, 'yyyy-MM-dd'));
                         }
                       }}
                     />
@@ -2819,6 +2830,7 @@ export default function AdminSubscriptionsPage() {
                   expiration_date: new Date(),
                   product_code: '',
                 });
+                setExpirationDateText(format(new Date(), 'yyyy-MM-dd'));
               }}
               className="border-slate-600 text-slate-300"
             >

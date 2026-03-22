@@ -86,6 +86,7 @@ const navigationItems = [
   { href: '/admin/commissions', label: 'لوحة العمولات', icon: TrendingUp, color: 'indigo' },
   { href: '/admin/accounts-stock', label: 'مخزون الحسابات', icon: Key, color: 'blue' },
   { href: '/admin/ratings', label: 'التقييمات', icon: Star, color: 'yellow' },
+  { href: '/admin/campaigns', label: 'حملات واتساب', icon: MessageCircle, color: 'green' },
 ];
 
 function AdminDashboardPageContent() {
