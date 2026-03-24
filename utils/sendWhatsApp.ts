@@ -94,6 +94,66 @@ export async function sendWhatsAppMessage(
 }
 
 /**
+ * Send a WhatsApp image message with optional caption via Evolution API
+ */
+export async function sendWhatsAppMedia(
+  phone: string,
+  mediaUrl: string,
+  caption?: string
+): Promise<WhatsAppMessageResult> {
+  const { apiUrl, apiKey, instanceName } = evolutionConfig;
+
+  if (!apiUrl || !apiKey || !instanceName) {
+    return {
+      success: false,
+      error: 'Evolution API not configured. Set EVOLUTION_API_URL, EVOLUTION_API_KEY, and EVOLUTION_INSTANCE_NAME.',
+    };
+  }
+
+  const normalizedPhone = normalizePhoneNumber(phone);
+  if (!normalizedPhone) {
+    return { success: false, error: 'Invalid phone number' };
+  }
+
+  try {
+    const response = await fetch(`${apiUrl}/message/sendMedia/${instanceName}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': apiKey,
+      },
+      body: JSON.stringify({
+        number: normalizedPhone,
+        mediatype: 'image',
+        media: mediaUrl,
+        caption: caption || '',
+      }),
+    });
+
+    if (!response.ok) {
+      const errorBody = await response.text();
+      console.error('Evolution API media error:', response.status, errorBody);
+      return {
+        success: false,
+        error: `Evolution API returned ${response.status}: ${errorBody}`,
+      };
+    }
+
+    const data = await response.json();
+    return {
+      success: true,
+      messageId: data?.key?.id || data?.messageId || undefined,
+    };
+  } catch (error: any) {
+    console.error('Failed to send WhatsApp media:', error);
+    return {
+      success: false,
+      error: error.message || 'Network error sending WhatsApp media',
+    };
+  }
+}
+
+/**
  * Replace template variables with actual values
  */
 function replaceTemplateVariables(

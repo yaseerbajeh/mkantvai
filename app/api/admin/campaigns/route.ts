@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { sendWhatsAppMessage, normalizePhoneNumber } from '@/utils/sendWhatsApp';
+import { sendWhatsAppMessage, sendWhatsAppMedia, normalizePhoneNumber } from '@/utils/sendWhatsApp';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
 
   // Mode 1: Create a new campaign
   if (body.action === 'create') {
-    const { name, message, phoneNumbers, scheduledAt } = body;
+    const { name, message, phoneNumbers, scheduledAt, imageUrl } = body;
 
     if (!name || !message || !phoneNumbers || !Array.isArray(phoneNumbers) || phoneNumbers.length === 0) {
       return NextResponse.json({ error: 'اسم الحملة والرسالة وأرقام الهواتف مطلوبة' }, { status: 400 });
@@ -53,6 +53,7 @@ export async function POST(request: NextRequest) {
       .insert({
         name,
         message,
+        image_url: imageUrl || null,
         status: isScheduled ? 'scheduled' : 'pending',
         total_count: normalizedNumbers.length,
         sent_count: 0,
@@ -99,10 +100,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'رسالة غير موجودة' }, { status: 404 });
     }
 
-    // Get campaign for the message text
+    // Get campaign for the message text and image
     const { data: campaign, error: campError } = await supabaseAdmin
       .from('whatsapp_campaigns')
-      .select('message')
+      .select('message, image_url')
       .eq('id', campaignId)
       .single();
 
@@ -110,8 +111,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'حملة غير موجودة' }, { status: 404 });
     }
 
-    // Send WhatsApp message
-    const result = await sendWhatsAppMessage(msg.phone_number, campaign.message);
+    // Send WhatsApp message — use media endpoint if image is attached
+    const result = campaign.image_url
+      ? await sendWhatsAppMedia(msg.phone_number, campaign.image_url, campaign.message)
+      : await sendWhatsAppMessage(msg.phone_number, campaign.message);
 
     if (result.success) {
       // Update message as sent

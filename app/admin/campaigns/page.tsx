@@ -42,12 +42,12 @@ import {
   Megaphone,
   Copy,
   Download,
-  FileText,
   Save,
   BookOpen,
   PenSquare,
   Calendar as CalendarIcon,
   Timer,
+  ImageIcon,
 } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
 
@@ -55,6 +55,7 @@ interface Campaign {
   id: string;
   name: string;
   message: string;
+  image_url: string | null;
   status: string;
   total_count: number;
   sent_count: number;
@@ -95,6 +96,7 @@ export default function AdminCampaignsPage() {
   const [phoneNumbersText, setPhoneNumbersText] = useState('');
   const [creating, setCreating] = useState(false);
   const [scheduledAt, setScheduledAt] = useState('');
+  const [imageUrl, setImageUrl] = useState('');
 
   // Send progress
   const [sendProgress, setSendProgress] = useState<{
@@ -277,6 +279,7 @@ export default function AdminCampaignsPage() {
           message: campaignMessage.trim(),
           phoneNumbers: parsedNumbers,
           scheduledAt: isScheduled ? new Date(scheduledAt).toISOString() : null,
+          imageUrl: imageUrl.trim() || null,
         }),
       });
 
@@ -311,6 +314,7 @@ export default function AdminCampaignsPage() {
       setCampaignMessage('');
       setPhoneNumbersText('');
       setScheduledAt('');
+      setImageUrl('');
 
       await fetchCampaigns();
     } catch {
@@ -447,6 +451,7 @@ export default function AdminCampaignsPage() {
     setCampaignName(`${campaign.name} (نسخة)`);
     setCampaignMessage(campaign.message);
     setPhoneNumbersText(messages.map(m => m.phone_number).join(', '));
+    setImageUrl(campaign.image_url || '');
     setScheduledAt('');
 
     // Scroll to top
@@ -796,6 +801,44 @@ export default function AdminCampaignsPage() {
               <p className="text-xs text-gray-400">{campaignMessage.length} حرف</p>
             </div>
 
+            {/* Image URL (optional) */}
+            <div className="space-y-2">
+              <Label className="text-gray-700 flex items-center gap-2">
+                <ImageIcon className="h-4 w-4" />
+                رابط الصورة <span className="text-gray-400 font-normal">(اختياري — سيتم إرسالها مع الرسالة)</span>
+              </Label>
+              <Input
+                value={imageUrl}
+                onChange={(e) => setImageUrl(e.target.value)}
+                placeholder="https://example.com/image.jpg"
+                className="bg-gray-50 border-gray-300 text-gray-900"
+                dir="ltr"
+              />
+              {imageUrl.trim() && (
+                <div className="flex items-start gap-3 p-2 bg-gray-100 rounded-lg border border-gray-200">
+                  <img
+                    src={imageUrl.trim()}
+                    alt="معاينة"
+                    className="w-20 h-20 object-cover rounded border border-gray-300"
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                    onLoad={(e) => { (e.target as HTMLImageElement).style.display = 'block'; }}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-green-600 font-medium">سيتم إرسال الصورة مع النص كتعليق</p>
+                    <p className="text-xs text-gray-400 truncate mt-1" dir="ltr">{imageUrl.trim()}</p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setImageUrl('')}
+                    className="h-6 w-6 p-0 text-gray-400 hover:text-red-500"
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
+              )}
+            </div>
+
             {/* Phone Numbers */}
             <div className="space-y-2">
               <Label className="text-gray-700 flex items-center gap-2">
@@ -863,7 +906,7 @@ export default function AdminCampaignsPage() {
                 )}
                 {scheduledAt && new Date(scheduledAt) > new Date() ? 'جدولة الحملة' : 'إنشاء وإرسال الحملة'}
               </Button>
-              {(campaignName || campaignMessage || phoneNumbersText || scheduledAt) && (
+              {(campaignName || campaignMessage || phoneNumbersText || scheduledAt || imageUrl) && (
                 <Button
                   variant="outline"
                   onClick={() => {
@@ -871,6 +914,7 @@ export default function AdminCampaignsPage() {
                     setCampaignMessage('');
                     setPhoneNumbersText('');
                     setScheduledAt('');
+                    setImageUrl('');
                   }}
                   className="text-gray-600"
                 >
@@ -1010,6 +1054,16 @@ export default function AdminCampaignsPage() {
                       <div className="border-t border-gray-200 bg-gray-50 p-4">
                         {/* Campaign message preview */}
                         <div className="mb-4 p-3 bg-white rounded-lg border border-gray-200">
+                          {campaign.image_url && (
+                            <div className="mb-2">
+                              <p className="text-xs text-gray-400 mb-1">الصورة المرفقة:</p>
+                              <img
+                                src={campaign.image_url}
+                                alt="صورة الحملة"
+                                className="max-w-[200px] max-h-[200px] object-cover rounded border border-gray-300"
+                              />
+                            </div>
+                          )}
                           <p className="text-xs text-gray-400 mb-1">نص الرسالة:</p>
                           <p className="text-sm text-gray-700 whitespace-pre-wrap">{campaign.message}</p>
                         </div>
