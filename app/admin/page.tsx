@@ -26,7 +26,8 @@ import {
   Users,
   BarChart3,
   ArrowRight,
-  Star
+  Star,
+  Target,
 } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
 
@@ -87,6 +88,7 @@ const navigationItems = [
   { href: '/admin/accounts-stock', label: 'مخزون الحسابات', icon: Key, color: 'blue' },
   { href: '/admin/ratings', label: 'التقييمات', icon: Star, color: 'yellow' },
   { href: '/admin/campaigns', label: 'حملات واتساب', icon: MessageCircle, color: 'green' },
+  { href: '/admin/meta-audiences', label: 'Meta حملات', icon: Target, color: 'rose' },
 ];
 
 function AdminDashboardPageContent() {
@@ -215,6 +217,7 @@ function AdminDashboardPageContent() {
     pink: { bg: 'bg-pink-100', text: 'text-pink-600', border: 'border-pink-200' },
     emerald: { bg: 'bg-emerald-100', text: 'text-emerald-600', border: 'border-emerald-200' },
     indigo: { bg: 'bg-indigo-100', text: 'text-indigo-600', border: 'border-indigo-200' },
+    rose: { bg: 'bg-rose-100', text: 'text-rose-600', border: 'border-rose-200' },
   };
 
   return (

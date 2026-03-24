@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
@@ -86,6 +86,7 @@ interface MessageTemplate {
 
 export default function AdminCampaignsPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -156,6 +157,14 @@ export default function AdminCampaignsPage() {
     };
     checkAuth();
   }, [router]);
+
+  // Pre-fill phone numbers from ?phones= query param (from Meta audiences page)
+  useEffect(() => {
+    const phones = searchParams.get('phones');
+    if (phones) {
+      setPhoneNumbersText(phones.split(',').join('\n'));
+    }
+  }, [searchParams]);
 
   // Fetch campaigns
   const fetchCampaigns = useCallback(async () => {
