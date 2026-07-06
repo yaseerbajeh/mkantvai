@@ -5,6 +5,72 @@ import { sendRenewalReminder, normalizePhoneNumber } from '@/utils/sendWhatsApp'
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
+function getBaseSubscribeUrl() {
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://mkantvai.com';
+  return baseUrl + '/subscribe';
+}
+
+function pickCategoryName(category: any): string | null {
+  if (!category) return null;
+  const value = Array.isArray(category) ? category[0] : category;
+  return value?.name || value?.name_en || null;
+}
+
+async function getCategoryRenewalLinks(supabaseAdmin: any) {
+  const { data: categoriesData } = await supabaseAdmin
+    .from('categories')
+    .select('name, name_en, renewal_link')
+    .eq('is_active', true);
+
+  const links: Record<string, string> = {};
+  for (const cat of categoriesData || []) {
+    if (!cat.renewal_link) continue;
+    if (cat.name) links[cat.name] = cat.renewal_link;
+    if (cat.name_en) links[cat.name_en] = cat.renewal_link;
+  }
+  return links;
+}
+
+async function resolveSubscriptionReminderMeta(
+  supabaseAdmin: any,
+  sub: any,
+  categoryRenewalLinks?: Record<string, string>
+) {
+  const links = categoryRenewalLinks || await getCategoryRenewalLinks(supabaseAdmin);
+  const defaultLink = getBaseSubscribeUrl();
+  let subscriptionType = sub.subscription_type || '\u0627\u0644\u0627\u0634\u062a\u0631\u0627\u0643';
+  let renewalLink = links[subscriptionType] || defaultLink;
+
+  if (sub.product_code) {
+    const { data: product, error } = await supabaseAdmin
+      .from('products')
+      .select('product_code, category_id, categories:category_id(name, name_en, renewal_link, is_active)')
+      .eq('product_code', sub.product_code)
+      .maybeSingle();
+
+    if (!error && product?.categories) {
+      const category = Array.isArray(product.categories) ? product.categories[0] : product.categories;
+      const categoryName = pickCategoryName(category);
+      if (categoryName) {
+        subscriptionType = categoryName;
+        renewalLink = category.renewal_link || links[categoryName] || defaultLink;
+
+        if (sub.id && sub.subscription_type !== categoryName) {
+          const { error: syncError } = await supabaseAdmin
+            .from('active_subscriptions')
+            .update({ subscription_type: categoryName })
+            .eq('id', sub.id);
+          if (syncError) {
+            console.error('Failed to sync subscription_type before reminder:', syncError);
+          }
+        }
+      }
+    }
+  }
+
+  return { subscriptionType, renewalLink };
+}
+
 // Shared: fetch eligible subscriptions, deduplicate, and calculate stages
 async function getEligibleSubscriptions(supabaseAdmin: any, forceMode: boolean) {
   let query = supabaseAdmin
@@ -31,6 +97,7 @@ async function getEligibleSubscriptions(supabaseAdmin: any, forceMode: boolean) 
   }
 
   const now = new Date();
+  const categoryRenewalLinks = await getCategoryRenewalLinks(supabaseAdmin);
 
   // Deduplicate by phone - keep the subscription with earliest expiry per phone
   const phoneMap = new Map<string, typeof subscriptions[0]>();
@@ -89,11 +156,13 @@ async function getEligibleSubscriptions(supabaseAdmin: any, forceMode: boolean) 
     const normalizedPhone = normalizePhoneNumber(sub.customer_phone);
     if (!normalizedPhone) continue;
 
+    const reminderMeta = await resolveSubscriptionReminderMeta(supabaseAdmin, sub, categoryRenewalLinks);
+
     eligible.push({
       id: sub.id,
-      customer_name: sub.customer_name || 'عزيزنا العميل',
+      customer_name: sub.customer_name || '\u0639\u0632\u064a\u0632\u0646\u0627 \u0627\u0644\u0639\u0645\u064a\u0644',
       customer_phone: sub.customer_phone,
-      subscription_type: sub.subscription_type || '',
+      subscription_type: reminderMeta.subscriptionType,
       expiration_date: sub.expiration_date,
       targetStage,
     });
@@ -191,22 +260,6 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // Fetch category renewal link
-      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://mkantvai.com';
-      const { data: categoriesData } = await supabaseAdmin
-        .from('categories')
-        .select('name, renewal_link')
-        .eq('is_active', true);
-
-      const categoryRenewalLinks: Record<string, string> = {};
-      if (categoriesData) {
-        for (const cat of categoriesData) {
-          if (cat.renewal_link) {
-            categoryRenewalLinks[cat.name] = cat.renewal_link;
-          }
-        }
-      }
-
       const expirationDate = new Date(sub.expiration_date);
       const expiryDateFormatted = expirationDate.toLocaleDateString('ar-EG', {
         year: 'numeric',
@@ -214,17 +267,17 @@ export async function POST(request: NextRequest) {
         day: 'numeric',
       });
 
-      const renewalLink = categoryRenewalLinks[sub.subscription_type] || `${baseUrl}/subscribe`;
+      const reminderMeta = await resolveSubscriptionReminderMeta(supabaseAdmin, sub);
 
       const result = await sendRenewalReminder({
         phone: normalizedPhone,
-        customerName: sub.customer_name || 'عزيزنا العميل',
-        productName: sub.subscription_type || 'الاشتراك',
+        customerName: sub.customer_name || '\u0639\u0632\u064a\u0632\u0646\u0627 \u0627\u0644\u0639\u0645\u064a\u0644',
+        productName: reminderMeta.subscriptionType,
         expiryDate: expiryDateFormatted,
         stage: targetStage,
         templateBody: templateMap[targetStage],
-        renewalLink,
-        subscriptionType: sub.subscription_type || '',
+        renewalLink: reminderMeta.renewalLink,
+        subscriptionType: reminderMeta.subscriptionType,
       });
 
       const now = new Date();
@@ -333,21 +386,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Fetch categories
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://mkantvai.com';
-    const { data: categoriesData } = await supabaseAdmin
-      .from('categories')
-      .select('name, renewal_link')
-      .eq('is_active', true);
-
-    const categoryRenewalLinks: Record<string, string> = {};
-    if (categoriesData) {
-      for (const cat of categoriesData) {
-        if (cat.renewal_link) {
-          categoryRenewalLinks[cat.name] = cat.renewal_link;
-        }
-      }
-    }
+    const categoryRenewalLinks = await getCategoryRenewalLinks(supabaseAdmin);
 
     const now = new Date();
 
@@ -371,7 +410,7 @@ export async function POST(request: NextRequest) {
           day: 'numeric',
         });
 
-        const renewalLink = categoryRenewalLinks[sub.data.subscription_type] || `${baseUrl}/subscribe`;
+        const reminderMeta = await resolveSubscriptionReminderMeta(supabaseAdmin, sub.data, categoryRenewalLinks);
 
         const normalizedPhone = normalizePhoneNumber(sub.data.customer_phone);
         if (!normalizedPhone) {
@@ -381,13 +420,13 @@ export async function POST(request: NextRequest) {
 
         const result = await sendRenewalReminder({
           phone: normalizedPhone,
-          customerName: sub.data.customer_name || 'عزيزنا العميل',
-          productName: sub.data.subscription_type || 'الاشتراك',
+          customerName: sub.data.customer_name || '\u0639\u0632\u064a\u0632\u0646\u0627 \u0627\u0644\u0639\u0645\u064a\u0644',
+          productName: reminderMeta.subscriptionType,
           expiryDate: expiryDateFormatted,
           stage: item.targetStage,
           templateBody: templateMap[item.targetStage],
-          renewalLink,
-          subscriptionType: sub.data.subscription_type || '',
+          renewalLink: reminderMeta.renewalLink,
+          subscriptionType: reminderMeta.subscriptionType,
         });
 
         if (result.success) {

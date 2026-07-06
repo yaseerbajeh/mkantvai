@@ -180,7 +180,6 @@ export default function AdminSubscriptionsPage() {
     }
     return true;
   });
-  const autoReminderFired = useRef(false);
 
   // Actions
   const [actionLoading, setActionLoading] = useState<Set<string>>(new Set());
@@ -233,11 +232,6 @@ export default function AdminSubscriptionsPage() {
         setUser(session.user);
         fetchSubscriptions();
         fetchCategories();
-        // Auto-trigger WhatsApp reminders on page load (only once, and only if enabled)
-        if (autoSendEnabled && !autoReminderFired.current) {
-          autoReminderFired.current = true;
-          triggerAutoReminders();
-        }
       } catch (error: any) {
         console.error('Auth check error:', error);
         toast({
@@ -1479,7 +1473,7 @@ export default function AdminSubscriptionsPage() {
     }
   };
 
-  // Auto-trigger reminders on page load
+  // Send reminders only when an admin clicks the send button.
   const triggerAutoReminders = async () => {
     if (reminderRunning || forceSendRunning) return;
     setReminderRunning(true);

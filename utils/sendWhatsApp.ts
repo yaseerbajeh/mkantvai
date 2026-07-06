@@ -191,6 +191,14 @@ export async function sendRenewalReminder(
       expiry_date: expiryDate,
       renewal_link: renewalLink || '',
     });
+
+    const legacyDefaultType = '\u0627\u0634\u062a\u0631\u0627\u0643\u0627\u062a IPTV';
+    if (productName && productName !== legacyDefaultType) {
+      message = message.replace(new RegExp(legacyDefaultType, 'g'), productName);
+    }
+    if (renewalLink) {
+      message = message.replace(/https:\/\/mkantvai\.com\/subscribe/g, renewalLink);
+    }
   } else {
     message = defaultTemplates[stage];
   }
