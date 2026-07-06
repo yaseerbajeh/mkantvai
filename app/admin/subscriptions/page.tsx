@@ -336,7 +336,16 @@ export default function AdminSubscriptionsPage() {
     }
 
     try {
-      const response = await fetch('/api/admin/products');
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        return null;
+      }
+
+      const response = await fetch('/api/admin/products', {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      });
       if (!response.ok) throw new Error('Failed to fetch products');
       const { products, error } = await response.json();
       if (error) {
@@ -573,8 +582,13 @@ export default function AdminSubscriptionsPage() {
         }
       }
 
-      // Process subscriptions: calculate due_days, fix expiration_date if needed, and override subscription_type from category
-      const subscriptionsToUpdate: Array<{ id: string; expiration_date: string; subscription_duration: string }> = [];
+      // Process subscriptions: calculate due_days, fix expiration_date if needed, and sync subscription_type from product category.
+      const subscriptionsToUpdate: Array<{
+        id: string;
+        expiration_date?: string;
+        subscription_duration?: string;
+        subscription_type?: string;
+      }> = [];
 
       const subscriptionsWithDueDays = (subscriptionsData || []).map((sub: any) => {
         // Get category from products map (fetched from categories table)
@@ -589,21 +603,26 @@ export default function AdminSubscriptionsPage() {
           sub.product_code
         );
 
-        // Check if current subscription_type should be preserved or overridden
+        // Product-linked subscriptions must follow the current product category.
+        // Manual rows without product_code can preserve their manually selected category.
         const currentSubscriptionType = sub.subscription_type;
         const isCurrentTypeValid = isValidCategoryName(currentSubscriptionType);
         const isCurrentTypeOldFormat = currentSubscriptionType && oldFormats.includes(currentSubscriptionType.toLowerCase());
+        const hasProductCategory = Boolean(sub.product_code && categoryName);
 
-        // Only override if:
-        // 1. Current type is empty/null
-        // 2. Current type is an old format (iptv, shahid, netflix, package)
-        // 3. Current type is not a valid category name
         let finalSubscriptionType = currentSubscriptionType;
-        if (!currentSubscriptionType || isCurrentTypeOldFormat || !isCurrentTypeValid) {
-          // Override with the correct type from product category
+        if (hasProductCategory) {
+          finalSubscriptionType = correctSubscriptionType;
+        } else if (!currentSubscriptionType || isCurrentTypeOldFormat || !isCurrentTypeValid) {
           finalSubscriptionType = correctSubscriptionType;
         }
-        // Otherwise, preserve the manually set valid category
+
+        if (finalSubscriptionType && finalSubscriptionType !== currentSubscriptionType) {
+          subscriptionsToUpdate.push({
+            id: sub.id,
+            subscription_type: finalSubscriptionType,
+          });
+        }
 
         // Check if expiration_date needs to be recalculated based on product duration
         let expirationDate = sub.expiration_date;
@@ -659,23 +678,29 @@ export default function AdminSubscriptionsPage() {
         };
       });
 
-      // Update subscriptions with corrected expiration dates
+      // Update subscriptions with corrected category/duration/date values
       if (subscriptionsToUpdate.length > 0) {
-        console.log(`Updating ${subscriptionsToUpdate.length} subscriptions with corrected expiration dates...`);
+        console.log(`Updating ${subscriptionsToUpdate.length} subscriptions with corrected sync values...`);
         for (const update of subscriptionsToUpdate) {
+          const updatePayload: any = {};
+          if (update.expiration_date) updatePayload.expiration_date = update.expiration_date;
+          if (update.subscription_duration) updatePayload.subscription_duration = update.subscription_duration;
+          if (update.subscription_type) updatePayload.subscription_type = update.subscription_type;
+
+          if (Object.keys(updatePayload).length === 0) {
+            continue;
+          }
+
           const { error: updateError } = await supabase
             .from('active_subscriptions')
-            .update({
-              expiration_date: update.expiration_date,
-              subscription_duration: update.subscription_duration
-            })
+            .update(updatePayload)
             .eq('id', update.id);
 
           if (updateError) {
             console.error(`Error updating subscription ${update.id}:`, updateError);
           }
         }
-        console.log(`Updated ${subscriptionsToUpdate.length} subscriptions.`);
+        console.log(`Updated ${subscriptionsToUpdate.length} subscription sync value(s).`);
       }
 
       setSubscriptions(subscriptionsWithDueDays);
@@ -1238,6 +1263,16 @@ export default function AdminSubscriptionsPage() {
     if (!editingSubscription) return;
 
     try {
+      let subscriptionType = manualForm.subscription_type;
+
+      if (manualForm.product_code?.trim()) {
+        const product = await fetchProductByCode(manualForm.product_code.trim());
+        const productCategoryName = product?.categories?.name || product?.categories?.name_en || null;
+        if (productCategoryName) {
+          subscriptionType = productCategoryName;
+        }
+      }
+
       const { error } = await supabase
         .from('active_subscriptions')
         .update({
@@ -1245,7 +1280,7 @@ export default function AdminSubscriptionsPage() {
           customer_email: manualForm.customer_email,
           customer_phone: manualForm.customer_phone || null,
           subscription_code: manualForm.subscription_code,
-          subscription_type: manualForm.subscription_type,
+          subscription_type: subscriptionType,
           subscription_duration: manualForm.subscription_duration,
           start_date: manualForm.start_date.toISOString(),
           expiration_date: manualForm.expiration_date.toISOString(),
@@ -2762,9 +2797,6 @@ export default function AdminSubscriptionsPage() {
                 value={manualForm.product_code}
                 onChange={async (e) => {
                   const productCode = e.target.value;
-                  // Store the current subscription_type before fetching product
-                  const currentSubscriptionType = manualForm.subscription_type;
-
                   setManualForm({ ...manualForm, product_code: productCode });
 
                   // Fetch product and update duration if found
@@ -2791,13 +2823,7 @@ export default function AdminSubscriptionsPage() {
                         });
                       }
 
-                      // Only update subscription_type if:
-                      // 1. User hasn't manually selected a category (empty or default)
-                      // 2. Product has a valid category
-                      const isDefaultOrEmpty = !currentSubscriptionType ||
-                        (categories.length > 0 && currentSubscriptionType === categories[0].name);
-
-                      if (isDefaultOrEmpty && productCategoryName) {
+                      if (productCategoryName) {
                         updates.subscription_type = productCategoryName;
                       }
 

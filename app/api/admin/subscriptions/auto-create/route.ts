@@ -58,16 +58,16 @@ export async function POST(request: NextRequest) {
     if (order.product_code) {
       const { data: productData } = await supabaseAdmin
         .from('products')
-        .select('*')
+        .select(`*, categories:category_id(name, name_en)`)
         .eq('product_code', order.product_code)
         .single();
       product = productData;
     }
 
-    // Determine subscription type - use provided type or let database function determine from category
-    // The database function will automatically determine subscription_type from product category
-    // if p_subscription_type is null
-    const subType = subscriptionType || null;
+    // Determine subscription type from the current product category when possible.
+    // Passing the category name avoids stale database fallback mappings.
+    const productCategoryName = product?.categories?.name || product?.categories?.name_en || null;
+    const subType = subscriptionType || productCategoryName || null;
 
     // Get subscription code
     let subscriptionCode = 'SUB-' + Math.random().toString(36).substr(2, 8).toUpperCase();
@@ -87,8 +87,7 @@ export async function POST(request: NextRequest) {
     const startDate = new Date(order.created_at || new Date());
     const expirationDate = calculateExpirationDate(startDate, durationText);
 
-    // Create subscription using database function
-    // Pass null for p_subscription_type to let function determine from product category
+    // Create subscription using database function.
     const { data: subscriptionId, error: createError } = await supabaseAdmin.rpc(
       'auto_create_subscription_from_order',
       {
